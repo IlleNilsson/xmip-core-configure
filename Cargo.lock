@@ -244,9 +244,9 @@ checksum = "e6e4313cd5fcd3dad5cafa179702e2b244f760991f45397d14d4ebf38247da75"
 
 [[package]]
 name = "uuid"
-version = "1.25.0"
+version = "1.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f053576934f05a761a402421fbbe3d425d9366f75f978806a037b3ca481abecc"
+checksum = "b5772d71c9be8a8a6ac2117d949c5b224c1b72241bb611d9a3012edcf8af7812"
 dependencies = [
  "getrandom",
  "js-sys",
@@ -313,15 +313,16 @@ checksum = "23b97319f7b8343df12cc98938e5c3eb436064524c8d2b4e30a1d3a36eecdf81"
 [[package]]
 name = "xmip-core"
 version = "0.1.0"
-source = "git+https://github.com/IlleNilsson/xmip-core?branch=main#ac579cd3804804ff47cff79b96157d817ed059c5"
+source = "git+https://github.com/IlleNilsson/xmip-core?branch=main#a2e6dbaba253758169abb2d9d59cfda5c8a685f6"
 dependencies = [
+ "serde",
  "uuid",
 ]
 
 [[package]]
 name = "xmip-core-abi"
 version = "0.1.0"
-source = "git+https://github.com/IlleNilsson/xmip-core-abi?branch=main#51c82366507aa4cb386b79c64912072e0b894bb1"
+source = "git+https://github.com/IlleNilsson/xmip-core-abi?branch=main#f503418a4b1daf9f9db4300491e5d2d0e614f546"
 dependencies = [
  "serde",
  "xmip-core",
