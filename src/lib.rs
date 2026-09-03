@@ -37,7 +37,6 @@ pub struct ConfiguredXmipSubprocess {
     pub extensions: Vec<ExtensionManifest>,
 }
 
-
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct XmipConfigurationDocument {
     pub service: ServiceConfiguration,
