@@ -1,5 +1,5 @@
+use abi::{ExtensionManifest, ModuleManifest};
 use serde::{Deserialize, Serialize};
-use xmip_abi::{ExtensionManifest, ModuleManifest};
 
 // Arrived from the runtime's execution_tree on 2026-08-26. A configured
 // service is what the runtime is built *from*, so it cannot live inside the
