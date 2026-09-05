@@ -12,6 +12,13 @@ pub struct XmipServiceConfiguration {
     pub node_name: String,
     pub modules: Vec<ConfiguredModule>,
     pub xmip_processes: Vec<ConfiguredXmipProcess>,
+    /// Where Xmip starts working — runtime-model.md. Added 2026-09-05 so a
+    /// node has all three stages of the message path, not only Process.
+    #[serde(default)]
+    pub receive_locations: Vec<ConfiguredLocation>,
+    /// Where a Message leaves.
+    #[serde(default)]
+    pub send_locations: Vec<ConfiguredLocation>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -37,11 +44,26 @@ pub struct ConfiguredXmipSubprocess {
     pub extensions: Vec<ExtensionManifest>,
 }
 
+/// A Receive Location or a Send Location, as configured. One shape for both:
+/// a name, the transport module that moves it, the address in that
+/// transport's own terms, and whether it starts.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConfiguredLocation {
+    pub name: String,
+    pub start: bool,
+    pub transport: String,
+    pub address: String,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct XmipConfigurationDocument {
     pub service: ServiceConfiguration,
     pub modules: Vec<ModuleConfiguration>,
     pub xmip_processes: Vec<XmipProcessConfiguration>,
+    #[serde(default)]
+    pub receive_locations: Vec<ConfiguredLocation>,
+    #[serde(default)]
+    pub send_locations: Vec<ConfiguredLocation>,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -93,6 +115,8 @@ pub fn to_service_configuration(document: XmipConfigurationDocument) -> XmipServ
             .into_iter()
             .map(to_configured_process)
             .collect(),
+        receive_locations: document.receive_locations,
+        send_locations: document.send_locations,
     }
 }
 
