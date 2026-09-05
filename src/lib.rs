@@ -58,7 +58,15 @@ pub struct ConfiguredLocation {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct XmipConfigurationDocument {
     pub service: ServiceConfiguration,
+    // All four collections default to empty. A node with modules and no
+    // processes is legitimate, and so is one an editor has only half built —
+    // and a missing array should read as a validation problem an operator can
+    // act on, not a "parse error at line 1" that points at nothing. Added
+    // 2026-09-05, when the desktop editor needed to validate documents in
+    // progress.
+    #[serde(default)]
     pub modules: Vec<ModuleConfiguration>,
+    #[serde(default)]
     pub xmip_processes: Vec<XmipProcessConfiguration>,
     #[serde(default)]
     pub receive_locations: Vec<ConfiguredLocation>,
