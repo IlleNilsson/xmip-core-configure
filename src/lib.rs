@@ -28,10 +28,28 @@ pub struct ConfiguredModule {
     pub start: bool,
 }
 
+/// How an Xmip Process runs its work, once claimed — runtime-model.md's
+/// "execution style". `Sequential` is the safe default (one at a time, in order
+/// per key); `Parallel` and `Concurrent` trade ordering for throughput, and are
+/// the lever an operator raises when a node falls behind (the Playground's
+/// `daily` scenario). Serialised kebab-case on the wire.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "kebab-case")]
+pub enum ExecutionStyle {
+    /// One at a time, in order per key.
+    #[default]
+    Sequential,
+    /// Many at once, no ordering guarantee.
+    Parallel,
+    /// Many in flight, interleaved, no ordering guarantee.
+    Concurrent,
+}
+
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ConfiguredXmipProcess {
     pub name: String,
     pub start: bool,
+    pub execution_style: ExecutionStyle,
     pub required_modules: Vec<String>,
     pub xmip_subprocesses: Vec<ConfiguredXmipSubprocess>,
     pub extensions: Vec<ExtensionManifest>,
@@ -92,6 +110,10 @@ pub struct ModuleConfiguration {
 pub struct XmipProcessConfiguration {
     pub name: String,
     pub start: bool,
+    /// Defaults to `Sequential` when the document omits it, so an existing
+    /// configuration reads unchanged.
+    #[serde(default)]
+    pub execution_style: ExecutionStyle,
     pub required_modules: Vec<String>,
     pub xmip_subprocesses: Vec<XmipSubprocessConfiguration>,
     pub extensions: Vec<ExtensionManifest>,
@@ -140,6 +162,7 @@ fn to_configured_process(process: XmipProcessConfiguration) -> ConfiguredXmipPro
     ConfiguredXmipProcess {
         name: process.name,
         start: process.start,
+        execution_style: process.execution_style,
         required_modules: process.required_modules,
         xmip_subprocesses: process
             .xmip_subprocesses
@@ -160,4 +183,44 @@ fn to_configured_subprocess(subprocess: XmipSubprocessConfiguration) -> Configur
 
 pub fn parse_service_configuration(source: &str) -> Result<XmipServiceConfiguration, String> {
     parse_toml(source).map(to_service_configuration)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{ExecutionStyle, parse_toml};
+
+    #[test]
+    fn a_process_execution_style_parses_and_defaults_to_sequential() {
+        let source = r#"
+[service]
+name = "n"
+cluster_name = "c"
+node_name = "d"
+
+[[xmip_processes]]
+name = "fast"
+start = true
+execution_style = "concurrent"
+required_modules = []
+xmip_subprocesses = []
+extensions = []
+
+[[xmip_processes]]
+name = "ordered"
+start = true
+required_modules = []
+xmip_subprocesses = []
+extensions = []
+"#;
+        let document = parse_toml(source).expect("parses");
+        assert_eq!(
+            document.xmip_processes[0].execution_style,
+            ExecutionStyle::Concurrent
+        );
+        assert_eq!(
+            document.xmip_processes[1].execution_style,
+            ExecutionStyle::Sequential,
+            "an omitted style defaults to Sequential"
+        );
+    }
 }
