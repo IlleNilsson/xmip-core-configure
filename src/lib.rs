@@ -10,6 +10,12 @@ pub struct XmipServiceConfiguration {
     pub service_name: String,
     pub cluster_name: String,
     pub node_name: String,
+    /// Whether this node may assume a route to the internet. False unless
+    /// the operator says otherwise: nothing at runtime reaches out, and the
+    /// switch records that it may, for the features and tests that need it
+    /// (ADR-0045, 2026-09-10).
+    #[serde(default)]
+    pub online: bool,
     pub modules: Vec<ConfiguredModule>,
     pub xmip_processes: Vec<ConfiguredXmipProcess>,
     /// Where Xmip starts working — runtime-model.md. Added 2026-09-05 so a
@@ -97,6 +103,10 @@ pub struct ServiceConfiguration {
     pub name: String,
     pub cluster_name: String,
     pub node_name: String,
+    /// `online = true` when the node may assume the internet; omitted or
+    /// false otherwise (ADR-0045).
+    #[serde(default)]
+    pub online: bool,
 }
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -135,6 +145,7 @@ pub fn to_service_configuration(document: XmipConfigurationDocument) -> XmipServ
         service_name: document.service.name,
         cluster_name: document.service.cluster_name,
         node_name: document.service.node_name,
+        online: document.service.online,
         modules: document
             .modules
             .into_iter()
@@ -187,7 +198,7 @@ pub fn parse_service_configuration(source: &str) -> Result<XmipServiceConfigurat
 
 #[cfg(test)]
 mod tests {
-    use super::{ExecutionStyle, parse_toml};
+    use super::{ExecutionStyle, parse_toml, to_service_configuration};
 
     #[test]
     fn a_process_execution_style_parses_and_defaults_to_sequential() {
@@ -222,5 +233,15 @@ extensions = []
             ExecutionStyle::Sequential,
             "an omitted style defaults to Sequential"
         );
+    }
+
+    #[test]
+    fn a_node_is_offline_unless_the_document_says_online() {
+        let head = "[service]\nname = \"n\"\ncluster_name = \"c\"\nnode_name = \"d\"\n";
+        let offline = parse_toml(head).expect("parses");
+        assert!(!offline.service.online, "ADR-0045: offline unless said");
+        assert!(!to_service_configuration(offline).online);
+        let online = parse_toml(&format!("{head}online = true\n")).expect("parses");
+        assert!(to_service_configuration(online).online);
     }
 }
