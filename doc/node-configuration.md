@@ -12,9 +12,10 @@ From `module/platform/configure/src/lib.rs`:
 
 - **`XmipProcessConfiguration`** — `name`, `start`, `execution_style`,
   `required_modules`, `xmip_subprocesses`, `extensions`.
-- **`ExecutionStyle`** — `sequential` (default; one at a time, in order per key),
-  `parallel`, or `concurrent` (throughput over ordering). This is the lever an
-  operator raises when a node falls behind (the Playground's `daily` scenario).
+- **`ExecutionStyle`** — `sequential` (the default), `parallel` or `concurrent`,
+  as `doc/architecture/runtime-model.md` section 3, *Execution style*, defines
+  them; this document does not redefine them. It is the lever an operator raises
+  when a node falls behind (the Playground's `daily` scenario).
 - **`ConfiguredLocation`** — a Receive or a Send Location: a `name`, the
   `transport` module that moves it, and the `address` in that transport's own
   terms. A Receive Location runs the identity pipeline (identify → authenticate →
