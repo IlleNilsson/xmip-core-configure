@@ -1,23 +1,34 @@
+//! The node configuration document, and the one reading of it.
+//!
+//! `XmipConfigurationDocument` is the one model of a node's configuration
+//! in the estate. The runtime builds its execution tree from it, and the
+//! desktop editor validates what it writes through the runtime's
+//! `xmip_validate_v1` (ADR-0027, amendment 2026-09-05), which reads it here.
+//! Until 2026-09-24 a second tree, `XmipServiceConfiguration`, restated every
+//! field under other names and the runtime read that one; it is gone
+//! (open problem 25, row b).
+//!
+//! What the runtime requires, the document requires: a location's `start`
+//! and `transport` have no default, so a document without them is refused,
+//! not completed.
+
 use abi::{ExtensionManifest, ModuleManifest};
 use serde::{Deserialize, Serialize};
 
-// Arrived from the runtime's execution_tree on 2026-08-26. A configured
-// service is what the runtime is built *from*, so it cannot live inside the
-// thing it configures: runtime depended on configure and configure depended
-// on runtime, and Cargo rejects that outright.
+/// One node's configuration, as the TOML on disk says it (ADR-0031).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct XmipServiceConfiguration {
-    pub service_name: String,
-    pub cluster_name: String,
-    pub node_name: String,
-    /// Whether this node may assume a route to the internet. False unless
-    /// the operator says otherwise: nothing at runtime reaches out, and the
-    /// switch records that it may, for the features and tests that need it
-    /// (ADR-0045, 2026-09-10).
+pub struct XmipConfigurationDocument {
+    pub service: ServiceConfiguration,
+    // All four collections default to empty. A node with modules and no
+    // processes is legitimate, and so is one an editor has only half built —
+    // and a missing array should read as a validation problem an operator can
+    // act on, not a "parse error at line 1" that points at nothing. Added
+    // 2026-09-05, when the desktop editor needed to validate documents in
+    // progress.
     #[serde(default)]
-    pub online: bool,
-    pub modules: Vec<ConfiguredModule>,
-    pub xmip_processes: Vec<ConfiguredXmipProcess>,
+    pub modules: Vec<ModuleConfiguration>,
+    #[serde(default)]
+    pub xmip_processes: Vec<XmipProcessConfiguration>,
     /// Where Xmip starts working — runtime-model.md. Added 2026-09-05 so a
     /// node has all three stages of the message path, not only Process.
     #[serde(default)]
@@ -27,11 +38,26 @@ pub struct XmipServiceConfiguration {
     pub send_locations: Vec<ConfiguredLocation>,
 }
 
+/// `[service]`: the cluster and node this document configures.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ConfiguredModule {
+pub struct ServiceConfiguration {
     pub name: String,
-    pub manifest: ModuleManifest,
+    pub cluster_name: String,
+    pub node_name: String,
+    /// Whether this node may assume a route to the internet. False unless
+    /// the operator says otherwise: nothing at runtime reaches out, and the
+    /// switch records that it may, for the features and tests that need it
+    /// (ADR-0045, 2026-09-10).
+    #[serde(default)]
+    pub online: bool,
+}
+
+/// `[[modules]]`: a module the node loads, its manifest, and whether it starts.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ModuleConfiguration {
+    pub name: String,
     pub start: bool,
+    pub manifest: ModuleManifest,
 }
 
 /// How an Xmip Process runs its work, once claimed — runtime-model.md's
@@ -51,71 +77,7 @@ pub enum ExecutionStyle {
     Concurrent,
 }
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ConfiguredXmipProcess {
-    pub name: String,
-    pub start: bool,
-    pub execution_style: ExecutionStyle,
-    pub required_modules: Vec<String>,
-    pub xmip_subprocesses: Vec<ConfiguredXmipSubprocess>,
-    pub extensions: Vec<ExtensionManifest>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ConfiguredXmipSubprocess {
-    pub name: String,
-    pub required_modules: Vec<String>,
-    pub extensions: Vec<ExtensionManifest>,
-}
-
-/// A Receive Location or a Send Location, as configured. One shape for both:
-/// a name, the transport module that moves it, the address in that
-/// transport's own terms, and whether it starts.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ConfiguredLocation {
-    pub name: String,
-    pub start: bool,
-    pub transport: String,
-    pub address: String,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct XmipConfigurationDocument {
-    pub service: ServiceConfiguration,
-    // All four collections default to empty. A node with modules and no
-    // processes is legitimate, and so is one an editor has only half built —
-    // and a missing array should read as a validation problem an operator can
-    // act on, not a "parse error at line 1" that points at nothing. Added
-    // 2026-09-05, when the desktop editor needed to validate documents in
-    // progress.
-    #[serde(default)]
-    pub modules: Vec<ModuleConfiguration>,
-    #[serde(default)]
-    pub xmip_processes: Vec<XmipProcessConfiguration>,
-    #[serde(default)]
-    pub receive_locations: Vec<ConfiguredLocation>,
-    #[serde(default)]
-    pub send_locations: Vec<ConfiguredLocation>,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ServiceConfiguration {
-    pub name: String,
-    pub cluster_name: String,
-    pub node_name: String,
-    /// `online = true` when the node may assume the internet; omitted or
-    /// false otherwise (ADR-0045).
-    #[serde(default)]
-    pub online: bool,
-}
-
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ModuleConfiguration {
-    pub name: String,
-    pub start: bool,
-    pub manifest: ModuleManifest,
-}
-
+/// `[[xmip_processes]]`: one Xmip Process and what it needs.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct XmipProcessConfiguration {
     pub name: String,
@@ -124,106 +86,76 @@ pub struct XmipProcessConfiguration {
     /// configuration reads unchanged.
     #[serde(default)]
     pub execution_style: ExecutionStyle,
+    /// The three lists below default to empty, as the document's own lists
+    /// do: a Process that needs no module, has no Subprocess and no
+    /// Extension says nothing about them (ADR-0031, amendment 2026-09-24).
+    #[serde(default)]
     pub required_modules: Vec<String>,
+    #[serde(default)]
     pub xmip_subprocesses: Vec<XmipSubprocessConfiguration>,
+    #[serde(default)]
     pub extensions: Vec<ExtensionManifest>,
 }
 
+/// An Xmip Subprocess inside a Process.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct XmipSubprocessConfiguration {
     pub name: String,
+    /// Empty when omitted, as on the Process.
+    #[serde(default)]
     pub required_modules: Vec<String>,
+    #[serde(default)]
     pub extensions: Vec<ExtensionManifest>,
 }
 
+/// A Receive Location or a Send Location, as configured. One shape for both:
+/// a name, the transport module that moves it, the address in that
+/// transport's own terms, and whether it starts. None of the four has a
+/// default.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct ConfiguredLocation {
+    pub name: String,
+    pub start: bool,
+    pub transport: String,
+    pub address: String,
+}
+
+/// Read a node configuration document. The error is the TOML reader's own
+/// words, line and column included.
+///
+/// # Errors
+/// When the text is not TOML, or lacks a key the document requires.
 pub fn parse_toml(source: &str) -> Result<XmipConfigurationDocument, String> {
     toml::from_str(source).map_err(|error| error.to_string())
 }
 
-pub fn to_service_configuration(document: XmipConfigurationDocument) -> XmipServiceConfiguration {
-    XmipServiceConfiguration {
-        service_name: document.service.name,
-        cluster_name: document.service.cluster_name,
-        node_name: document.service.node_name,
-        online: document.service.online,
-        modules: document
-            .modules
-            .into_iter()
-            .map(to_configured_module)
-            .collect(),
-        xmip_processes: document
-            .xmip_processes
-            .into_iter()
-            .map(to_configured_process)
-            .collect(),
-        receive_locations: document.receive_locations,
-        send_locations: document.send_locations,
-    }
-}
-
-fn to_configured_module(module: ModuleConfiguration) -> ConfiguredModule {
-    ConfiguredModule {
-        name: module.name,
-        manifest: module.manifest,
-        start: module.start,
-    }
-}
-
-fn to_configured_process(process: XmipProcessConfiguration) -> ConfiguredXmipProcess {
-    ConfiguredXmipProcess {
-        name: process.name,
-        start: process.start,
-        execution_style: process.execution_style,
-        required_modules: process.required_modules,
-        xmip_subprocesses: process
-            .xmip_subprocesses
-            .into_iter()
-            .map(to_configured_subprocess)
-            .collect(),
-        extensions: process.extensions,
-    }
-}
-
-fn to_configured_subprocess(subprocess: XmipSubprocessConfiguration) -> ConfiguredXmipSubprocess {
-    ConfiguredXmipSubprocess {
-        name: subprocess.name,
-        required_modules: subprocess.required_modules,
-        extensions: subprocess.extensions,
-    }
-}
-
-pub fn parse_service_configuration(source: &str) -> Result<XmipServiceConfiguration, String> {
-    parse_toml(source).map(to_service_configuration)
-}
-
 #[cfg(test)]
 mod tests {
-    use super::{ExecutionStyle, parse_toml, to_service_configuration};
+    use super::{ExecutionStyle, parse_toml};
+
+    const HEAD: &str = "[service]\nname = \"n\"\ncluster_name = \"c\"\nnode_name = \"d\"\n";
 
     #[test]
     fn a_process_execution_style_parses_and_defaults_to_sequential() {
-        let source = r#"
-[service]
-name = "n"
-cluster_name = "c"
-node_name = "d"
-
+        let source = format!(
+            "{HEAD}
 [[xmip_processes]]
-name = "fast"
+name = \"fast\"
 start = true
-execution_style = "concurrent"
+execution_style = \"concurrent\"
 required_modules = []
 xmip_subprocesses = []
 extensions = []
 
 [[xmip_processes]]
-name = "ordered"
+name = \"ordered\"
 start = true
 required_modules = []
 xmip_subprocesses = []
 extensions = []
-"#;
-        let document = parse_toml(source).expect("parses");
+"
+        );
+        let document = parse_toml(&source).expect("parses");
         assert_eq!(
             document.xmip_processes[0].execution_style,
             ExecutionStyle::Concurrent
@@ -237,11 +169,56 @@ extensions = []
 
     #[test]
     fn a_node_is_offline_unless_the_document_says_online() {
-        let head = "[service]\nname = \"n\"\ncluster_name = \"c\"\nnode_name = \"d\"\n";
-        let offline = parse_toml(head).expect("parses");
+        let offline = parse_toml(HEAD).expect("parses");
         assert!(!offline.service.online, "ADR-0045: offline unless said");
-        assert!(!to_service_configuration(offline).online);
-        let online = parse_toml(&format!("{head}online = true\n")).expect("parses");
-        assert!(to_service_configuration(online).online);
+        let online = parse_toml(&format!("{HEAD}online = true\n")).expect("parses");
+        assert!(online.service.online);
+    }
+
+    #[test]
+    fn a_process_that_names_no_list_reads_them_as_empty() {
+        let source = format!("{HEAD}[[xmip_processes]]\nname = \"minimal\"\nstart = true\n");
+        let document = parse_toml(&source).expect("parses");
+        let process = &document.xmip_processes[0];
+        assert!(process.required_modules.is_empty());
+        assert!(process.xmip_subprocesses.is_empty());
+        assert!(process.extensions.is_empty());
+    }
+
+    #[test]
+    fn a_location_without_start_is_refused_not_defaulted() {
+        let source = format!(
+            "{HEAD}[[receive_locations]]\nname = \"in\"\ntransport = \"file\"\n\
+             address = \"C:/in\"\n"
+        );
+        let error = parse_toml(&source).expect_err("start is required");
+        assert!(error.contains("start"), "names the missing key: {error}");
+    }
+
+    #[test]
+    fn a_location_without_transport_is_refused_not_defaulted() {
+        let source = format!(
+            "{HEAD}[[send_locations]]\nname = \"out\"\nstart = true\naddress = \"C:/out\"\n"
+        );
+        let error = parse_toml(&source).expect_err("transport is required");
+        assert!(
+            error.contains("transport"),
+            "names the missing key: {error}"
+        );
+    }
+
+    #[test]
+    fn an_escaped_string_reads_as_what_it_says_and_round_trips() {
+        let source = format!(
+            "{HEAD}[[receive_locations]]\nname = \"say \\\"hi\\\"\"\nstart = true\n\
+             transport = \"file\"\naddress = \"C:\\\\in\\\\t\\u00e9st\\nnext\"\n"
+        );
+        let document = parse_toml(&source).expect("parses");
+        let location = &document.receive_locations[0];
+        assert_eq!(location.name, "say \"hi\"");
+        assert_eq!(location.address, "C:\\in\\t\u{e9}st\nnext");
+
+        let written = toml::to_string(&document).expect("writes");
+        assert_eq!(parse_toml(&written).expect("reads back"), document);
     }
 }
