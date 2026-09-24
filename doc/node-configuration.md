@@ -11,14 +11,18 @@ compile — you describe a node's work, and the runtime enacts it.
 From `module/platform/configure/src/lib.rs`:
 
 - **`XmipProcessConfiguration`** — `name`, `start`, `execution_style`,
-  `required_modules`, `xmip_subprocesses`, `extensions`.
+  `required_modules`, `xmip_subprocesses`, `extensions`. The last three
+  default to empty when omitted, as the document's own lists do, and so do a
+  Subprocess's `required_modules` and `extensions` (ADR-0031, amendment
+  2026-09-24); `name` and `start` have no default.
 - **`ExecutionStyle`** — `sequential` (the default), `parallel` or `concurrent`,
   as `doc/architecture/runtime-model.md` section 3, *Execution style*, defines
   them; this document does not redefine them. It is the lever an operator raises
   when a node falls behind (the Playground's `daily` scenario).
-- **`ConfiguredLocation`** — a Receive or a Send Location: a `name`, the
-  `transport` module that moves it, and the `address` in that transport's own
-  terms. A Receive Location runs the identity pipeline (identify → authenticate →
+- **`ConfiguredLocation`** — a Receive or a Send Location: a `name`, whether
+  it will `start`, the `transport` module that moves it, and the `address` in
+  that transport's own terms. None of the four has a default; a document that
+  leaves out `start` or `transport` is refused, not completed. A Receive Location runs the identity pipeline (identify → authenticate →
   authorize, ADR-0019); a Send Location presents identity (ADR-0033).
 
 A process is the flow **Receive Location → process (and subprocesses) → Send
@@ -55,9 +59,12 @@ Location**, referencing transport and contract *modules* by name.
    address = "…"
    ```
 
-Validate the document with `configure::parse_toml`; the desktop editor validates
-a half-built document rather than failing at line 1, so you can save work in
-progress.
+`configure::parse_toml` reads the document, and it is the only reading of it:
+the runtime's `xmip_validate_v1` validates through it, and every surface — the
+desktop editor, the language server, `xmip validate`,
+`Test-XmipNodeConfiguration` — asks the runtime rather than judging for
+itself. The desktop editor saves a half-built document so you can keep work in
+progress, and shows the runtime's verdict on it.
 
 ---
 
