@@ -11,9 +11,38 @@
 //! What the runtime requires, the document requires: a location's `start`
 //! and `transport` have no default, so a document without them is refused,
 //! not completed.
+//!
+//! The second document is the Xmip Application (ADR-0064): an integration as
+//! a developer designs it — its Receive Locations, Subscriptions, Xmip
+//! Processes and Send Ports, with no environment in it — read by
+//! [`parse_application`] and checked by [`application_problems`]. A node's
+//! configuration *binds* Applications (`[[applications]]`, [`binding`]) and
+//! [`bind`] joins the two into what one node runs. The designer's view of an
+//! Application — its [`routes`], a filter's structure ([`filter`]) and the
+//! edits it makes ([`edit`]) — is here too, because what the design means is
+//! this crate's to say; the language server reaches it through the runtime's
+//! library.
+
+pub mod application;
+pub mod binding;
+pub mod edit;
+pub mod filter;
+pub mod routes;
+pub mod settings;
+
+pub use application::{
+    ApplicationHeader, DesignedElement, SendPortGroup, XmipApplicationDocument,
+    application_problems, parse_application,
+};
+pub use binding::{ApplicationBinding, Bound, BoundLocation, bind, binding_problems};
+pub use settings::{Declarations, LocationSettings, location_problems};
 
 use abi::{ExtensionManifest, ModuleManifest};
 use serde::{Deserialize, Serialize};
+
+/// The words every problem opens with that is the TOML reader's, for either
+/// document: a surface shows it whole, because its message spans lines.
+pub const PARSE_FAILED: &str = "configuration parse failed";
 
 /// One node's configuration, as the TOML on disk says it (ADR-0031).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -36,6 +65,31 @@ pub struct XmipConfigurationDocument {
     /// Where a Message leaves.
     #[serde(default)]
     pub send_locations: Vec<ConfiguredLocation>,
+    /// The Xmip Applications this node runs, each with the environment's
+    /// side of what it declares (ADR-0064). Empty when the node binds none.
+    #[serde(default)]
+    pub applications: Vec<ApplicationBinding>,
+}
+
+/// Which of the two documents a text is. An Xmip Application opens with its
+/// `[application]` table; everything else is read as a node's configuration,
+/// whose reading says what is wrong with it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum DocumentKind {
+    /// A node's configuration, [`XmipConfigurationDocument`].
+    Node,
+    /// An Xmip Application, [`XmipApplicationDocument`].
+    Application,
+}
+
+/// Which document `source` is, by the table it holds: never by its file's
+/// name.
+#[must_use]
+pub fn document_kind(source: &str) -> DocumentKind {
+    match source.parse::<toml::Table>() {
+        Ok(table) if table.contains_key("application") => DocumentKind::Application,
+        _ => DocumentKind::Node,
+    }
 }
 
 /// `[service]`: the cluster and node this document configures.
@@ -111,13 +165,27 @@ pub struct XmipSubprocessConfiguration {
 /// A Receive Location or a Send Location, as configured. One shape for both:
 /// a name, the transport module that moves it, the address in that
 /// transport's own terms, and whether it starts. None of the four has a
-/// default.
+/// default. `credentials` names the secret the Location presents or checks —
+/// a reference, never the secret — and is absent where it needs none.
+/// `settings` is what the transport takes beyond the address, `contract` the
+/// contract module a Stream is held to and `contract_settings` what that
+/// takes: each table read through its technology's own declaration
+/// ([`settings::location_problems`], ADR-0064 amendment 2026-09-26), and
+/// empty or absent where the Location gives none.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ConfiguredLocation {
     pub name: String,
     pub start: bool,
     pub transport: String,
     pub address: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub credentials: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub contract: Option<String>,
+    #[serde(default, skip_serializing_if = "LocationSettings::is_empty")]
+    pub settings: LocationSettings,
+    #[serde(default, skip_serializing_if = "LocationSettings::is_empty")]
+    pub contract_settings: LocationSettings,
 }
 
 /// Read a node configuration document. The error is the TOML reader's own

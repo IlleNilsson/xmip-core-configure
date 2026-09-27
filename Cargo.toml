@@ -7,7 +7,7 @@ version = "0.1.0"
 edition = "2024"
 license = "AGPL-3.0-or-later"
 repository = "https://github.com/IlleNilsson/xmip-core-configure"
-description = "Xmip configuration documents and the configured service they describe."
+description = "Xmip configuration documents — a node's configuration and the Xmip Applications it binds — and the configured service they describe."
 
 [lib]
 path = "src/lib.rs"
@@ -18,4 +18,21 @@ unsafe_code = "forbid"
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 toml = "0.9"
+# The same family as toml, keeping what it does not touch: an edit a designer
+# makes to an Xmip Application changes its lines and leaves the developer's
+# comments and layout as they were (ADR-0064 clause 4).
+toml_edit = { version = "0.23", features = ["serde"] }
 abi = { package = "xmip-core-abi", git = "https://github.com/IlleNilsson/xmip-core-abi", branch = "main" }
+# A Subscription, its filter and where it routes are route's, read here from
+# an Xmip Application and never modelled again (ADR-0064).
+route = { package = "xmip-core-route", git = "https://github.com/IlleNilsson/xmip-core-route", branch = "main" }
+# A Location's settings are read through the declaration its technology
+# makes of them (xcore::settings, ADR-0064 amendment 2026-09-26): the shape is
+# xmip-core's, the declarations the caller's.
+xcore = { package = "xmip-core", git = "https://github.com/IlleNilsson/xmip-core", branch = "main" }
+# A filter is one line of Xmip's expression language; the designer's rows
+# are a view of its compiled tree, never a second grammar (ADR-0066).
+path = { package = "xmip-core-path", git = "https://github.com/IlleNilsson/xmip-core-path", branch = "main" }
+
+[profile.dev.package."*"]
+opt-level = 3

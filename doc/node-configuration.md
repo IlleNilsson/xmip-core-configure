@@ -22,8 +22,14 @@ From `module/platform/configure/src/lib.rs`:
 - **`ConfiguredLocation`** — a Receive or a Send Location: a `name`, whether
   it will `start`, the `transport` module that moves it, and the `address` in
   that transport's own terms. None of the four has a default; a document that
-  leaves out `start` or `transport` is refused, not completed. A Receive Location runs the identity pipeline (identify → authenticate →
-  authorize, ADR-0019); a Send Location presents identity (ADR-0033).
+  leaves out `start` or `transport` is refused, not completed. `credentials`,
+  optional, names the secret the Location presents or checks — a reference,
+  never the secret. A Receive Location runs the identity pipeline (identify →
+  authenticate → authorize, ADR-0019); a Send Location presents identity
+  (ADR-0033). `settings`, `contract` and `contract_settings`, optional, are
+  what the Location gives its technologies: *A Location's settings* below.
+- **`ApplicationBinding`** — `[[applications]]`, an Xmip Application the node
+  runs and the environment's side of it; *Binding an Xmip Application* below.
 
 A process is the flow **Receive Location → process (and subprocesses) → Send
 Location**, referencing transport and contract *modules* by name.
@@ -58,6 +64,125 @@ Location**, referencing transport and contract *modules* by name.
    transport = "xmip-core-transport-<name>"
    address = "…"
    ```
+
+### A Location's settings
+
+What a transport takes beyond the address — a topic, a timeout, a queue —
+and the contract a Stream is held to, with what that takes, are written on
+the Location:
+
+```toml
+[[receive_locations]]
+name = "orders"
+start = true
+transport = "xmip-core-transport-kafka"
+address = "broker.example:9092"
+contract = "xmip-core-contract-json-schema"     # optional
+
+[receive_locations.settings]                     # the transport's
+topic = "orders"
+
+[receive_locations.contract_settings]            # the contract's
+reference = "schemas/order.json"
+```
+
+Which settings there are is never written here, in `configure`, in the
+language server or in the desktop editor: **every technology declares its
+own** in its own crate — each setting's name, kind (text, integer, boolean,
+duration such as `30s`, address, a secret's name, or one of a list),
+default or requirement, what it means, and whether a Receive Location, a
+Send Location or both read it (ADR-0064, amendment 2026-09-26). A transport
+declares them through `transport::Configured`, a contract through
+`ContractFactory::settings`, both in the shape `xcore::settings`, and the
+technology reads its settings through that same declaration.
+
+`configure::location_problems` holds each table to its technology's
+declaration, and `xmip_validate_v1` and `xmip_start_v1` report what it
+finds for every Location, the node's own and every bound one: a setting the
+technology does not declare, one declared for the other side only, a value
+of the wrong kind or outside its range, and a required one left out — each
+naming the Location, the technology and the setting — and
+`contract_settings` given with no `contract`. A technology is held to its
+declaration where the runtime carries it; the runtime's library answers
+which it carries, and what each declares, through
+`xmip_technology_catalogue_v1` (`xmip_operate.h` section 12), which the
+VS Code extension's completion and hover read.
+
+### Binding an Xmip Application
+
+A node runs the integrations developers design as Xmip Applications
+([`application.md`](application.md), ADR-0064). The Application holds the
+design and nothing of an environment; the node's configuration **binds**
+it: which Application it runs, and the environment's side of what it
+declares — each Receive Location's and Send Port's transport, address,
+reference to its credentials and the node that takes it, as BizTalk's
+bindings do. The same route is never written again per node.
+
+```toml
+[service]
+name = "xmip-alpha"
+cluster_name = "orders"
+node_name = "alpha"
+
+[[applications]]
+name = "Orders"                       # [application] name in its document
+document = "orders.application.toml"  # relative to this file
+
+[[applications.receive_locations]]
+name = "OrdersDrop"                   # declared by the Application
+node = "alpha"                           # the node that takes it
+start = true
+transport = "xmip-core-transport-file"
+address = "/var/xmip/in/orders"
+
+[[applications.receive_locations]]
+name = "OrdersApi"
+node = "alpha"
+start = true
+transport = "xmip-core-transport-http"
+address = "https://xmip.example/orders"
+credentials = "orders-api"            # a secret's name, never the secret
+
+[[applications.send_ports]]
+name = "Billing"
+node = "beta"
+start = true
+transport = "xmip-core-transport-http"
+address = "https://billing.example/orders"
+
+[[applications.send_ports]]
+name = "Ledger"
+node = "beta"
+start = true
+transport = "xmip-core-transport-file"
+address = "/var/xmip/out/ledger"
+```
+
+A bound Location has a Location's own shape (`ConfiguredLocation`: `name`,
+`start`, `transport`, `address` and the optional `credentials`, `contract`,
+`settings` and `contract_settings`) and one more key, `node`. The binding is the same on every node of the cluster; each node
+takes what names it. From `module/platform/configure/src/binding.rs`:
+
+- **`binding_problems`** checks what a binding says on its own: a name, a
+  document, and every bound Location's name, node and transport, none bound
+  twice. `xmip_validate_v1` reports these for the text an editor holds.
+- **`bind`** joins the bindings to the Applications they name and takes
+  what this node runs: the bound Receive Locations and Send Ports whose
+  `node` is this node's `node_name`, the Send Ports as the Send Locations
+  they leave by, and every Subscription of every bound Application. It
+  refuses an Application the node was not given, a bound Application's own
+  problems, a Location the Application does not declare, and a Subscription
+  id or Location name two of them would put on the node twice.
+
+The runtime builds its execution tree from what `bind` answers
+(`build_execution_tree`), and `xmip_start_v1` reads each bound document from
+the path its binding names, relative to the configuration file. A text
+validated alone has no files beside it, so its bindings are checked as far
+as they say on their own; the join is checked when the node starts. Each
+Subscription's filter — one line of Xmip's expression language, such as
+`filter = "MessageType = 'Order' and not Amount > 1000"` — is compiled as its
+Application is read, so a node binding an Application whose filter does not
+compile is refused as it starts, not at its first Message (ADR-0066).
 
 `configure::parse_toml` reads the document, and it is the only reading of it:
 the runtime's `xmip_validate_v1` validates through it, and every surface — the
