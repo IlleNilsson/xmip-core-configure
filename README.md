@@ -37,8 +37,6 @@ amendment 2026-09-26): unknown, other-side, wrong-kind and missing required
 settings are refused, each naming the technology and the setting. Which
 settings there are is never this crate's — the shape is `xmip-core`'s
 `settings`, each declaration its technology's, and the caller hands over
-the declarations it carries.
-
-Until 2026-09-24 a second tree, `XmipServiceConfiguration`, restated the
-document under other names and the runtime read that; it is gone (open
-problem 25, row b).
+the declarations it carries. A Receive Location's `accept` is the closed set
+of mechanisms it authenticates (ADR-0019 clause 1, `Accept`); it is refused
+on a Send Location.
