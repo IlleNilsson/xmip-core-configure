@@ -28,6 +28,8 @@ From `module/platform/configure/src/lib.rs`:
   authenticate → authorize, ADR-0019); a Send Location presents identity
   (ADR-0033). `settings`, `contract` and `contract_settings`, optional, are
   what the Location gives its technologies: *A Location's settings* below.
+  `accept`, a Receive Location's alone, is the closed set it authenticates:
+  *What a Receive Location accepts* below.
 - **`ApplicationBinding`** — `[[applications]]`, an Xmip Application the node
   runs and the environment's side of it; *Binding an Xmip Application* below.
 
@@ -103,10 +105,33 @@ technology does not declare, one declared for the other side only, a value
 of the wrong kind or outside its range, and a required one left out — each
 naming the Location, the technology and the setting — and
 `contract_settings` given with no `contract`. A technology is held to its
-declaration where the runtime carries it; the runtime's library answers
-which it carries, and what each declares, through
+declaration where the runtime carries it — a node carries each technology
+it loads, as it loads it — and a node that starts refuses a Location whose
+technology it was not built with; the runtime's library answers which it
+carries, and what each declares, through
 `xmip_technology_catalogue_v1` (`xmip_operate.h` section 12), which the
 VS Code extension's completion and hover read.
+
+### What a Receive Location accepts
+
+A Receive Location declares the **closed set** of mechanisms it
+authenticates (ADR-0019 clause 1), each by the name its mechanism declares:
+
+```toml
+[receive_locations.accept]
+mechanism = ["mutual-tls", "oauth2"]
+```
+
+An identity presented by any other mechanism is refused at authentication,
+and never tried against the rest. A Receive Location that gives no `accept`
+takes nothing — an unconfigured endpoint is closed, not open — and one
+receiving from something that presents nothing, a drop folder or a raw
+socket, accepts `circumstance`: the circumstance is the transport identity
+(ADR-0019 clause 7). A node that starts one refuses a mechanism no
+authenticator it was built with verifies. A Send Location presents and
+accepts nothing, so `accept` on one is refused. ADR-0019 also writes a
+`party` list beside `mechanism`; a node's configuration names no Party yet,
+so that key is refused rather than read as nothing.
 
 ### Binding an Xmip Application
 
@@ -160,7 +185,7 @@ address = "/var/xmip/out/ledger"
 
 A bound Location has a Location's own shape (`ConfiguredLocation`: `name`,
 `start`, `transport`, `address` and the optional `credentials`, `contract`,
-`settings` and `contract_settings`) and one more key, `node`. The binding is the same on every node of the cluster; each node
+`settings`, `contract_settings` and `accept`) and one more key, `node`. The binding is the same on every node of the cluster; each node
 takes what names it. From `module/platform/configure/src/binding.rs`:
 
 - **`binding_problems`** checks what a binding says on its own: a name, a
@@ -169,7 +194,8 @@ takes what names it. From `module/platform/configure/src/binding.rs`:
 - **`bind`** joins the bindings to the Applications they name and takes
   what this node runs: the bound Receive Locations and Send Ports whose
   `node` is this node's `node_name`, the Send Ports as the Send Locations
-  they leave by, and every Subscription of every bound Application. It
+  they leave by, every Subscription of every bound Application and every
+  Send Port Group, which a Subscription routed to a group reaches. It
   refuses an Application the node was not given, a bound Application's own
   problems, a Location the Application does not declare, and a Subscription
   id or Location name two of them would put on the node twice.

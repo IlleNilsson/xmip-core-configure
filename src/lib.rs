@@ -171,7 +171,9 @@ pub struct XmipSubprocessConfiguration {
 /// contract module a Stream is held to and `contract_settings` what that
 /// takes: each table read through its technology's own declaration
 /// ([`settings::location_problems`], ADR-0064 amendment 2026-09-26), and
-/// empty or absent where the Location gives none.
+/// empty or absent where the Location gives none. `accept` is what a
+/// Receive Location takes ([`Accept`]); a Send Location presents and gives
+/// none.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ConfiguredLocation {
     pub name: String,
@@ -186,6 +188,38 @@ pub struct ConfiguredLocation {
     pub settings: LocationSettings,
     #[serde(default, skip_serializing_if = "LocationSettings::is_empty")]
     pub contract_settings: LocationSettings,
+    #[serde(default, skip_serializing_if = "Accept::is_empty")]
+    pub accept: Accept,
+}
+
+/// `accept`: the closed set of mechanisms a Receive Location authenticates
+/// (ADR-0019 clause 1), each by the name its mechanism declares —
+/// `circumstance`, `mutual-tls`, `oauth2`. An identity presented by any
+/// other is refused at authentication and never tried against the rest.
+/// Absent or empty, the Location takes nothing: an unconfigured endpoint is
+/// closed, not open.
+///
+/// ```toml
+/// [receive_locations.accept]
+/// mechanism = ["mutual-tls", "oauth2"]
+/// ```
+///
+/// ADR-0019 writes a `party` list beside `mechanism`, narrowing the set to
+/// named Parties; a node's configuration names no Party yet, so the key is
+/// refused rather than read as nothing.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Accept {
+    #[serde(default)]
+    pub mechanism: Vec<String>,
+}
+
+impl Accept {
+    /// Whether the Location declares no mechanism: it takes nothing.
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
+        self.mechanism.is_empty()
+    }
 }
 
 /// Read a node configuration document. The error is the TOML reader's own

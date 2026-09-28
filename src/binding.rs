@@ -29,7 +29,7 @@ use std::collections::BTreeSet;
 use route::Subscription;
 use serde::{Deserialize, Serialize};
 
-use crate::application::XmipApplicationDocument;
+use crate::application::{SendPortGroup, XmipApplicationDocument};
 use crate::{ConfiguredLocation, XmipConfigurationDocument};
 
 /// `[[applications]]`: one Xmip Application this node runs.
@@ -67,6 +67,9 @@ pub struct Bound {
     pub send_locations: Vec<ConfiguredLocation>,
     /// Every Subscription of every bound Application.
     pub subscriptions: Vec<Subscription>,
+    /// Every Send Port Group of every bound Application: the Send Ports a
+    /// Subscription routed to the group reaches together.
+    pub send_port_groups: Vec<SendPortGroup>,
 }
 
 /// What the bindings in `document` say wrong on their own, before any
@@ -123,7 +126,7 @@ pub fn binding_problems(document: &XmipConfigurationDocument) -> Vec<String> {
 
 /// Join the node's bindings to the Applications it was given and take what
 /// this node runs: the bound Locations whose `node` is this node's name,
-/// and every Subscription of every bound Application.
+/// and every Subscription and Send Port Group of every bound Application.
 ///
 /// # Errors
 /// Every problem found, one sentence each: a binding's own
@@ -183,6 +186,9 @@ pub fn bind(
         bound
             .subscriptions
             .extend(application.subscriptions.iter().cloned());
+        bound
+            .send_port_groups
+            .extend(application.send_port_groups.iter().cloned());
     }
 
     once_on_the_node(document, &bound, &mut problems);
@@ -300,6 +306,20 @@ address = "https://billing.example/orders"
         let bound = bind(&beta, &[orders()]).expect("binds on beta");
         assert!(bound.receive_locations.is_empty());
         assert_eq!(bound.send_locations[0].name, "Billing");
+    }
+
+    #[test]
+    fn a_bound_applications_send_port_groups_come_with_its_subscriptions() {
+        let grouped = format!(
+            "{ORDERS}\n[[send_port_groups]]\nname = \"Everyone\"\nsend_ports = [\"Billing\"]\n"
+        );
+        let application = parse_application(&grouped).expect("parses");
+        let node = parse_toml(ALPHA).expect("parses");
+
+        let bound = bind(&node, &[application]).expect("binds");
+
+        assert_eq!(bound.send_port_groups.len(), 1);
+        assert_eq!(bound.send_port_groups[0].send_ports, ["Billing"]);
     }
 
     #[test]

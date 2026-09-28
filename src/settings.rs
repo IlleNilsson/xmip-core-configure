@@ -116,6 +116,14 @@ pub fn location_problems(
         None => {}
     }
 
+    // ADR-0019 clause 1 and its mirror: a Receive Location declares what it
+    // accepts, a Send Location what it presents. Neither reads the other's.
+    if side == Applies::Send && !location.accept.is_empty() {
+        problems.push(format!(
+            "the Send Location '{name}' gives accept, which only a Receive Location reads"
+        ));
+    }
+
     problems
 }
 
@@ -190,6 +198,24 @@ mod tests {
         let problems = location_problems(&unsound, Applies::Send, &Declarations::new());
         assert_eq!(problems.len(), 1);
         assert!(problems[0].contains("names no contract"));
+    }
+
+    #[test]
+    fn accept_is_read_on_a_receive_location_and_refused_on_a_send_location() {
+        let accepting = location("[send_locations.accept]\nmechanism = [\"circumstance\"]\n");
+        assert_eq!(accepting.accept.mechanism, ["circumstance"]);
+        let problems = location_problems(&accepting, Applies::Send, &Declarations::new());
+        assert_eq!(
+            problems,
+            ["the Send Location 'out' gives accept, which only a Receive Location reads"]
+        );
+        assert!(location_problems(&accepting, Applies::Receive, &Declarations::new()).is_empty());
+
+        let source = "[service]\nname = \"n\"\ncluster_name = \"c\"\nnode_name = \"d\"\n\
+             [[receive_locations]]\nname = \"in\"\nstart = true\ntransport = \"t\"\n\
+             address = \"a\"\n[receive_locations.accept]\nparty = [\"partner-x\"]\n";
+        let refused = parse_toml(source).expect_err("no Party is named in a node yet");
+        assert!(refused.contains("party"), "{refused}");
     }
 
     #[test]
