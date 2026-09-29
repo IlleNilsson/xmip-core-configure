@@ -213,7 +213,7 @@ mod tests {
 
         let source = "[service]\nname = \"n\"\ncluster_name = \"c\"\nnode_name = \"d\"\n\
              [[receive_locations]]\nname = \"in\"\nstart = true\ntransport = \"t\"\n\
-             address = \"a\"\n[receive_locations.accept]\nparty = [\"partner-x\"]\n";
+             address = \"a\"\n[receive_locations.accept]\nparty = [\"party-x\"]\n";
         let refused = parse_toml(source).expect_err("no Party is named in a node yet");
         assert!(refused.contains("party"), "{refused}");
     }
