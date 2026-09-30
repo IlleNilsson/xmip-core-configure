@@ -30,6 +30,7 @@ pub mod entry;
 pub mod filter;
 pub mod routes;
 pub mod settings;
+pub mod store;
 
 pub use application::{
     ApplicationHeader, DesignedElement, SendPortGroup, XmipApplicationDocument,
@@ -38,6 +39,9 @@ pub use application::{
 pub use binding::{ApplicationBinding, Bound, BoundLocation, bind, binding_problems};
 pub use entry::subscription_entry;
 pub use settings::{Declarations, LocationSettings, location_problems};
+pub use store::StoreConfiguration;
+
+use std::path::{Path, PathBuf};
 
 use abi::{ExtensionManifest, ModuleManifest};
 use serde::{Deserialize, Serialize};
@@ -71,6 +75,11 @@ pub struct XmipConfigurationDocument {
     /// side of what it declares (ADR-0064). Empty when the node binds none.
     #[serde(default)]
     pub applications: Vec<ApplicationBinding>,
+    /// Where the node keeps its runtime store and the key store sealing it
+    /// ([`store`], ADR-0018 amendment 2026-09-30). Absent, the installed
+    /// layout's.
+    #[serde(default, skip_serializing_if = "StoreConfiguration::is_default")]
+    pub store: StoreConfiguration,
 }
 
 /// Which of the two documents a text is. An Xmip Application opens with its
@@ -106,6 +115,26 @@ pub struct ServiceConfiguration {
     /// (ADR-0045, 2026-09-10).
     #[serde(default)]
     pub online: bool,
+    /// The node's data directory: where its runtime store, its keys and the
+    /// orders an operator leaves for it are kept unless `[store]` says
+    /// otherwise. Relative to the configuration file; absent, `../data`,
+    /// which in the installed layout (ADR-0015 clause 10) is the `data`
+    /// beside the `config` the file is in.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub data: Option<String>,
+}
+
+/// Where a node's data directory is when its configuration does not say.
+pub const DEFAULT_DATA: &str = "../data";
+
+impl ServiceConfiguration {
+    /// The node's data directory, for the configuration file at
+    /// `configuration`.
+    #[must_use]
+    pub fn data_directory(&self, configuration: &Path) -> PathBuf {
+        let base = configuration.parent().unwrap_or_else(|| Path::new(""));
+        base.join(self.data.as_deref().unwrap_or(DEFAULT_DATA))
+    }
 }
 
 /// `[[modules]]`: a module the node loads, its manifest, and whether it starts.
@@ -277,6 +306,28 @@ extensions = []
         assert!(!offline.service.online, "ADR-0045: offline unless said");
         let online = parse_toml(&format!("{HEAD}online = true\n")).expect("parses");
         assert!(online.service.online);
+    }
+
+    #[test]
+    fn the_data_directory_is_the_layouts_unless_the_document_names_one() {
+        let path = std::path::Path::new("/opt/xmip/config/xmip-node.toml");
+        let installed = parse_toml(HEAD).expect("parses");
+        assert_eq!(
+            installed.service.data_directory(path),
+            std::path::Path::new("/opt/xmip/config/../data")
+        );
+        assert!(installed.store.is_default());
+        let named = parse_toml(&format!("{HEAD}data = \"state\"\n[store]\nkeys = \"k\"\n"))
+            .expect("parses");
+        assert_eq!(
+            named.service.data_directory(path),
+            std::path::Path::new("/opt/xmip/config/state")
+        );
+        assert_eq!(named.store.keys.as_deref(), Some("k"));
+        assert_eq!(
+            parse_toml(&toml::to_string(&named).expect("writes")).expect("reads back"),
+            named
+        );
     }
 
     #[test]

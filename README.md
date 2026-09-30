@@ -43,3 +43,11 @@ settings there are is never this crate's — the shape is `xmip-core`'s
 the declarations it carries. A Receive Location's `accept` is the closed set
 of mechanisms it authenticates (ADR-0019 clause 1, `Accept`); it is refused
 on a Send Location.
+
+`[store]` says where the node keeps its runtime store — its engine and
+place, its key store and where that keeps its keys — and `[service] data`
+its data directory (`store.rs`, ADR-0018 amendment 2026-09-30). Every key
+has a default: RocksDB at `<data>/persistence-rocksdb`, the platform's key
+store at `<data>/key`, `<data>` being `../data` from the configuration file.
+Which engines exist is the program's that starts the node, never this
+crate's.
