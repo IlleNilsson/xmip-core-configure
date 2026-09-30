@@ -18,7 +18,10 @@ one line of Xmip's expression language, `xmip-core-path`'s `expression`,
 compiled as the Application is read, ADR-0066), and the edits it makes to
 the text in place
 (`edit`) — is here too, reached by the VS Code extension's language server
-through the runtime's library (`xmip_operate.h` section 10). The shapes are
+through the runtime's library (`xmip_operate.h` section 10). An operator who
+opens a Subscription is shown its entry as the file says it,
+`subscription_entry`, read from the Application's text with its layout and
+comments (ADR-0013, amendment 2026-09-30). The shapes are
 in [`doc/node-configuration.md`](doc/node-configuration.md) and
 [`doc/application.md`](doc/application.md).
 
