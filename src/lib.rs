@@ -26,6 +26,7 @@
 pub mod application;
 pub mod binding;
 pub mod edit;
+pub mod entry;
 pub mod filter;
 pub mod routes;
 pub mod settings;
@@ -35,6 +36,7 @@ pub use application::{
     application_problems, parse_application,
 };
 pub use binding::{ApplicationBinding, Bound, BoundLocation, bind, binding_problems};
+pub use entry::subscription_entry;
 pub use settings::{Declarations, LocationSettings, location_problems};
 
 use abi::{ExtensionManifest, ModuleManifest};
