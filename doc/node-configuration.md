@@ -67,6 +67,49 @@ Location**, referencing transport and contract *modules* by name.
    address = "…"
    ```
 
+### Where a node keeps its runtime store
+
+What a node keeps across a restart — a paused Subscription's standing and
+the Messages it holds (ADR-0013, amendment 2026-09-30) — is in its runtime
+store: persist's `EncryptedStore` over one engine, every record sealed under
+a data key a key store wraps (ADR-0063). `[store]` names it, and every key
+may be left out (`src/store.rs`, ADR-0018 amendment 2026-09-30):
+
+```toml
+[service]
+name = "xmip-alpha"
+cluster_name = "orders"
+node_name = "alpha"
+data = "../data"                              # the default
+
+[store]
+engine = "xmip-core-persist-rocksdb"          # the default
+place = "../data/persistence-rocksdb"         # the default engine's default
+key_store = "xmip-core-secret-dpapi"          # the platform's, by default
+keys = "../data/key"                          # the default
+```
+
+- **`[service] data`** is the node's data directory, relative to this file;
+  absent, `../data`, which in the installed layout is the `data` beside the
+  `config` this file is in (ADR-0015 clause 10). The store, its keys and
+  the orders an operator leaves for the node (`<data>/orders`) are there
+  unless `[store]` says otherwise.
+- **`engine`**: `xmip-core-persist-rocksdb`, the runtime store's engine
+  (ADR-0015, amendment 2026-09-25), or `xmip-core-persist-sqlite`.
+- **`place`**: a directory for RocksDB, a file for SQLite, relative to this
+  file; absent, `<data>/persistence-rocksdb`. An engine other than the
+  default names its place.
+- **`key_store`**: the platform's key store by default —
+  `xmip-core-secret-dpapi` on Windows, `xmip-core-secret-keychain` on
+  macOS, `xmip-core-secret-file` on every other Unix.
+- **`keys`**: where a key store that keeps files keeps them; absent,
+  `<data>/key`. The keychain keeps its keys as items and does not read it.
+
+Which engines and key stores a node can use is its program's: `xmip-service`
+links them by build feature, as it links transports. A node naming one its
+program was not built with is refused as it starts, and so is a store that
+does not open — another process holding it among the reasons.
+
 ### A Location's settings
 
 What a transport takes beyond the address — a topic, a timeout, a queue —
