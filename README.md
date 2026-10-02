@@ -44,10 +44,21 @@ the declarations it carries. A Receive Location's `accept` is the closed set
 of mechanisms it authenticates (ADR-0019 clause 1, `Accept`); it is refused
 on a Send Location.
 
-`[store]` says where the node keeps its runtime store — its engine and
-place, its key store and where that keeps its keys — and `[service] data`
-its data directory (`store.rs`, ADR-0018 amendment 2026-09-30). Every key
-has a default: RocksDB at `<data>/persistence-rocksdb`, the platform's key
-store at `<data>/key`, `<data>` being `../data` from the configuration file.
-Which engines exist is the program's that starts the node, never this
-crate's.
+`[store]` says where the node keeps its runtime store — its place, its key
+store and where that keeps its keys — and `[service] data` its data
+directory (`store.rs`, ADR-0018 amendment 2026-09-30). Every key has a
+default: `<data>/persistence-rocksdb`, the platform's key store at
+`<data>/key`, `<data>` being `../data` from the configuration file. The
+engine is RocksDB and no node's choice (ADR-0015 and ADR-0018, amendments
+2026-10-01); `[store] engine` is refused as an unknown key.
+
+`[storage] nodes` lists the Storage nodes the node reaches Xmip Storage
+at, `host:port` each, tried round robin (`storage.rs`,
+`deployment-model.md` section 7), and `[storage.database]` names the
+database server a Storage node is in front of: two connections, the
+runtime and the administration database, the secret its password is kept
+under and the authority the server's certificate reaches (`database.rs`;
+what IT sets up for it is `deploy/database/<server>/README.md`). An address
+without its port, a connection that is not `<server>://<login>@<host>[:<port>]/<database>`,
+a Storage node named twice and one database named for both are refused in
+words.

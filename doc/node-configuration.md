@@ -71,9 +71,12 @@ Location**, referencing transport and contract *modules* by name.
 
 What a node keeps across a restart — a paused Subscription's standing and
 the Messages it holds (ADR-0013, amendment 2026-09-30) — is in its runtime
-store: persist's `EncryptedStore` over one engine, every record sealed under
-a data key a key store wraps (ADR-0063). `[store]` names it, and every key
-may be left out (`src/store.rs`, ADR-0018 amendment 2026-09-30):
+store: persist's `EncryptedStore` over RocksDB, every record sealed under a
+data key a key store wraps (ADR-0063). The engine is no node's choice: an
+embedded runtime database is always RocksDB (ADR-0015 and ADR-0018,
+amendments 2026-10-01), and `engine` is refused as an unknown key.
+`[store]` names where it is, and every key may be left out (`src/store.rs`,
+ADR-0018 amendment 2026-09-30):
 
 ```toml
 [service]
@@ -83,8 +86,7 @@ node_name = "alpha"
 data = "../data"                              # the default
 
 [store]
-engine = "xmip-core-persist-rocksdb"          # the default
-place = "../data/persistence-rocksdb"         # the default engine's default
+place = "../data/persistence-rocksdb"         # the default
 key_store = "xmip-core-secret-dpapi"          # the platform's, by default
 keys = "../data/key"                          # the default
 ```
@@ -94,21 +96,64 @@ keys = "../data/key"                          # the default
   `config` this file is in (ADR-0015 clause 10). The store, its keys and
   the orders an operator leaves for the node (`<data>/orders`) are there
   unless `[store]` says otherwise.
-- **`engine`**: `xmip-core-persist-rocksdb`, the runtime store's engine
-  (ADR-0015, amendment 2026-09-25), or `xmip-core-persist-sqlite`.
-- **`place`**: a directory for RocksDB, a file for SQLite, relative to this
-  file; absent, `<data>/persistence-rocksdb`. An engine other than the
-  default names its place.
+- **`place`**: the store's directory, relative to this file; absent,
+  `<data>/persistence-rocksdb`.
 - **`key_store`**: the platform's key store by default —
   `xmip-core-secret-dpapi` on Windows, `xmip-core-secret-keychain` on
   macOS, `xmip-core-secret-file` on every other Unix.
 - **`keys`**: where a key store that keeps files keeps them; absent,
   `<data>/key`. The keychain keeps its keys as items and does not read it.
 
-Which engines and key stores a node can use is its program's: `xmip-service`
-links them by build feature, as it links transports. A node naming one its
-program was not built with is refused as it starts, and so is a store that
-does not open — another process holding it among the reasons.
+Which key stores a node can use is its program's: `xmip-service` links them
+by build feature, as it links transports, and RocksDB with them. A node
+naming a key store its program was not built with is refused as it starts,
+and so is a store that does not open — another process holding it among
+the reasons, and a program built without RocksDB.
+
+### Where a node reaches Xmip Storage
+
+Every node calls Xmip Storage — the nodes declaring the Storage role — for
+all storage, never a database directly, and finds them from a list of their
+addresses, tried round robin (`deployment-model.md` section 7;
+`src/storage.rs`):
+
+```toml
+[storage]
+nodes = ["storage-1.example:7443", "storage-2.example:7443"]
+```
+
+- **`nodes`**: each `host:port`, a host name or an address, IPv6 in
+  brackets, each once. More than one is the safety: a node carries on
+  through the next while one is stopped. An address without its port is
+  refused in words, and so is a Storage node named twice.
+
+A Storage node in front of a database server IT runs (option A) names it
+(`src/database.rs`):
+
+```toml
+[storage.database]
+runtime        = "postgresql://xmip_storage@db-1.example:5432/xmip_runtime"
+administration = "postgresql://xmip_storage@db-2.example:5432/xmip_administration"
+password       = "xmip-storage-database"       # a secret's name, never the password
+trust_anchor   = "../config/database-authority.pem"
+```
+
+- **`runtime`** and **`administration`**: the two databases Xmip Storage
+  keeps on every backend, separate, which IT may place on different
+  servers: `<server>://<login>@<host>[:<port>]/<database>`, the server
+  `postgresql` or `sqlserver` — the same for both — and the port the
+  server's own (5432, 1433) where it is left out.
+- **`password`**: the name of the secret the login's password is kept
+  under, resolved through the key home (ADR-0063 clause 4); the password is
+  never written here.
+- **`trust_anchor`**: the authority the server's certificate reaches, PEM,
+  relative to this file; absent, the operating system's trust store. Xmip
+  always speaks TLS to the database server.
+
+What a site's IT operators install and run for it — the software, the
+scripts that make both databases and their roles, the settings Xmip
+depends on — is `deploy/database/postgresql/README.md` and
+`deploy/database/sqlserver/README.md` at the estate root.
 
 ### A Location's settings
 

@@ -25,11 +25,13 @@
 
 pub mod application;
 pub mod binding;
+pub mod database;
 pub mod edit;
 pub mod entry;
 pub mod filter;
 pub mod routes;
 pub mod settings;
+pub mod storage;
 pub mod store;
 
 pub use application::{
@@ -39,6 +41,7 @@ pub use application::{
 pub use binding::{ApplicationBinding, Bound, BoundLocation, bind, binding_problems};
 pub use entry::subscription_entry;
 pub use settings::{Declarations, LocationSettings, location_problems};
+pub use storage::StorageConfiguration;
 pub use store::StoreConfiguration;
 
 use std::path::{Path, PathBuf};
@@ -80,6 +83,11 @@ pub struct XmipConfigurationDocument {
     /// layout's.
     #[serde(default, skip_serializing_if = "StoreConfiguration::is_default")]
     pub store: StoreConfiguration,
+    /// The Storage nodes this node reaches Xmip Storage at, round robin
+    /// ([`storage`], `deployment-model.md` section 7), and the database
+    /// server a Storage node is in front of.
+    #[serde(default, skip_serializing_if = "StorageConfiguration::is_default")]
+    pub storage: StorageConfiguration,
 }
 
 /// Which of the two documents a text is. An Xmip Application opens with its
