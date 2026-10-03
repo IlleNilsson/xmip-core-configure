@@ -2,6 +2,12 @@
 
 Moved here from the estate root on 2026-09-12 (ADR-0020 clause 3: the document lives where its subject lives).
 
+A node's document is written once for the whole cluster, in its
+`xmip.toml`, and sliced to each node as it is deployed: every section below
+is written there at the top for every node, or under `[nodes.<name>]` for
+one ([`cluster-configuration.md`](cluster-configuration.md); ADR-0031,
+amendment 2026-10-03).
+
 
 A process is **configuration, not code**. There is no repository and nothing to
 compile — you describe a node's work, and the runtime enacts it.
@@ -67,37 +73,36 @@ Location**, referencing transport and contract *modules* by name.
    address = "…"
    ```
 
-### Where a node keeps its runtime store
+### The key store a node's records are sealed under
 
-What a node keeps across a restart — a paused Subscription's standing and
-the Messages it holds (ADR-0013, amendment 2026-09-30) — is in its runtime
-store: persist's `EncryptedStore` over RocksDB, every record sealed under a
-data key a key store wraps (ADR-0063). The engine is no node's choice: an
-embedded runtime database is always RocksDB (ADR-0015 and ADR-0018,
-amendments 2026-10-01), and `engine` is refused as an unknown key.
-`[store]` names where it is, and every key may be left out (`src/store.rs`,
-ADR-0018 amendment 2026-09-30):
+A node that lists no Storage node in `[storage]` is its own embedded
+Storage node, and Xmip encrypts its databases itself: every record sealed
+under a data key a key store wraps (ADR-0063). What a node keeps across a
+restart — a paused Subscription's standing in the administration database,
+the Journeys it holds in the Ledger (ADR-0013, amendments 2026-09-30 and
+2026-10-03) — is kept there. The engines are no node's choice: the runtime
+database is always RocksDB (ADR-0015 and ADR-0018, amendments 2026-10-01),
+and `engine` and `place` are refused as unknown keys. `[store]` names the
+key store, and every key may be left out (`src/store.rs`, ADR-0018
+amendments 2026-09-30 and 2026-10-03):
 
 ```toml
 [service]
-name = "xmip-alpha"
-cluster_name = "orders"
-node_name = "alpha"
+name = "xmip-<node>"
+cluster_name = "<cluster>"
+node_name = "<node>"
 data = "../data"                              # the default
 
 [store]
-place = "../data/persistence-rocksdb"         # the default
 key_store = "xmip-core-secret-dpapi"          # the platform's, by default
 keys = "../data/key"                          # the default
 ```
 
 - **`[service] data`** is the node's data directory, relative to this file;
   absent, `../data`, which in the installed layout is the `data` beside the
-  `config` this file is in (ADR-0015 clause 10). The store, its keys and
-  the orders an operator leaves for the node (`<data>/orders`) are there
-  unless `[store]` says otherwise.
-- **`place`**: the store's directory, relative to this file; absent,
-  `<data>/persistence-rocksdb`.
+  `config` this file is in (ADR-0015 clause 10). The embedded Storage node
+  (`<data>/storage`), its keys and the orders an operator leaves for the
+  node (`<data>/orders`) are there unless `[store]` says otherwise.
 - **`key_store`**: the platform's key store by default —
   `xmip-core-secret-dpapi` on Windows, `xmip-core-secret-keychain` on
   macOS, `xmip-core-secret-file` on every other Unix.
@@ -105,10 +110,49 @@ keys = "../data/key"                          # the default
   `<data>/key`. The keychain keeps its keys as items and does not read it.
 
 Which key stores a node can use is its program's: `xmip-service` links them
-by build feature, as it links transports, and RocksDB with them. A node
-naming a key store its program was not built with is refused as it starts,
-and so is a store that does not open — another process holding it among
-the reasons, and a program built without RocksDB.
+by build feature, as it links transports, and RocksDB and SQLite with them.
+A node naming a key store its program was not built with is refused as it
+starts, and so is a Storage node whose databases do not open — another
+process holding them among the reasons, and a program built without RocksDB
+or SQLite.
+
+### What a node runs by: `[tuning]`
+
+Every outward and hardware assumption a node runs by is configured, per
+cluster and per node, under `[tuning]` in the cluster's `xmip.toml` and
+`[nodes.<name>.tuning]` for one node, the node's winning in its slice
+([`cluster-configuration.md`](cluster-configuration.md); ADR-0031,
+amendment 2026-10-03). Every key may be left out; its default is the
+built-in value:
+
+```toml
+[tuning]
+tcp_segment = 1460                          # bytes, 536 to 9000
+segments = 44                               # TCP segments a chunk holds, 1 to 1024
+receive_threads_per_hardware_thread = 2     # 1 to 64
+receive_idle = "1m"                         # a receive thread's idle time
+storage_timeout = "5s"                      # each connect and read to a Storage node
+storage_pass_over = "5s"                    # how long one that did not answer waits its turn
+```
+
+- **`tcp_segment`** and **`segments`**: a Stream is written to the Ledger
+  in chunks of `segments` × `tcp_segment` bytes, 64,240 by default
+  (`runtime-model.md` section 3).
+- **`receive_threads_per_hardware_thread`** and **`receive_idle`**: a
+  Receive Location's pool grows to this many threads per hardware thread
+  the machine runs, and a thread with nothing to do ends after its idle
+  time.
+- **`storage_timeout`** and **`storage_pass_over`**: what bounds each
+  connect to and read from a Storage node, and how long one that did not
+  answer is asked only after the rest.
+
+Durations are a whole number and `ms`, `s`, `m` or `h`, above nothing and
+at most an hour. Which keys there are, their kinds, bounds and defaults are
+the runtime's one declaration (`xmip-core-runtime`'s `tuning::TUNING`, in
+`xmip-core`'s settings shape), and the table is read through it as a
+technology reads a Location's settings: an unknown key, a value of the
+wrong kind or outside its bounds is refused at startup phase 3, and by
+`xmip_validate_v1`, in words.
 
 ### Where a node reaches Xmip Storage
 
@@ -233,24 +277,23 @@ bindings do. The same route is never written again per node.
 
 ```toml
 [service]
-name = "xmip-alpha"
-cluster_name = "orders"
-node_name = "alpha"
+name = "xmip-<node>"
+cluster_name = "<cluster>"
+node_name = "<node>"
 
 [[applications]]
-name = "Orders"                       # [application] name in its document
-document = "orders.application.toml"  # relative to this file
+name = "Orders"                       # its [[xmip_applications]] section's name
 
 [[applications.receive_locations]]
 name = "OrdersDrop"                   # declared by the Application
-node = "alpha"                           # the node that takes it
+node = "<node>"                       # the node that takes it
 start = true
 transport = "xmip-core-transport-file"
 address = "/var/xmip/in/orders"
 
 [[applications.receive_locations]]
 name = "OrdersApi"
-node = "alpha"
+node = "<node>"
 start = true
 transport = "xmip-core-transport-http"
 address = "https://xmip.example/orders"
@@ -258,41 +301,49 @@ credentials = "orders-api"            # a secret's name, never the secret
 
 [[applications.send_ports]]
 name = "Billing"
-node = "beta"
+node = "<another>"
 start = true
 transport = "xmip-core-transport-http"
 address = "https://billing.example/orders"
 
 [[applications.send_ports]]
 name = "Ledger"
-node = "beta"
+node = "<another>"
 start = true
 transport = "xmip-core-transport-file"
 address = "/var/xmip/out/ledger"
 ```
+
+A binding binds the Application the configuration holds as its section of
+the same name, `[[xmip_applications]]`: the cluster's one `xmip.toml`
+writes it, and the slice gives it to the nodes that bind it
+([`cluster-configuration.md`](cluster-configuration.md)). `<cluster>`,
+`<node>` and `<another>` stand for the names whoever runs the cluster
+chooses.
 
 A bound Location has a Location's own shape (`ConfiguredLocation`: `name`,
 `start`, `transport`, `address` and the optional `credentials`, `contract`,
 `settings`, `contract_settings` and `accept`) and one more key, `node`. The binding is the same on every node of the cluster; each node
 takes what names it. From `module/platform/configure/src/binding.rs`:
 
-- **`binding_problems`** checks what a binding says on its own: a name, a
-  document, and every bound Location's name, node and transport, none bound
-  twice. `xmip_validate_v1` reports these for the text an editor holds.
+- **`binding_problems`** checks what a binding says: a name, the section of
+  its name held and its design sound, and every bound Location's name, node
+  and transport, none bound twice. `xmip_validate_v1` reports these for the
+  text an editor holds.
 - **`bind`** joins the bindings to the Applications they name and takes
   what this node runs: the bound Receive Locations and Send Ports whose
   `node` is this node's `node_name`, the Send Ports as the Send Locations
-  they leave by, every Subscription of every bound Application and every
+  they leave by, the Receive Ports those Receive Locations are at with
+  each Location's interaction and depth, the Send Ports as designed with
+  their policy, every Subscription of every bound Application and every
   Send Port Group, which a Subscription routed to a group reaches. It
   refuses an Application the node was not given, a bound Application's own
   problems, a Location the Application does not declare, and a Subscription
   id or Location name two of them would put on the node twice.
 
 The runtime builds its execution tree from what `bind` answers
-(`build_execution_tree`), and `xmip_start_v1` reads each bound document from
-the path its binding names, relative to the configuration file. A text
-validated alone has no files beside it, so its bindings are checked as far
-as they say on their own; the join is checked when the node starts. Each
+(`build_execution_tree`), and `xmip_start_v1` reads each bound Application
+from its section in the configuration. Each
 Subscription's filter — one line of Xmip's expression language, such as
 `filter = "MessageType = 'Order' and not Amount > 1000"` — is compiled as its
 Application is read, so a node binding an Application whose filter does not

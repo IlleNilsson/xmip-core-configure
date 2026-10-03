@@ -31,7 +31,9 @@ use xcore::settings::{Applies, Given, Settings};
 
 use crate::ConfiguredLocation;
 
-/// A Location's `settings` or `contract_settings` table, as written.
+/// A settings table as written: a Location's `settings` or
+/// `contract_settings`, or a node's `[tuning]`, each read through the
+/// declaration of whoever takes it.
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(transparent)]
 pub struct LocationSettings(pub toml::Table);

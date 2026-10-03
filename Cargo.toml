@@ -34,5 +34,11 @@ xcore = { package = "xmip-core", git = "https://github.com/IlleNilsson/xmip-core
 # are a view of its compiled tree, never a second grammar (ADR-0066).
 path = { package = "xmip-core-path", git = "https://github.com/IlleNilsson/xmip-core-path", branch = "main" }
 
+[features]
+# The test cluster every Rust test takes its cluster's and nodes' names from
+# (`fixture`, `test/xmip.toml`), placed once in the lowest layer that reads a
+# cluster's file. Never in a production build.
+test-support = []
+
 [profile.dev.package."*"]
 opt-level = 3

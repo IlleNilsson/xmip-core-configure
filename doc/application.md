@@ -1,11 +1,17 @@
-# The Xmip Application document
+# The Xmip Application
 
 An **Xmip Application** is an integration as a developer designs it: its
 routes, and later its transforms and Xmip Processes, drawn once and deployed to
-whichever nodes run it (ADR-0064, `doc/terminology.md`). It is a TOML
-document in the repository (ADR-0031), diffed, reviewed and merged like
-code. The routes designer in VS Code is a view of this text; a developer
-may edit either, and the other follows.
+whichever nodes run it (ADR-0064, `doc/terminology.md`). It is TOML in the
+repository (ADR-0031), diffed, reviewed and merged like code. The Route view
+of the VS Code designer is a view of this text; a developer may edit either,
+and the other follows.
+
+Developers author it among the sections of the cluster's one `xmip.toml`,
+as an `[[xmip_applications]]` entry, and nowhere else (ADR-0064 and
+ADR-0031, amendments 2026-10-03;
+[`cluster-configuration.md`](cluster-configuration.md)); the slice gives it
+to the nodes that bind it, and `parse_application` is its one reading.
 
 The Application holds the design and nothing of an environment. Addresses,
 credentials and which node takes what are the node's, in its **binding**
@@ -13,68 +19,99 @@ credentials and which node takes what are the node's, in its **binding**
 
 ## The shape
 
-From `module/platform/configure/src/application.rs`
-(`XmipApplicationDocument`):
+From `module/platform/configure/src/application.rs` (`XmipApplication`) and
+`port.rs`:
 
-- **`[application]`**: `name`, the developer's name for the integration.
-  Required.
-- **`[[receive_locations]]`**: where Messages enter, by `name`.
-- **`[[xmip_processes]]`**: the Xmip Processes a Subscription may route
-  to, by `name`. The flow is the process designer's, after the Xmip
-  Process vocabulary is settled (ADR-0064 clause 1).
-- **`[[send_ports]]`**: where Messages leave, by `name`.
-- **`[[send_port_groups]]`**: Send Ports a Subscription reaches together:
-  `name` and `send_ports`, the names of the Send Ports it holds.
-- **`[[subscriptions]]`**: what each published Message is offered to. Each
-  is `route`'s own Subscription, not a copy of it: an `id`; a
-  `destination`, one of `{ process = "…" }`, `{ send-port = "…" }` or
+- **`name`**: the developer's name for the integration, what a binding
+  names it by. Required.
+- **`[[xmip_applications.receive_ports]]`**: the Receive Ports, by `name`.
+  A Receive Port keeps Message creation and Publication
+  (`runtime-model.md` section 6).
+- **`[[xmip_applications.receive_locations]]`**: where Messages enter: a
+  `name`; the `receive_port` it belongs to, which the Application declares;
+  its `interaction`, `composite`, `data-transfer` or `batch-load`, which
+  decides when the sender is acknowledged; and its `depth`, `transfer`,
+  `light` or `context`, which decides how far the receive gates read
+  (`runtime-model.md` section 7). A Location without a Port, or without
+  either statement, is refused (ADR-0031, amendment 2026-10-01).
+- **`[[xmip_applications.xmip_processes]]`**: the Xmip Processes a
+  Subscription may route to, by `name`. The flow is the process designer's,
+  after the Xmip Process vocabulary is settled (ADR-0064 clause 1).
+- **`[[xmip_applications.send_ports]]`**: where Messages leave: a `name`,
+  and its policy (`runtime-model.md` section 10, the same amendment):
+  `send_locations`, its Send Locations by name, tried in order;
+  `retry = { attempts, backoff }` on the active Location, the backoff a
+  duration such as `5s`; `failover`, `next` or `none`; `execution_style`,
+  `sequential`, `parallel` or `concurrent`; `order_key`, what a sequence is
+  ordered by; and `on_failure`, `block` or `skip`. A Sequential Send Port
+  without `on_failure` is refused: section 3 allows no silent default.
+- **`[[xmip_applications.send_port_groups]]`**: Send Ports a Subscription
+  reaches together: `name` and `send_ports`, the names of the Send Ports it
+  holds.
+- **`[[xmip_applications.subscriptions]]`**: what each published Message is
+  offered to. Each is `route`'s own Subscription, not a copy of it: an `id`;
+  a `destination`, one of `{ process = "…" }`, `{ send-port = "…" }` or
   `{ send-group = "…" }`; and a `filter`, one line of Xmip's expression
   language (`xmip-core-path`'s `expression`, ADR-0066): names with the
   prefix of the route technology that reads them (ADR-0046), text in single
   quotes, integers and `true`/`false`; `=`, `<>`, `<`, `<=`, `>`, `>=`,
   `[not] like`, `[not] in (…)`, `exists`; `and`, `or`, `not`; `||`,
   arithmetic and `coalesce`. `"true"` is everything published. The filter is
-  compiled as the document is read: one that does not parse, or compares a
-  value with the wrong kind, refuses the document, and so the node that
-  binds it as it starts.
+  compiled as the Application is read: one that does not parse, or compares
+  a value with the wrong kind, refuses the Application, and so the node
+  that binds it as it starts.
 
-Every list may be left out and reads as empty. A key the document does not
-define is refused, so a misspelled list is a problem the developer sees
-rather than a part of the design that silently went missing.
+Every list may be left out and reads as empty. A key the Application does
+not define, and a word a key does not have, are refused, so a misspelled
+list is a problem the developer sees rather than a part of the design that
+silently went missing.
 
 ## An example
 
 ```toml
 # The orders integration: orders arrive by file drop and by HTTP, large ones
 # go to approval, and every other order reaches billing and the ledger.
-[application]
+[[xmip_applications]]
 name = "Orders"
 
-[[receive_locations]]
+[[xmip_applications.receive_ports]]
+name = "Orders"
+
+[[xmip_applications.receive_locations]]
 name = "OrdersDrop"
+receive_port = "Orders"
+interaction = "batch-load"
+depth = "context"
 
-[[receive_locations]]
+[[xmip_applications.receive_locations]]
 name = "OrdersApi"
+receive_port = "Orders"
+interaction = "data-transfer"
+depth = "context"
 
-[[xmip_processes]]
+[[xmip_applications.xmip_processes]]
 name = "Approval"
 
-[[send_ports]]
+[[xmip_applications.send_ports]]
 name = "Billing"
+retry = { attempts = 3, backoff = "5s" }
+execution_style = "sequential"
+order_key = "party"
+on_failure = "block"
 
-[[send_ports]]
+[[xmip_applications.send_ports]]
 name = "Ledger"
 
-[[send_port_groups]]
+[[xmip_applications.send_port_groups]]
 name = "Books"
 send_ports = ["Billing", "Ledger"]
 
-[[subscriptions]]
+[[xmip_applications.subscriptions]]
 id = "large-orders"
 destination = { process = "Approval" }
 filter = "MessageType = 'Order' and Amount > 1000"
 
-[[subscriptions]]
+[[xmip_applications.subscriptions]]
 id = "orders"
 destination = { send-group = "Books" }
 filter = "MessageType = 'Order' and not Amount > 1000"
@@ -86,22 +123,38 @@ no `Amount` matches neither Subscription, and each says why it declined
 
 ## What makes a design unsound
 
-`XmipApplicationDocument::problems` says it, one sentence each, and
+`XmipApplication::problems` says it, one sentence each, and
 `xmip_validate_v1` reports it for every surface — the VS Code extension,
-`xmip validate`, `Test-XmipNodeConfiguration` — because the runtime reads
-either document and tells them apart by the `[application]` table, never by
-the file's name:
+`xmip validate`, `Test-XmipNodeConfiguration` — with the binding that binds
+it, at startup phase 3:
 
 - an Application, or any part of it, without a name;
 - a name declared twice in one list, or a Subscription id used twice;
+- a Receive Location without its `receive_port`, naming one the Application
+  does not declare, or without its `interaction` or `depth`;
+- a Sequential Send Port without `on_failure`, a retry of no attempts or
+  a backoff that is not a duration, an empty `order_key`, and a Send
+  Location named empty or twice;
 - a Send Port Group holding a Send Port the Application does not declare;
 - a Subscription routing to an Xmip Process, Send Port or Send Port Group
   the Application does not declare.
 
+## What the runtime holds of it
+
+The execution tree a node builds as it starts holds what its bindings give
+it: the Receive Ports its bound Receive Locations are at, each Location
+with its interaction and depth, and the Send Ports it takes with their
+policy (`configure::Bound`, the runtime's `ExecutionTree`; ADR-0031,
+amendment 2026-10-01).
+
 ## The designer's view of it
 
-The routes designer asks the runtime's library, which forwards to this
-crate (`xmip_operate.h` section 10):
+The cluster designer asks the runtime's library, which forwards to this
+crate (`xmip_operate.h` section 10, `views.rs` and `view_edit.rs` over the
+cluster's file). Its Receive Port view lists each Application's
+`[[xmip_applications.receive_ports]]` and adds one there; its Receive
+Location and Send Port views show the keys above, each edited in place. The
+Route view:
 
 - **The routes** (`routes.rs`): the Application as a graph — Receive
   Locations, Subscriptions, Xmip Processes, Send Port Groups and Send Ports,

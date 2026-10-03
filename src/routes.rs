@@ -1,5 +1,5 @@
-//! An Xmip Application's routes as a graph, the model the routes designer
-//! draws (ADR-0064): what is there, what connects to what, and what a
+//! An Xmip Application's routes as a graph, the model the designer's Route
+//! view draws (ADR-0064): what is there, what connects to what, and what a
 //! Subscription may be connected to.
 //!
 //! Nodes are the Application's Receive Locations, Subscriptions, Xmip
@@ -14,7 +14,7 @@ use path::expression::OPERATORS;
 use route::Subscriber;
 use serde::Serialize;
 
-use crate::application::XmipApplicationDocument;
+use crate::application::XmipApplication;
 use crate::filter::{self, FilterPart};
 
 /// The graph of one Application's routes, and the words its filters use.
@@ -95,7 +95,7 @@ pub fn destination_id(destination: &Subscriber) -> String {
 /// The destination the node `id` is, when a Subscription may route to it
 /// and the Application declares it.
 #[must_use]
-pub fn destination_of(document: &XmipApplicationDocument, id: &str) -> Option<Subscriber> {
+pub fn destination_of(document: &XmipApplication, id: &str) -> Option<Subscriber> {
     let (kind, name) = id.split_once(':')?;
     let destination = match kind {
         XMIP_PROCESS => Subscriber::Process(name.to_string()),
@@ -109,7 +109,7 @@ pub fn destination_of(document: &XmipApplicationDocument, id: &str) -> Option<Su
 impl Routes {
     /// The graph of `document`'s routes, drawn whether or not it is sound.
     #[must_use]
-    pub fn of(document: &XmipApplicationDocument) -> Self {
+    pub fn of(document: &XmipApplication) -> Self {
         let mut nodes = Vec::new();
         let mut edges = Vec::new();
 
@@ -165,7 +165,7 @@ impl Routes {
         }
 
         Self {
-            application: document.application.name.clone(),
+            application: document.name.clone(),
             nodes,
             edges,
             problems: document.problems(),
@@ -188,11 +188,16 @@ mod tests {
     use super::*;
     use crate::parse_application;
 
-    const ORDERS: &str = r#"[application]
+    const ORDERS: &str = r#"name = "Orders"
+
+[[receive_ports]]
 name = "Orders"
 
 [[receive_locations]]
 name = "OrdersIn"
+receive_port = "Orders"
+interaction = "data-transfer"
+depth = "light"
 
 [[xmip_processes]]
 name = "Approval"
