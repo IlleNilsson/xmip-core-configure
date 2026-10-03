@@ -1,44 +1,48 @@
 //! A node's binding of an Xmip Application (ADR-0064): that the node runs
 //! it, and the environment's side of what it declares.
 //!
-//! The Application holds the design, drawn once; each node's configuration
-//! names the Applications it runs in `[[applications]]` and gives every
+//! The Application holds the design, drawn once as a section of the
+//! cluster's `xmip.toml`, `[[xmip_applications]]` ([`crate::section`]);
+//! each node's configuration names the Applications it runs in
+//! `[[applications]]`, each binding the section of its name, and gives every
 //! Receive Location and Send Port it binds a transport, an address, a
-//! reference to its credentials and the node that takes it, as the
-//! bindings of the platforms Xmip replaces do. The same route is never
-//! written again per node.
+//! reference to its credentials and the node that takes it, as the bindings
+//! of the platforms Xmip replaces do. The same route is never written again
+//! per node.
 //!
 //! ```toml
 //! [[applications]]
 //! name = "Orders"
-//! document = "orders.application.toml"
 //!
 //! [[applications.receive_locations]]
 //! name = "OrdersIn"
-//! node = "alpha"
+//! node = "<node>"
 //! start = true
 //! transport = "xmip-core-transport-file"
 //! address = "/var/xmip/in/orders"
 //! ```
 //!
-//! [`binding_problems`] checks what a binding says on its own; [`bind`]
-//! joins it to the Applications it names and takes what one node runs.
+//! [`binding_problems`] checks what a binding says on its own, its
+//! section's design with it; [`bind`] joins it to the Applications it names
+//! and takes what one node runs.
 
 use std::collections::BTreeSet;
 
 use route::Subscription;
 use serde::{Deserialize, Serialize};
 
-use crate::application::{SendPortGroup, XmipApplicationDocument};
+use crate::application::{SendPortGroup, XmipApplication};
+use crate::port::{DesignedReceiveLocation, DesignedSendPort};
+use crate::section::ApplicationSection;
 use crate::{ConfiguredLocation, XmipConfigurationDocument};
 
-/// `[[applications]]`: one Xmip Application this node runs.
+/// `[[applications]]`: one Xmip Application this node runs, the section of
+/// its name.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ApplicationBinding {
-    /// The Application's own name, `[application] name` in its document.
+    /// The Application's name, its section's `name`.
     pub name: String,
-    /// Where its document is: a path relative to this configuration's file.
-    pub document: String,
     /// The Receive Locations it declares that this environment runs.
     #[serde(default)]
     pub receive_locations: Vec<BoundLocation>,
@@ -58,13 +62,27 @@ pub struct BoundLocation {
     pub location: ConfiguredLocation,
 }
 
+/// A Receive Port of a bound Application, with the Receive Locations at it
+/// this node takes, as designed: their interaction and depth.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BoundReceivePort {
+    /// The Application that declares it.
+    pub application: String,
+    pub name: String,
+    pub receive_locations: Vec<DesignedReceiveLocation>,
+}
+
 /// What one node runs of the Applications it binds.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Bound {
     /// The bound Receive Locations this node takes.
     pub receive_locations: Vec<ConfiguredLocation>,
+    /// The Receive Ports those Locations are at.
+    pub receive_ports: Vec<BoundReceivePort>,
     /// The bound Send Ports this node takes, as the Send Locations they are.
     pub send_locations: Vec<ConfiguredLocation>,
+    /// Those Send Ports as designed, with their policy.
+    pub send_ports: Vec<DesignedSendPort>,
     /// Every Subscription of every bound Application.
     pub subscriptions: Vec<Subscription>,
     /// Every Send Port Group of every bound Application: the Send Ports a
@@ -72,9 +90,9 @@ pub struct Bound {
     pub send_port_groups: Vec<SendPortGroup>,
 }
 
-/// What the bindings in `document` say wrong on their own, before any
-/// Application is read: a name, a document, and every bound Location's
-/// node, name and transport present, and no Location bound twice.
+/// What the bindings in `document` say wrong: a name, the section of that
+/// name held and sound, every bound Location's node, name and transport
+/// present, and no Location bound twice.
 #[must_use]
 pub fn binding_problems(document: &XmipConfigurationDocument) -> Vec<String> {
     let mut problems = Vec::new();
@@ -89,11 +107,7 @@ pub fn binding_problems(document: &XmipConfigurationDocument) -> Vec<String> {
                 "the Xmip Application '{application}' is bound twice"
             ));
         }
-        if binding.document.trim().is_empty() {
-            problems.push(format!(
-                "the binding of '{application}' requires the document it reads"
-            ));
-        }
+        section_problems(document, application, &mut problems);
 
         for (what, locations) in [
             ("Receive Location", &binding.receive_locations),
@@ -124,9 +138,47 @@ pub fn binding_problems(document: &XmipConfigurationDocument) -> Vec<String> {
     problems
 }
 
+/// The `[[xmip_applications]]` section of `document` named `name`.
+#[must_use]
+pub fn section<'a>(
+    document: &'a XmipConfigurationDocument,
+    name: &str,
+) -> Option<&'a ApplicationSection> {
+    document
+        .xmip_applications
+        .iter()
+        .find(|section| section.name() == name)
+}
+
+/// A binding binds the section of its name: it must be there, read as an
+/// Application and be sound.
+fn section_problems(
+    document: &XmipConfigurationDocument,
+    application: &str,
+    problems: &mut Vec<String>,
+) {
+    let Some(found) = section(document, application) else {
+        problems.push(format!(
+            "the configuration binds the Xmip Application '{application}' and holds no \
+             [[xmip_applications]] '{application}'"
+        ));
+        return;
+    };
+    match found.application() {
+        Ok(design) => problems.extend(
+            design
+                .problems()
+                .into_iter()
+                .map(|problem| format!("Xmip Application '{application}': {problem}")),
+        ),
+        Err(error) => problems.push(error),
+    }
+}
+
 /// Join the node's bindings to the Applications it was given and take what
 /// this node runs: the bound Locations whose `node` is this node's name,
-/// and every Subscription and Send Port Group of every bound Application.
+/// the Receive Ports they are at and the Send Ports they are, and every
+/// Subscription and Send Port Group of every bound Application.
 ///
 /// # Errors
 /// Every problem found, one sentence each: a binding's own
@@ -135,7 +187,7 @@ pub fn binding_problems(document: &XmipConfigurationDocument) -> Vec<String> {
 /// a Subscription or Location name two of them share on this node.
 pub fn bind(
     document: &XmipConfigurationDocument,
-    applications: &[XmipApplicationDocument],
+    applications: &[XmipApplication],
 ) -> Result<Bound, Vec<String>> {
     let mut problems = binding_problems(document);
     let node = &document.service.node_name;
@@ -143,7 +195,7 @@ pub fn bind(
 
     for binding in &document.applications {
         let name = &binding.name;
-        let Some(application) = applications.iter().find(|a| &a.application.name == name) else {
+        let Some(application) = applications.iter().find(|a| &a.name == name) else {
             problems.push(format!(
                 "the node binds the Xmip Application '{name}', which it was not given"
             ));
@@ -154,35 +206,49 @@ pub fn bind(
             problems.push(format!("Xmip Application '{name}': {problem}"));
         }
 
-        for (what, locations, declared, into) in [
-            (
-                "Receive Location",
-                &binding.receive_locations,
-                &application.receive_locations,
-                &mut bound.receive_locations,
-            ),
-            (
-                "Send Port",
-                &binding.send_ports,
-                &application.send_ports,
-                &mut bound.send_locations,
-            ),
+        let receive = taken(
+            &binding.receive_locations,
+            &application.receive_locations,
+            |design| &design.name,
+            node,
+        );
+        let send = taken(
+            &binding.send_ports,
+            &application.send_ports,
+            |design| &design.name,
+            node,
+        );
+        for (what, undeclared) in [
+            ("Receive Location", &receive.undeclared),
+            ("Send Port", &send.undeclared),
         ] {
-            for location in locations {
-                let wanted = &location.location.name;
-                if declared.iter().any(|element| &element.name == wanted) {
-                    if &location.node == node {
-                        into.push(location.location.clone());
-                    }
-                } else {
-                    problems.push(format!(
-                        "the node binds the {what} '{wanted}' of '{name}', which '{name}' \
-                         does not declare"
-                    ));
-                }
+            for wanted in undeclared {
+                problems.push(format!(
+                    "the node binds the {what} '{wanted}' of '{name}', which '{name}' does not \
+                     declare"
+                ));
             }
         }
+        bound.receive_locations.extend(receive.locations);
+        bound.send_locations.extend(send.locations);
+        let (receive, send): (Vec<&DesignedReceiveLocation>, Vec<&DesignedSendPort>) =
+            (receive.designs, send.designs);
 
+        for port in &application.receive_ports {
+            let at: Vec<DesignedReceiveLocation> = receive
+                .iter()
+                .filter(|design| design.receive_port.as_deref() == Some(port.name.as_str()))
+                .map(|design| (*design).clone())
+                .collect();
+            if !at.is_empty() {
+                bound.receive_ports.push(BoundReceivePort {
+                    application: name.clone(),
+                    name: port.name.clone(),
+                    receive_locations: at,
+                });
+            }
+        }
+        bound.send_ports.extend(send.into_iter().cloned());
         bound
             .subscriptions
             .extend(application.subscriptions.iter().cloned());
@@ -198,6 +264,41 @@ pub fn bind(
     } else {
         Err(problems)
     }
+}
+
+/// What a node takes of the bound Locations of one kind.
+struct Taken<'a, T> {
+    /// The bound Locations whose `node` is this node.
+    locations: Vec<ConfiguredLocation>,
+    /// Their designs, in the same order.
+    designs: Vec<&'a T>,
+    /// The names bound that the Application does not declare.
+    undeclared: Vec<String>,
+}
+
+fn taken<'a, T>(
+    locations: &[BoundLocation],
+    declared: &'a [T],
+    name_of: impl Fn(&T) -> &String,
+    node: &str,
+) -> Taken<'a, T> {
+    let mut taken = Taken {
+        locations: Vec::new(),
+        designs: Vec::new(),
+        undeclared: Vec::new(),
+    };
+    for location in locations {
+        let wanted = &location.location.name;
+        match declared.iter().find(|design| name_of(design) == wanted) {
+            Some(design) if location.node == node => {
+                taken.locations.push(location.location.clone());
+                taken.designs.push(design);
+            }
+            Some(_) => {}
+            None => taken.undeclared.push(wanted.clone()),
+        }
+    }
+    taken
 }
 
 /// A Subscription id, and a Location name at each stage, is one thing on a
@@ -233,62 +334,74 @@ fn once_on_the_node(
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
-    use crate::{parse_application, parse_toml};
+    use crate::fixture::test_cluster;
+    use crate::parse_toml;
 
-    const ORDERS: &str = r#"[application]
+    /// The Orders Application as its section.
+    pub(crate) const ORDERS: &str = r#"
+[[xmip_applications]]
 name = "Orders"
 
-[[receive_locations]]
-name = "OrdersIn"
+[[xmip_applications.receive_ports]]
+name = "Orders"
 
-[[send_ports]]
+[[xmip_applications.receive_locations]]
+name = "OrdersIn"
+receive_port = "Orders"
+interaction = "data-transfer"
+depth = "light"
+
+[[xmip_applications.send_ports]]
 name = "Billing"
 
-[[subscriptions]]
+[[xmip_applications.subscriptions]]
 id = "billing"
 destination = { send-port = "Billing" }
 filter = "MessageType = 'Order'"
 "#;
 
-    /// Node alpha of the example in `doc/node-configuration.md`: it takes the
-    /// Receive Location, and beta takes the Send Port.
-    const ALPHA: &str = r#"[service]
-name = "xmip-alpha"
-cluster_name = "orders"
-node_name = "alpha"
+    /// The test cluster's node at `place`, binding Orders: the first node
+    /// takes the Receive Location, the second the Send Port.
+    pub(crate) fn binding(place: usize) -> String {
+        let cluster = test_cluster();
+        let (first, second) = (&cluster.node(0).name, &cluster.node(1).name);
+        format!(
+            "[service]\nname = \"xmip\"\ncluster_name = \"{}\"\nnode_name = \"{}\"\n\n\
+             [[applications]]\nname = \"Orders\"\n\n\
+             [[applications.receive_locations]]\nname = \"OrdersIn\"\nnode = \"{first}\"\n\
+             start = true\ntransport = \"xmip-core-transport-file\"\n\
+             address = \"/var/xmip/in/orders\"\ncredentials = \"orders-in\"\n\n\
+             [[applications.send_ports]]\nname = \"Billing\"\nnode = \"{second}\"\n\
+             start = true\ntransport = \"xmip-core-transport-http\"\n\
+             address = \"https://billing.example/orders\"\n{ORDERS}",
+            cluster.name,
+            cluster.node(place).name
+        )
+    }
 
-[[applications]]
-name = "Orders"
-document = "orders.application.toml"
+    fn node(text: &str) -> XmipConfigurationDocument {
+        parse_toml(text).expect("reads")
+    }
 
-[[applications.receive_locations]]
-name = "OrdersIn"
-node = "alpha"
-start = true
-transport = "xmip-core-transport-file"
-address = "/var/xmip/in/orders"
-credentials = "orders-in"
-
-[[applications.send_ports]]
-name = "Billing"
-node = "beta"
-start = true
-transport = "xmip-core-transport-http"
-address = "https://billing.example/orders"
-"#;
-
-    fn orders() -> XmipApplicationDocument {
-        parse_application(ORDERS).expect("parses")
+    fn orders(document: &XmipConfigurationDocument) -> XmipApplication {
+        section(document, "Orders")
+            .expect("held")
+            .application()
+            .expect("reads")
     }
 
     #[test]
     fn a_binding_binds_what_this_node_takes_and_every_subscription() {
-        let node = parse_toml(ALPHA).expect("parses");
-        assert!(binding_problems(&node).is_empty());
+        let first = node(&binding(0));
+        assert!(
+            binding_problems(&first).is_empty(),
+            "{:?}",
+            binding_problems(&first)
+        );
 
-        let bound = bind(&node, &[orders()]).expect("binds");
+        let bound = bind(&first, &[orders(&first)]).expect("binds");
 
         assert_eq!(bound.receive_locations.len(), 1);
         assert_eq!(bound.receive_locations[0].name, "OrdersIn");
@@ -297,47 +410,52 @@ address = "https://billing.example/orders"
             bound.receive_locations[0].credentials.as_deref(),
             Some("orders-in")
         );
-        assert!(bound.send_locations.is_empty(), "beta takes the Send Port");
+        assert_eq!(bound.receive_ports.len(), 1);
+        assert_eq!(bound.receive_ports[0].name, "Orders");
+        assert_eq!(bound.receive_ports[0].receive_locations[0].name, "OrdersIn");
+        assert!(bound.send_locations.is_empty(), "the second node takes it");
+        assert!(bound.send_ports.is_empty());
         assert_eq!(bound.subscriptions.len(), 1);
         assert_eq!(bound.subscriptions[0].id, "billing");
 
-        let beta = parse_toml(&ALPHA.replace("node_name = \"alpha\"", "node_name = \"beta\""))
-            .expect("beta");
-        let bound = bind(&beta, &[orders()]).expect("binds on beta");
+        let second = node(&binding(1));
+        let bound = bind(&second, &[orders(&second)]).expect("binds on the second");
         assert!(bound.receive_locations.is_empty());
+        assert!(bound.receive_ports.is_empty());
         assert_eq!(bound.send_locations[0].name, "Billing");
+        assert_eq!(bound.send_ports[0].name, "Billing");
     }
 
     #[test]
     fn a_bound_applications_send_port_groups_come_with_its_subscriptions() {
-        let grouped = format!(
-            "{ORDERS}\n[[send_port_groups]]\nname = \"Everyone\"\nsend_ports = [\"Billing\"]\n"
+        let text = format!(
+            "{}\n[[xmip_applications.send_port_groups]]\nname = \"Everyone\"\n\
+             send_ports = [\"Billing\"]\n",
+            binding(0)
         );
-        let application = parse_application(&grouped).expect("parses");
-        let node = parse_toml(ALPHA).expect("parses");
+        let first = node(&text);
 
-        let bound = bind(&node, &[application]).expect("binds");
+        let bound = bind(&first, &[orders(&first)]).expect("binds");
 
         assert_eq!(bound.send_port_groups.len(), 1);
         assert_eq!(bound.send_port_groups[0].send_ports, ["Billing"]);
     }
 
     #[test]
-    fn an_unknown_application_is_refused() {
-        let node =
-            parse_toml(&ALPHA.replace("name = \"Orders\"", "name = \"Invoices\"")).expect("");
-        let problems = bind(&node, &[orders()]).expect_err("refused");
+    fn an_application_not_given_is_refused() {
+        let first = node(&binding(0));
+        let problems = bind(&first, &[]).expect_err("refused");
 
         assert_eq!(
             problems,
-            ["the node binds the Xmip Application 'Invoices', which it was not given"]
+            ["the node binds the Xmip Application 'Orders', which it was not given"]
         );
     }
 
     #[test]
     fn a_location_the_application_does_not_declare_is_refused() {
-        let node = parse_toml(&ALPHA.replace("name = \"OrdersIn\"", "name = \"Drop\"")).expect("");
-        let problems = bind(&node, &[orders()]).expect_err("refused");
+        let first = node(&binding(0).replacen("name = \"OrdersIn\"", "name = \"Drop\"", 1));
+        let problems = bind(&first, &[orders(&first)]).expect_err("refused");
 
         assert_eq!(
             problems,
@@ -350,7 +468,8 @@ address = "https://billing.example/orders"
 
     #[test]
     fn a_bound_location_without_its_node_is_refused_by_the_reading() {
-        let source = ALPHA.replacen("node = \"alpha\"\n", "", 1);
+        let first = test_cluster().node(0).name.clone();
+        let source = binding(0).replacen(&format!("node = \"{first}\"\n"), "", 1);
         let error = parse_toml(&source).expect_err("node is required");
 
         assert!(error.contains("node"), "{error}");
@@ -358,9 +477,33 @@ address = "https://billing.example/orders"
 
     #[test]
     fn a_node_binding_nothing_reads_as_before() {
-        let node = parse_toml(ALPHA.split("[[applications]]").next().expect("head")).expect("");
+        let text = binding(0);
+        let first = node(text.split("[[applications]]").next().expect("head"));
 
-        assert!(node.applications.is_empty());
-        assert_eq!(bind(&node, &[]).expect("nothing to bind"), Bound::default());
+        assert!(first.applications.is_empty());
+        assert_eq!(
+            bind(&first, &[]).expect("nothing to bind"),
+            Bound::default()
+        );
+    }
+
+    #[test]
+    fn a_missing_or_unsound_section_is_a_problem_of_the_binding() {
+        let text = binding(0);
+        let missing = binding_problems(&node(&text.replace(ORDERS, "")));
+        assert_eq!(missing.len(), 1, "{missing:?}");
+        assert!(
+            missing[0].contains("no [[xmip_applications]] 'Orders'"),
+            "{missing:?}"
+        );
+
+        let unsound = binding_problems(&node(
+            &text.replace("[[xmip_applications.send_ports]]\nname = \"Billing\"\n", ""),
+        ));
+        assert_eq!(unsound.len(), 1, "{unsound:?}");
+        assert!(
+            unsound[0].starts_with("Xmip Application 'Orders': "),
+            "{unsound:?}"
+        );
     }
 }

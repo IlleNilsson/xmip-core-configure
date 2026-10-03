@@ -1,5 +1,6 @@
-//! What a designer does to an Xmip Application, applied to its text
-//! (ADR-0064 clause 4: a design is text, and the designer is a view of it).
+//! What a designer does to an Xmip Application, applied to its section of
+//! the cluster's `xmip.toml` (ADR-0064 clause 4: a design is text, and the
+//! designer is a view of it; [`crate::view_edit`] finds the section).
 //!
 //! An edit is checked against the Application as it reads — a Subscription
 //! it names exists, a destination is one a Subscription may route to and
@@ -12,9 +13,9 @@
 use path::expression::Expression;
 use route::Subscriber;
 use serde::{Deserialize, Serialize};
-use toml_edit::{ArrayOfTables, DocumentMut, Item, Table, value};
+use toml_edit::{ArrayOfTables, Item, Table, value};
 
-use crate::application::{XmipApplicationDocument, parse_application};
+use crate::application::XmipApplication;
 use crate::filter::{self, FilterPart};
 use crate::routes::destination_of;
 
@@ -44,23 +45,23 @@ pub enum ApplicationEdit {
     },
 }
 
-/// The Application in `source` with `edit` made to it.
+/// `edit` made to `text`, the `[[xmip_applications]]` entry of the
+/// cluster's file ([`crate::section`]) that reads as the Application
+/// `document`. The caller reads the result back.
 ///
 /// # Errors
-/// A sentence, when the Application does not read, the edit names what it
-/// does not declare or declares twice, or its filter does not read.
-pub fn apply(source: &str, edit: &ApplicationEdit) -> Result<String, String> {
-    let document = parse_application(source)
-        .map_err(|error| format!("the Application must read before it is edited: {error}"))?;
-    let mut text = source
-        .parse::<DocumentMut>()
-        .map_err(|error| error.to_string())?;
-
+/// A sentence, when the edit names what the Application does not declare
+/// or declares twice, or its filter does not read.
+pub fn apply_to(
+    text: &mut Table,
+    document: &XmipApplication,
+    edit: &ApplicationEdit,
+) -> Result<(), String> {
     match edit {
         ApplicationEdit::AddReceiveLocation { name } => {
             let declared = document.receive_locations.iter().map(|e| e.name.as_str());
             add(
-                &mut text,
+                text,
                 "receive_locations",
                 "Receive Location",
                 name,
@@ -69,23 +70,16 @@ pub fn apply(source: &str, edit: &ApplicationEdit) -> Result<String, String> {
         }
         ApplicationEdit::AddXmipProcess { name } => {
             let declared = document.xmip_processes.iter().map(|e| e.name.as_str());
-            add(&mut text, "xmip_processes", "Xmip Process", name, declared)?;
+            add(text, "xmip_processes", "Xmip Process", name, declared)?;
         }
         ApplicationEdit::AddSendPort { name } => {
             let declared = document.send_ports.iter().map(|e| e.name.as_str());
-            add(&mut text, "send_ports", "Send Port", name, declared)?;
+            add(text, "send_ports", "Send Port", name, declared)?;
         }
         ApplicationEdit::AddSubscription { id, target } => {
-            let destination = destination(&document, target)?;
+            let destination = destination(document, target)?;
             let declared = document.subscriptions.iter().map(|s| s.id.as_str());
-            let table = entry(
-                &mut text,
-                "subscriptions",
-                "Subscription",
-                "id",
-                id,
-                declared,
-            )?;
+            let table = entry(text, "subscriptions", "Subscription", "id", id, declared)?;
             table["destination"] = value(inline(&destination));
             table["filter"] = value(Expression::everything().text());
         }
@@ -94,25 +88,21 @@ pub fn apply(source: &str, edit: &ApplicationEdit) -> Result<String, String> {
             filter: rows,
         } => {
             let filter = filter::expression(rows)?;
-            subscription_table(&mut text, &document, subscription)?["filter"] =
-                value(filter.text());
+            subscription_table(text, document, subscription)?["filter"] = value(filter.text());
         }
         ApplicationEdit::Connect {
             subscription,
             target,
         } => {
-            let destination = destination(&document, target)?;
-            subscription_table(&mut text, &document, subscription)?["destination"] =
+            let destination = destination(document, target)?;
+            subscription_table(text, document, subscription)?["destination"] =
                 value(inline(&destination));
         }
     }
-
-    let edited = text.to_string();
-    parse_application(&edited).map_err(|error| format!("the edit would not read: {error}"))?;
-    Ok(edited)
+    Ok(())
 }
 
-fn destination(document: &XmipApplicationDocument, target: &str) -> Result<Subscriber, String> {
+fn destination(document: &XmipApplication, target: &str) -> Result<Subscriber, String> {
     destination_of(document, target).ok_or_else(|| {
         format!(
             "'{target}' is not an Xmip Process, Send Port or Send Port Group the \
@@ -129,7 +119,7 @@ fn inline(destination: &Subscriber) -> toml_edit::Value {
 }
 
 fn add<'a>(
-    text: &mut DocumentMut,
+    text: &mut Table,
     list: &str,
     what: &str,
     name: &str,
@@ -141,7 +131,7 @@ fn add<'a>(
 /// A new table at the end of `list`, keyed `key = name`, when `name` is
 /// present and not yet declared.
 fn entry<'t, 'a>(
-    text: &'t mut DocumentMut,
+    text: &'t mut Table,
     list: &str,
     what: &str,
     key: &str,
@@ -175,8 +165,8 @@ fn entry<'t, 'a>(
 }
 
 fn subscription_table<'t>(
-    text: &'t mut DocumentMut,
-    document: &XmipApplicationDocument,
+    text: &'t mut Table,
+    document: &XmipApplication,
     id: &str,
 ) -> Result<&'t mut Table, String> {
     let index = document
@@ -197,13 +187,32 @@ fn subscription_table<'t>(
 mod tests {
     use super::*;
     use crate::filter::Join;
+    use crate::parse_application;
+    use toml_edit::DocumentMut;
+
+    /// The section `source` with `edit` made to it, read back.
+    fn apply(source: &str, edit: &ApplicationEdit) -> Result<String, String> {
+        let document = parse_application(source)?;
+        let mut text = source
+            .parse::<DocumentMut>()
+            .map_err(|error| error.to_string())?;
+        apply_to(text.as_table_mut(), &document, edit)?;
+        let edited = text.to_string();
+        parse_application(&edited)?;
+        Ok(edited)
+    }
 
     const ORDERS: &str = r#"# The orders integration, drawn in the designer.
-[application]
+name = "Orders"
+
+[[receive_ports]]
 name = "Orders"
 
 [[receive_locations]]
 name = "OrdersIn"
+receive_port = "Orders"
+interaction = "data-transfer"
+depth = "light"
 
 [[xmip_processes]]
 name = "Approval"

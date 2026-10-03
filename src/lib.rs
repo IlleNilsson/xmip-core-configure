@@ -12,34 +12,48 @@
 //! and `transport` have no default, so a document without them is refused,
 //! not completed.
 //!
-//! The second document is the Xmip Application (ADR-0064): an integration as
-//! a developer designs it — its Receive Locations, Subscriptions, Xmip
-//! Processes and Send Ports, with no environment in it — read by
-//! [`parse_application`] and checked by [`application_problems`]. A node's
-//! configuration *binds* Applications (`[[applications]]`, [`binding`]) and
-//! [`bind`] joins the two into what one node runs. The designer's view of an
-//! Application — its [`routes`], a filter's structure ([`filter`]) and the
-//! edits it makes ([`edit`]) — is here too, because what the design means is
-//! this crate's to say; the language server reaches it through the runtime's
-//! library.
+//! An Xmip Application (ADR-0064) — an integration as a developer designs
+//! it: its Receive Ports and Locations, Subscriptions, Xmip Processes and
+//! Send Ports, with no environment in it — is a section of the cluster's
+//! one `xmip.toml`, `[[xmip_applications]]` ([`section`]), read by
+//! [`parse_application`]. A node's configuration *binds* the sections it
+//! runs (`[[applications]]`, [`binding`]) and [`bind`] joins the two into
+//! what one node runs. The designer's view of an Application — its
+//! [`routes`], a filter's structure ([`filter`]) and the edits it makes
+//! ([`edit`]) — is here too, and so is the designer's view of the cluster's
+//! one `xmip.toml`, artifact by artifact ([`views`]), and the edits it makes
+//! there ([`view_edit`]), because what the design means is this crate's to
+//! say; the language server reaches it through the runtime's library.
 
 pub mod application;
 pub mod binding;
+pub mod cluster;
 pub mod database;
 pub mod edit;
 pub mod entry;
+pub mod field;
 pub mod filter;
+#[cfg(any(test, feature = "test-support"))]
+pub mod fixture;
+pub mod port;
 pub mod routes;
+pub mod section;
 pub mod settings;
 pub mod storage;
 pub mod store;
+pub mod view_edit;
+pub mod views;
 
-pub use application::{
-    ApplicationHeader, DesignedElement, SendPortGroup, XmipApplicationDocument,
-    application_problems, parse_application,
+pub use application::{DesignedElement, SendPortGroup, XmipApplication, parse_application};
+pub use binding::{
+    ApplicationBinding, Bound, BoundLocation, BoundReceivePort, bind, binding_problems,
 };
-pub use binding::{ApplicationBinding, Bound, BoundLocation, bind, binding_problems};
+pub use cluster::{is_cluster, slice, slices};
 pub use entry::subscription_entry;
+pub use port::{
+    Depth, DesignedReceiveLocation, DesignedSendPort, Failover, Interaction, OnFailure, Retry,
+};
+pub use section::ApplicationSection;
 pub use settings::{Declarations, LocationSettings, location_problems};
 pub use storage::StorageConfiguration;
 pub use store::StoreConfiguration;
@@ -49,8 +63,8 @@ use std::path::{Path, PathBuf};
 use abi::{ExtensionManifest, ModuleManifest};
 use serde::{Deserialize, Serialize};
 
-/// The words every problem opens with that is the TOML reader's, for either
-/// document: a surface shows it whole, because its message spans lines.
+/// The words every problem opens with that is the TOML reader's: a surface
+/// shows it whole, because its message spans lines.
 pub const PARSE_FAILED: &str = "configuration parse failed";
 
 /// One node's configuration, as the TOML on disk says it (ADR-0031).
@@ -78,9 +92,15 @@ pub struct XmipConfigurationDocument {
     /// side of what it declares (ADR-0064). Empty when the node binds none.
     #[serde(default)]
     pub applications: Vec<ApplicationBinding>,
-    /// Where the node keeps its runtime store and the key store sealing it
-    /// ([`store`], ADR-0018 amendment 2026-09-30). Absent, the installed
-    /// layout's.
+    /// The Xmip Applications held as sections of the cluster's `xmip.toml`,
+    /// `[[xmip_applications]]` ([`section`], ADR-0064 amendment
+    /// 2026-10-03): those this node's bindings name, as the slice gives
+    /// them. A binding binds the section of its name.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub xmip_applications: Vec<ApplicationSection>,
+    /// The key store an embedded Storage node's records are sealed under
+    /// ([`store`], ADR-0018 amendments 2026-09-30 and 2026-10-03). Absent,
+    /// the platform's, keeping its keys in the installed layout's place.
     #[serde(default, skip_serializing_if = "StoreConfiguration::is_default")]
     pub store: StoreConfiguration,
     /// The Storage nodes this node reaches Xmip Storage at, round robin
@@ -88,26 +108,36 @@ pub struct XmipConfigurationDocument {
     /// server a Storage node is in front of.
     #[serde(default, skip_serializing_if = "StorageConfiguration::is_default")]
     pub storage: StorageConfiguration,
+    /// `[tuning]`: every outward and hardware assumption the node runs by —
+    /// the TCP segment, the segments a chunk holds, the receive pool, the
+    /// Storage client's timeout and pass-over (ADR-0031, amendment
+    /// 2026-10-03). Which keys there are, their kinds, bounds and defaults
+    /// are the runtime's declaration, which reads the table as a
+    /// technology reads a Location's settings; empty, every default.
+    #[serde(default, skip_serializing_if = "LocationSettings::is_empty")]
+    pub tuning: LocationSettings,
 }
 
-/// Which of the two documents a text is. An Xmip Application opens with its
-/// `[application]` table; everything else is read as a node's configuration,
-/// whose reading says what is wrong with it.
+/// Which of the two documents a text is. A cluster's `xmip.toml` declares
+/// its nodes in `[nodes]` ([`cluster`]); everything else is read as a
+/// node's configuration, whose reading says what is wrong with it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DocumentKind {
     /// A node's configuration, [`XmipConfigurationDocument`].
     Node,
-    /// An Xmip Application, [`XmipApplicationDocument`].
-    Application,
+    /// A cluster's `xmip.toml`, each node's document sliced from it
+    /// ([`slice`]).
+    Cluster,
 }
 
 /// Which document `source` is, by the table it holds: never by its file's
 /// name.
 #[must_use]
 pub fn document_kind(source: &str) -> DocumentKind {
-    match source.parse::<toml::Table>() {
-        Ok(table) if table.contains_key("application") => DocumentKind::Application,
-        _ => DocumentKind::Node,
+    if is_cluster(source) {
+        DocumentKind::Cluster
+    } else {
+        DocumentKind::Node
     }
 }
 
@@ -123,9 +153,9 @@ pub struct ServiceConfiguration {
     /// (ADR-0045, 2026-09-10).
     #[serde(default)]
     pub online: bool,
-    /// The node's data directory: where its runtime store, its keys and the
-    /// orders an operator leaves for it are kept unless `[store]` says
-    /// otherwise. Relative to the configuration file; absent, `../data`,
+    /// The node's data directory: where its embedded Storage node, its keys
+    /// and the orders an operator leaves for it are kept, the keys unless
+    /// `[store]` says otherwise. Relative to the configuration file; absent, `../data`,
     /// which in the installed layout (ADR-0015 clause 10) is the `data`
     /// beside the `config` the file is in.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -265,9 +295,18 @@ impl Accept {
 /// words, line and column included.
 ///
 /// # Errors
-/// When the text is not TOML, or lacks a key the document requires.
+/// When the text is not TOML, lacks a key the document requires, or is a
+/// cluster's `xmip.toml`, which a node reads only as its slice.
 pub fn parse_toml(source: &str) -> Result<XmipConfigurationDocument, String> {
-    toml::from_str(source).map_err(|error| error.to_string())
+    let document = toml::from_str(source).map_err(|error: toml::de::Error| error.to_string())?;
+    if is_cluster(source) {
+        return Err(
+            "this is a cluster's xmip.toml, which declares [nodes]; a node reads the slice \
+             deployment writes it (configure::slice)"
+                .to_string(),
+        );
+    }
+    Ok(document)
 }
 
 #[cfg(test)]
@@ -336,6 +375,14 @@ extensions = []
             parse_toml(&toml::to_string(&named).expect("writes")).expect("reads back"),
             named
         );
+    }
+
+    #[test]
+    fn a_clusters_file_is_told_apart_and_not_read_as_a_node() {
+        let node = crate::fixture::test_cluster().node(0).name.clone();
+        let cluster = format!("{HEAD}[nodes.{node}]\n");
+        assert_eq!(super::document_kind(&cluster), super::DocumentKind::Cluster);
+        assert!(parse_toml(&cluster).expect_err("refused").contains("slice"));
     }
 
     #[test]
