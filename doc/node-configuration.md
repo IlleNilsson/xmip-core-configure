@@ -244,6 +244,13 @@ carries, and what each declares, through
 `xmip_technology_catalogue_v1` (`xmip_operate.h` section 12), which the
 VS Code extension's completion and hover read.
 
+The `contract` a Location names is one of five steps every Receive and Send
+Port and Location may configure — Prepare, Contract with `validate`,
+Transform, and Promote on receive or Demote on send — the Location in its
+Party's or endpoint's format, the Port in its one format (ADR-0031,
+amendment 2026-10-05; `runtime-model.md` section 20 has the keys). Not
+read yet.
+
 ### What a Receive Location accepts
 
 A Receive Location declares the **closed set** of mechanisms it
