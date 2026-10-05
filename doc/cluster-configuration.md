@@ -113,6 +113,11 @@ writes the node `node` its configuration document, which
 - `configure::cluster::nodes` names the nodes a cluster's file declares, and
   `configure::slices` slices every one.
 
+**Only this file is edited.** A node's `xmip-node.toml` is its slice, written
+by desired state and never edited; one changed by hand breaks the
+configuration rules and is written over at the next deployment (ADR-0031,
+amendment 2026-10-05).
+
 A node never reads the cluster's file itself: `parse_toml` refuses a
 document holding `[nodes]`, saying it is a cluster's to slice.
 
@@ -125,6 +130,14 @@ document holding `[nodes]`, saying it is a cluster's to slice.
   output as its `xmip-node.toml`. Neither takes the file apart itself; the
   estate root's `cargo test --test deploy` renders both and reads what they
   write.
+- **The Operation Desktop**, when its Configure page saves the cluster's
+  file (ADR-0031, amendment 2026-10-05: *the cluster TOML file is sliced
+  into node TOML files and shipped to each node on save*): through the
+  runtime's `xmip_cluster_slices_v1` (`xmip_operate.h` section 10), node by
+  node, each slice written as `<node>/xmip-node.toml` where the desktop
+  keeps them. The node the desktop starts reads its slice there; another
+  node's is written and not shipped, since no Xmip path yet puts a file on
+  another node — desired state, above, slices it on the node.
 - **Validation**: `xmip_validate_v1` tells a cluster's file apart by its
   `[nodes]` (`configure::document_kind`) and validates it node by node,
   each problem opening with its node's location,
@@ -136,8 +149,9 @@ document holding `[nodes]`, saying it is a cluster's to slice.
 ## The designer's views of it
 
 The VS Code designer is a view of the file's own sections, artifact by
-artifact (ADR-0064, amendment 2026-10-03), and what it shows and does is
-this crate's, reached through the runtime's `xmip_operate.h` section 10:
+artifact (ADR-0064, amendment 2026-10-03), and so is the Operation
+Desktop's Configure page; what both show and do is this crate's, reached
+through the runtime's `xmip_operate.h` section 10:
 
 - **`views::Views::of`** (`src/views.rs`) answers one view per kind, in
   this order: Cluster (`[service]`, `[tuning]`, `[storage]`, `[store]`),
