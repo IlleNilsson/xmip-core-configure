@@ -9,8 +9,27 @@ one ([`cluster-configuration.md`](cluster-configuration.md); ADR-0031,
 amendment 2026-10-03).
 
 
-A process is **configuration, not code**. There is no repository and nothing to
-compile — you describe a node's work, and the runtime enacts it.
+An Xmip Process passes through four things, kept apart here because only
+two of them are built:
+
+1. **Declaration** — `[[xmip_processes]]` in this document, or an Xmip
+   Application's Xmip Process bound by it: its name, whether it starts, its
+   execution style and the Modules it needs. No repository is created.
+2. **Compilation** — what a developer designs in VS Code is compiled at
+   design time into a native Module the node loads; the node never
+   interprets a design (ADR-0066).
+3. **Materialization** — the Xmip Service validates every declaration as the
+   node starts and plans it into the execution tree, refusing what names a
+   Module or Extension it cannot have, and its Xmip Host Services start it.
+4. **Execution** — a Subscription opens a Journey to it, and its Stages run,
+   wait and resume with their state in the Ledger (`runtime-model.md`
+   section 22).
+
+Declaration and the validation and planning of materialization are
+[built, in the assembled service](../../../../doc/architecture/estate-map.md#process-declaration): a node
+publishes each Xmip Process as planned, not started. Compilation, starting
+one and execution are [decided, not built](../../../../doc/architecture/estate-map.md#process-execution): a
+Journey to an Xmip Process ends saying no runtime runs it yet.
 
 ### What a process is made of
 
@@ -39,26 +58,29 @@ From `module/platform/configure/src/lib.rs`:
 - **`ApplicationBinding`** — `[[applications]]`, an Xmip Application the node
   runs and the environment's side of it; *Binding an Xmip Application* below.
 
-A process is the flow **Receive Location → process (and subprocesses) → Send
+A node's flow is **Receive Location → Xmip Process (and Subprocesses) → Send
 Location**, referencing transport and contract *modules* by name.
 
 ### Two ways to author it
 
-1. **Xmip Operations (the desktop app)** — the intended path. Navigate the tree,
-   add a process, set its execution style, add Receive and Send Locations that
-   point at your transport and contract modules. The operator observes, reasons,
-   then tweaks or adds a node.
-2. **The configuration TOML directly** — the same document Xmip Operations reads
-   and writes. Minimal shape:
+1. **The Operation Desktop** — the intended path. Navigate the tree, add an
+   Xmip Process, set its execution style, add Receive and Send Locations
+   that point at your transport and contract modules. The operator
+   observes, reasons, then tweaks or adds a node.
+2. **The configuration TOML directly** — the same document the Operation
+   Desktop reads and writes. Minimal shape, a node that takes files from
+   one folder and puts them in another:
    ```toml
+   # a complete node file
    [service]
-   name = "…"; cluster_name = "…"; node_name = "…"
+   name = "xmip-<node>"
+   cluster_name = "<cluster>"
+   node_name = "<node>"
 
    [[xmip_processes]]
    name = "invoices"
    start = true
    execution_style = "sequential"      # or "parallel" / "concurrent"
-   required_modules = ["xmip-core-contract-csv"]
 
    [[receive_locations]]
    name = "drop"
@@ -69,9 +91,12 @@ Location**, referencing transport and contract *modules* by name.
    [[send_locations]]
    name = "forward"
    start = true
-   transport = "xmip-core-transport-<name>"
-   address = "…"
+   transport = "xmip-core-transport-file"
+   address = "/var/xmip/out/invoices"
    ```
+   `# a complete node file` marks it as a whole document:
+   `test/Example.Test.ps1` at the estate root has the runtime validate every
+   block so marked, in this document and every other.
 
 ### The key store a node's records are sealed under
 
@@ -87,6 +112,7 @@ key store, and every key may be left out (`src/store.rs`, ADR-0018
 amendments 2026-09-30 and 2026-10-03):
 
 ```toml
+# a complete node file
 [service]
 name = "xmip-<node>"
 cluster_name = "<cluster>"
@@ -131,6 +157,10 @@ tcp_segment = 1460                          # bytes, 536 to 9000
 segments = 44                               # TCP segments a chunk holds, 1 to 1024
 receive_threads_per_hardware_thread = 2     # 1 to 64
 receive_idle = "1m"                         # a receive thread's idle time
+send_threads_per_hardware_thread = 2        # 1 to 64
+send_idle = "1m"                            # a send thread's idle time
+send_lease = "30s"                          # how long a claim on a Journey holds
+send_scan = "1s"                            # how often the send queues are read
 storage_timeout = "5s"                      # each connect and read to a Storage node
 storage_pass_over = "5s"                    # how long one that did not answer waits its turn
 ```
@@ -142,9 +172,17 @@ storage_pass_over = "5s"                    # how long one that did not answer w
   Receive Location's pool grows to this many threads per hardware thread
   the machine runs, and a thread with nothing to do ends after its idle
   time.
+- **`send_threads_per_hardware_thread`** and **`send_idle`**: the same for
+  the node's one Send pool (`runtime-model.md` section 3).
+- **`send_lease`** and **`send_scan`**: how long a claim on a Journey holds
+  before it lapses unless renewed, and how often the queues of the Send
+  Ports this node sends are read for unclaimed Journeys (`runtime-model.md`
+  section 10).
 - **`storage_timeout`** and **`storage_pass_over`**: what bounds each
   connect to and read from a Storage node, and how long one that did not
-  answer is asked only after the rest.
+  answer is asked only after the rest. Read and checked, and used by
+  nothing `xmip-service` runs: it reaches no Storage node of its own
+  ([built, not in the assembled service](../../../../doc/architecture/estate-map.md#storage-nodes)).
 
 Durations are a whole number and `ms`, `s`, `m` or `h`, above nothing and
 at most an hour. Which keys there are, their kinds, bounds and defaults are
@@ -249,7 +287,8 @@ Port and Location may configure — Prepare, Contract with `validate`,
 Transform, and Promote on receive or Demote on send — the Location in its
 Party's or endpoint's format, the Port in its one format (ADR-0031,
 amendment 2026-10-05; `runtime-model.md` section 20 has the keys). Not
-read yet.
+read yet: a node refuses to start a Location that names a `contract`
+([decided, not built](../../../../doc/architecture/estate-map.md#arrival-validation)).
 
 ### What a Receive Location accepts
 
@@ -358,7 +397,7 @@ compile is refused as it starts, not at its first Message (ADR-0066).
 
 `configure::parse_toml` reads the document, and it is the only reading of it:
 the runtime's `xmip_validate_v1` validates through it, and every surface — the
-desktop editor, the language server, `xmip validate`,
+desktop editor, the language server, `xmip-cli validate`,
 `Test-XmipNodeConfiguration` — asks the runtime rather than judging for
 itself. The desktop editor saves a half-built document so you can keep work in
 progress, and shows the runtime's verdict on it.

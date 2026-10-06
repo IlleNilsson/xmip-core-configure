@@ -143,8 +143,25 @@ document holding `[nodes]`, saying it is a cluster's to slice.
   each problem opening with its node's location,
   `xmip:///<cluster>/node/<name>` (ADR-0027 clause 4). Every surface that
   validates a text through it — the desktop editor, the language server,
-  `xmip validate`, `Test-XmipNodeConfiguration` — is answered for a
+  `xmip-cli validate`, `Test-XmipNodeConfiguration` — is answered for a
   cluster's file the same way.
+
+## Saving is not delivering
+
+Five things happen between an edit and a node running by it, and they are
+different acts with different states (ADR-0031, amendments 2026-10-01 and
+2026-10-05; open problem 31):
+
+| Act | What it is | State |
+| --- | --- | --- |
+| **Saving** | the cluster's `xmip.toml` written, validated by the runtime, and audited | [built, in the assembled service](../../../../doc/architecture/estate-map.md#configuration-saving) |
+| **Slicing** | the file taken apart into each node's `xmip-node.toml`, by the desktop or by desired state | [built, in the assembled service](../../../../doc/architecture/estate-map.md#configuration-saving) |
+| **Delivery** | a slice put on its node, over Xmip's own transport | [decided, not built](../../../../doc/architecture/estate-map.md#configuration-delivery): desired state places the cluster's file and slices it on the node; the desktop delivers only to the node it starts itself |
+| **Acceptance** | the node validating what it was given and answering accepted or refused | [decided, not built](../../../../doc/architecture/estate-map.md#configuration-delivery) |
+| **Activation** | the node running by it: a changed slice takes effect when what reads it starts again, never mid-flight | a whole node's restart is [built, in the assembled service](../../../../doc/architecture/estate-map.md#configuration-saving); restarting only the threads or Host Services that changed is [decided, not built](../../../../doc/architecture/estate-map.md#configuration-delivery) |
+
+A save that says *OK* has saved and sliced; it has not delivered, been
+accepted or been activated anywhere but on the desktop's own node.
 
 ## The designer's views of it
 
