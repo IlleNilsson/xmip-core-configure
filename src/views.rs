@@ -92,8 +92,8 @@ pub const CLUSTER_TABLES: [&str; 4] = ["service", "tuning", "storage", "store"];
 
 const UNDEFINED: &str = "The configuration does not define this yet: xmip-core-configure reads \
                          no section for it, so there is nothing here to edit.";
-const PROCESS: &str = "An Xmip Process's flow is not defined by the configuration yet; what is \
-                       here is the [[xmip_processes]] entries a node runs and an Application \
+const PROCESS: &str = "A Work Process's flow is not defined by the configuration yet; what is \
+                       here is the [[work_processes]] entries a node runs and an Application \
                        routes to.";
 const ROUTE: &str = "Each Xmip Application held in this file, with its routes, and the \
                      bindings that run it.";
@@ -136,7 +136,11 @@ const KINDS: [(&str, &str, Reads); 13] = [
         "Transformation",
         Reads::Undefined(UNDEFINED),
     ),
-    ("process", "Process", Reads::List("xmip_processes")),
+    (
+        "work-process",
+        "Work Process",
+        Reads::List("work_processes"),
+    ),
 ];
 
 /// A table that holds lists: where it is, whose, and what it is.
@@ -190,7 +194,7 @@ fn view(
         }
         Reads::List(list) => {
             let (entries, places) = listed(list, containers);
-            let note = (*list == "xmip_processes").then_some(PROCESS);
+            let note = (*list == "work_processes").then_some(PROCESS);
             (true, note, entries, places)
         }
         Reads::Routes => routes(containers),
@@ -339,14 +343,14 @@ fn holds(holder: Holder, list: &str) -> bool {
         Holder::Node => &[
             "receive_locations",
             "send_locations",
-            "xmip_processes",
+            "work_processes",
             "applications",
         ],
         Holder::Binding => &["receive_locations", "send_ports"],
         Holder::Application => &[
             "receive_ports",
             "receive_locations",
-            "xmip_processes",
+            "work_processes",
             "send_ports",
             "send_port_groups",
             "subscriptions",
@@ -478,7 +482,7 @@ receive_idle = "30s"
                 "Demote",
                 "Route",
                 "Transformation",
-                "Process",
+                "Work Process",
             ]
         );
         let undefined: Vec<_> = views
@@ -498,7 +502,7 @@ receive_idle = "30s"
                 .filter(|v| !v.defined)
                 .all(|v| v.note.is_some())
         );
-        assert!(view(&views, "process").note.is_some());
+        assert!(view(&views, "work-process").note.is_some());
         assert_eq!(views.cluster, test_cluster().name);
     }
 

@@ -97,7 +97,7 @@ writes the node `node` its configuration document, which
 - **The shared sections and the node's own, the node's value winning where
   both say one.** Tables merge key by key. An array of tables whose every
   entry has a `name` — `[[receive_locations]]`, `[[send_locations]]`,
-  `[[xmip_processes]]`, `[[applications]]` — merges entry by entry on the
+  `[[work_processes]]`, `[[applications]]` — merges entry by entry on the
   name: an entry the node names that the cluster has is merged into it, one
   the cluster does not have is added. Any other value the node gives
   replaces the cluster's.
@@ -183,9 +183,9 @@ through the runtime's `xmip_operate.h` section 10:
   bindings are Route entries too. Receive Port, Prepare, Promote, Demote
   and Transformation are answered as not defined, with a sentence saying
   so: `[[receive_ports]]` is recorded in `runtime-model.md` and not read
-  here yet, and the others have no section. Process lists the
-  `[[xmip_processes]]` entries and says that a Process's flow is not
-  defined yet.
+  here yet, and the others have no section. Work Process lists the
+  `[[work_processes]]` entries and says that a Work Process's flow is
+  not defined yet.
 - **`view_edit::apply`** (`src/view_edit.rs`) makes one edit in place —
   set or remove a value, add or remove an entry of a list, declare a node,
   or one of an Application's own edits (`edit.rs`) on its section — keeping

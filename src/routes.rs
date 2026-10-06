@@ -2,7 +2,7 @@
 //! view draws (ADR-0064): what is there, what connects to what, and what a
 //! Subscription may be connected to.
 //!
-//! Nodes are the Application's Receive Locations, Subscriptions, Xmip
+//! Nodes are the Application's Receive Locations, Subscriptions, Work
 //! Processes, Send Port Groups and Send Ports; each carries its place along
 //! the route, left to right, so a designer lays them out without knowing
 //! what any of them is. Edges are what the runtime does: every Receive
@@ -37,7 +37,7 @@ pub struct Routes {
 pub struct RouteNode {
     /// Unique in the graph; what an edit names it by.
     pub id: String,
-    /// `receive-location`, `subscription`, `xmip-process`, `send-port-group`
+    /// `receive-location`, `subscription`, `work-process`, `send-port-group`
     /// or `send-port`.
     pub kind: &'static str,
     pub name: String,
@@ -65,7 +65,7 @@ pub struct RouteEdge {
 
 const RECEIVE_LOCATION: &str = "receive-location";
 const SUBSCRIPTION: &str = "subscription";
-const XMIP_PROCESS: &str = "xmip-process";
+const WORK_PROCESS: &str = "work-process";
 const SEND_PORT_GROUP: &str = "send-port-group";
 const SEND_PORT: &str = "send-port";
 
@@ -85,7 +85,7 @@ pub fn subscription_id(id: &str) -> String {
 #[must_use]
 pub fn destination_id(destination: &Subscriber) -> String {
     let kind = match destination {
-        Subscriber::Process(_) => XMIP_PROCESS,
+        Subscriber::WorkProcess(_) => WORK_PROCESS,
         Subscriber::SendPort(_) => SEND_PORT,
         Subscriber::SendGroup(_) => SEND_PORT_GROUP,
     };
@@ -98,7 +98,7 @@ pub fn destination_id(destination: &Subscriber) -> String {
 pub fn destination_of(document: &XmipApplication, id: &str) -> Option<Subscriber> {
     let (kind, name) = id.split_once(':')?;
     let destination = match kind {
-        XMIP_PROCESS => Subscriber::Process(name.to_string()),
+        WORK_PROCESS => Subscriber::WorkProcess(name.to_string()),
         SEND_PORT => Subscriber::SendPort(name.to_string()),
         SEND_PORT_GROUP => Subscriber::SendGroup(name.to_string()),
         _ => return None,
@@ -146,8 +146,8 @@ impl Routes {
                 kind: "routes",
             });
         }
-        for process in &document.xmip_processes {
-            nodes.push(plain(XMIP_PROCESS, &process.name, 2, true));
+        for process in &document.work_processes {
+            nodes.push(plain(WORK_PROCESS, &process.name, 2, true));
         }
         for group in &document.send_port_groups {
             nodes.push(plain(SEND_PORT_GROUP, &group.name, 2, true));
@@ -199,7 +199,7 @@ receive_port = "Orders"
 interaction = "data-transfer"
 depth = "light"
 
-[[xmip_processes]]
+[[work_processes]]
 name = "Approval"
 
 [[send_ports]]
@@ -239,7 +239,7 @@ filter = "true"
                 "receive-location:OrdersIn",
                 "subscription:billing",
                 "subscription:books",
-                "xmip-process:Approval",
+                "work-process:Approval",
                 "send-port-group:Books",
                 "send-port:Billing",
                 "send-port:Ledger",
@@ -273,8 +273,8 @@ filter = "true"
         let document = parse_application(ORDERS).expect("parses");
 
         assert_eq!(
-            destination_of(&document, "xmip-process:Approval"),
-            Some(Subscriber::Process("Approval".to_string()))
+            destination_of(&document, "work-process:Approval"),
+            Some(Subscriber::WorkProcess("Approval".to_string()))
         );
         assert_eq!(destination_of(&document, "send-port:Audit"), None);
         assert_eq!(destination_of(&document, "receive-location:OrdersIn"), None);

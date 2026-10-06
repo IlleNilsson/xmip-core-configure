@@ -25,8 +25,8 @@ use crate::routes::destination_of;
 pub enum ApplicationEdit {
     /// Declare a Receive Location.
     AddReceiveLocation { name: String },
-    /// Declare an Xmip Process a Subscription may route to.
-    AddXmipProcess { name: String },
+    /// Declare a Work Process a Subscription may route to.
+    AddWorkProcess { name: String },
     /// Declare a Send Port.
     AddSendPort { name: String },
     /// Add a Subscription routing everything published to `target`, a
@@ -68,9 +68,9 @@ pub fn apply_to(
                 declared,
             )?;
         }
-        ApplicationEdit::AddXmipProcess { name } => {
-            let declared = document.xmip_processes.iter().map(|e| e.name.as_str());
-            add(text, "xmip_processes", "Xmip Process", name, declared)?;
+        ApplicationEdit::AddWorkProcess { name } => {
+            let declared = document.work_processes.iter().map(|e| e.name.as_str());
+            add(text, "work_processes", "Work Process", name, declared)?;
         }
         ApplicationEdit::AddSendPort { name } => {
             let declared = document.send_ports.iter().map(|e| e.name.as_str());
@@ -105,7 +105,7 @@ pub fn apply_to(
 fn destination(document: &XmipApplication, target: &str) -> Result<Subscriber, String> {
     destination_of(document, target).ok_or_else(|| {
         format!(
-            "'{target}' is not an Xmip Process, Send Port or Send Port Group the \
+            "'{target}' is not a Work Process, Send Port or Send Port Group the \
              Application declares"
         )
     })
@@ -214,7 +214,7 @@ receive_port = "Orders"
 interaction = "data-transfer"
 depth = "light"
 
-[[xmip_processes]]
+[[work_processes]]
 name = "Approval"
 
 [[send_ports]]
@@ -235,14 +235,14 @@ filter = "MessageType='Order'"
     fn adding_a_subscription_routes_everything_to_its_target_and_keeps_the_rest() {
         let edited = edit(&ApplicationEdit::AddSubscription {
             id: "approval".to_string(),
-            target: "xmip-process:Approval".to_string(),
+            target: "work-process:Approval".to_string(),
         });
 
         assert!(edited.starts_with(ORDERS), "{edited}");
         assert_eq!(
             &edited[ORDERS.len()..],
-            "\n[[subscriptions]]\nid = \"approval\"\ndestination = { process = \"Approval\" }\n\
-             filter = \"true\"\n"
+            "\n[[subscriptions]]\nid = \"approval\"\n\
+             destination = { work-process = \"Approval\" }\nfilter = \"true\"\n"
         );
     }
 
@@ -272,12 +272,15 @@ filter = "MessageType='Order'"
     fn connecting_changes_the_destination_only() {
         let edited = edit(&ApplicationEdit::Connect {
             subscription: "billing".to_string(),
-            target: "xmip-process:Approval".to_string(),
+            target: "work-process:Approval".to_string(),
         });
 
         assert_eq!(
             edited,
-            ORDERS.replace("{ send-port = \"Billing\" }", "{ process = \"Approval\" }")
+            ORDERS.replace(
+                "{ send-port = \"Billing\" }",
+                "{ work-process = \"Approval\" }"
+            )
         );
     }
 
@@ -307,7 +310,7 @@ filter = "MessageType='Order'"
                 subscription: "billing".to_string(),
                 target: "send-port:Audit".to_string(),
             }),
-            "'send-port:Audit' is not an Xmip Process, Send Port or Send Port Group the \
+            "'send-port:Audit' is not a Work Process, Send Port or Send Port Group the \
              Application declares"
         );
         assert_eq!(

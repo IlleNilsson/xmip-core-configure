@@ -9,11 +9,11 @@ one ([`cluster-configuration.md`](cluster-configuration.md); ADR-0031,
 amendment 2026-10-03).
 
 
-An Xmip Process passes through four things, kept apart here because only
+A Work Process passes through four things, kept apart here because only
 two of them are built:
 
-1. **Declaration** — `[[xmip_processes]]` in this document, or an Xmip
-   Application's Xmip Process bound by it: its name, whether it starts, its
+1. **Declaration** — `[[work_processes]]` in this document, or an Xmip
+   Application's Work Process bound by it: its name, whether it starts, its
    execution style and the Modules it needs. No repository is created.
 2. **Compilation** — what a developer designs in VS Code is compiled at
    design time into a native Module the node loads; the node never
@@ -27,19 +27,18 @@ two of them are built:
 
 Declaration and the validation and planning of materialization are
 [built, in the assembled service](../../../../doc/architecture/estate-map.md#process-declaration): a node
-publishes each Xmip Process as planned, not started. Compilation, starting
+publishes each Work Process as planned, not started. Compilation, starting
 one and execution are [decided, not built](../../../../doc/architecture/estate-map.md#process-execution): a
-Journey to an Xmip Process ends saying no runtime runs it yet.
+Journey to a Work Process ends saying no runtime runs it yet.
 
-### What a process is made of
+### What a Work Process is made of
 
 From `module/platform/configure/src/lib.rs`:
 
-- **`XmipProcessConfiguration`** — `name`, `start`, `execution_style`,
-  `required_modules`, `xmip_subprocesses`, `extensions`. The last three
-  default to empty when omitted, as the document's own lists do, and so do a
-  Subprocess's `required_modules` and `extensions` (ADR-0031, amendment
-  2026-09-24); `name` and `start` have no default.
+- **`WorkProcessConfiguration`** — `name`, `start`, `execution_style`,
+  `required_modules`, `extensions`. The last two default to empty when
+  omitted, as the document's own lists do (ADR-0031, amendment 2026-09-24);
+  `name` and `start` have no default.
 - **`ExecutionStyle`** — `sequential` (the default), `parallel` or `concurrent`,
   as `doc/architecture/runtime-model.md` section 3, *Execution style*, defines
   them; this document does not redefine them. It is the lever an operator raises
@@ -58,13 +57,12 @@ From `module/platform/configure/src/lib.rs`:
 - **`ApplicationBinding`** — `[[applications]]`, an Xmip Application the node
   runs and the environment's side of it; *Binding an Xmip Application* below.
 
-A node's flow is **Receive Location → Xmip Process (and Subprocesses) → Send
-Location**, referencing transport and contract *modules* by name.
+A node's flow is **Receive Location → Work Process → Send Location**, referencing transport and contract *modules* by name.
 
 ### Two ways to author it
 
-1. **The Operation Desktop** — the intended path. Navigate the tree, add an
-   Xmip Process, set its execution style, add Receive and Send Locations
+1. **The Operation Desktop** — the intended path. Navigate the tree, add a
+   Work Process, set its execution style, add Receive and Send Locations
    that point at your transport and contract modules. The operator
    observes, reasons, then tweaks or adds a node.
 2. **The configuration TOML directly** — the same document the Operation
@@ -77,7 +75,7 @@ Location**, referencing transport and contract *modules* by name.
    cluster_name = "<cluster>"
    node_name = "<node>"
 
-   [[xmip_processes]]
+   [[work_processes]]
    name = "invoices"
    start = true
    execution_style = "sequential"      # or "parallel" / "concurrent"

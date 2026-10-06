@@ -5,7 +5,7 @@
 //! is its one reading.
 //!
 //! It holds the design and nothing of an environment: its Receive Ports and
-//! the Receive Locations at them, its Xmip Processes and Send Ports by name
+//! the Receive Locations at them, its Work Processes and Send Ports by name
 //! with the settings the runtime takes from each ([`crate::port`]), the Send
 //! Port Groups that gather Send Ports, and its Subscriptions — each
 //! `route`'s own [`Subscription`], a filter — one line of Xmip's expression
@@ -60,10 +60,10 @@ pub struct XmipApplication {
     /// gives each its transport, address and node.
     #[serde(default)]
     pub receive_locations: Vec<DesignedReceiveLocation>,
-    /// The Xmip Processes a Subscription may route to. A name today; the
+    /// The Work Processes a Subscription may route to. A name today; the
     /// flow is the process designer's, after the vocabulary (ADR-0064 clause 1).
     #[serde(default)]
-    pub xmip_processes: Vec<DesignedElement>,
+    pub work_processes: Vec<DesignedElement>,
     /// Where Messages leave, each with its policy; the binding gives each
     /// its Location.
     #[serde(default)]
@@ -76,7 +76,7 @@ pub struct XmipApplication {
     pub subscriptions: Vec<Subscription>,
 }
 
-/// A Receive Port or an Xmip Process as designed: a name, and nothing an
+/// A Receive Port or a Work Process as designed: a name, and nothing an
 /// environment decides.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -99,7 +99,7 @@ impl XmipApplication {
     pub fn declares(&self, destination: &Subscriber) -> bool {
         let name = destination.name();
         match destination {
-            Subscriber::Process(_) => self.xmip_processes.iter().any(|p| p.name == name),
+            Subscriber::WorkProcess(_) => self.work_processes.iter().any(|p| p.name == name),
             Subscriber::SendPort(_) => self.declares_send_port(name),
             Subscriber::SendGroup(_) => self.send_port_groups.iter().any(|g| g.name == name),
         }
@@ -132,7 +132,7 @@ impl XmipApplication {
                     .map(|l| l.name.clone())
                     .collect(),
             ),
-            ("Xmip Process", names(&self.xmip_processes)),
+            ("Work Process", names(&self.work_processes)),
             (
                 "Send Port",
                 self.send_ports.iter().map(|p| p.name.clone()).collect(),
@@ -201,7 +201,7 @@ pub fn parse_application(source: &str) -> Result<XmipApplication, String> {
 #[must_use]
 pub fn destination_words(destination: &Subscriber) -> String {
     let what = match destination {
-        Subscriber::Process(_) => "Xmip Process",
+        Subscriber::WorkProcess(_) => "Work Process",
         Subscriber::SendPort(_) => "Send Port",
         Subscriber::SendGroup(_) => "Send Port Group",
     };
@@ -238,7 +238,7 @@ receive_port = "Orders"
 interaction = "data-transfer"
 depth = "light"
 
-[[xmip_processes]]
+[[work_processes]]
 name = "Approval"
 
 [[send_ports]]
@@ -258,7 +258,7 @@ filter = "MessageType = 'Order' and not Amount > 1000"
 
 [[subscriptions]]
 id = "approval"
-destination = { process = "Approval" }
+destination = { work-process = "Approval" }
 filter = "MessageType = 'Order' and Amount > 1000"
 "#;
 
@@ -290,7 +290,10 @@ filter = "MessageType = 'Order' and Amount > 1000"
 
     #[test]
     fn a_subscription_routing_to_a_missing_target_is_refused() {
-        let source = ORDERS.replace("{ process = \"Approval\" }", "{ send-port = \"Audit\" }");
+        let source = ORDERS.replace(
+            "{ work-process = \"Approval\" }",
+            "{ send-port = \"Audit\" }",
+        );
 
         assert_eq!(
             problems(&source),

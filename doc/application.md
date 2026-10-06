@@ -1,7 +1,7 @@
 # The Xmip Application
 
 An **Xmip Application** is an integration as a developer designs it: its
-routes, and later its transforms and Xmip Processes, drawn once and deployed to
+routes, and later its transforms and Work Processes, drawn once and deployed to
 whichever nodes run it (ADR-0064, `doc/terminology.md`). It is TOML in the
 repository (ADR-0031), diffed, reviewed and merged like code. The Route view
 of the VS Code designer is a view of this text; a developer may edit either,
@@ -34,9 +34,9 @@ From `module/platform/configure/src/application.rs` (`XmipApplication`) and
   `light` or `context`, which decides how far the receive gates read
   (`runtime-model.md` section 7). A Location without a Port, or without
   either statement, is refused (ADR-0031, amendment 2026-10-01).
-- **`[[xmip_applications.xmip_processes]]`**: the Xmip Processes a
+- **`[[xmip_applications.work_processes]]`**: the Work Processes a
   Subscription may route to, by `name`. The flow is the process designer's,
-  after the Xmip Process vocabulary is settled (ADR-0064 clause 1).
+  after the Work Process vocabulary is settled (ADR-0064 clause 1).
 - **`[[xmip_applications.send_ports]]`**: where Messages leave: a `name`,
   and its policy (`runtime-model.md` section 10, the same amendment):
   `send_locations`, its Send Locations by name, tried in order;
@@ -50,7 +50,7 @@ From `module/platform/configure/src/application.rs` (`XmipApplication`) and
   holds.
 - **`[[xmip_applications.subscriptions]]`**: what each published Message is
   offered to. Each is `route`'s own Subscription, not a copy of it: an `id`;
-  a `destination`, one of `{ process = "…" }`, `{ send-port = "…" }` or
+  a `destination`, one of `{ work-process = "…" }`, `{ send-port = "…" }` or
   `{ send-group = "…" }`; and a `filter`, one line of Xmip's expression
   language (`xmip-core-path`'s `expression`, ADR-0066): names with the
   prefix of the route technology that reads them (ADR-0046), text in single
@@ -89,7 +89,7 @@ receive_port = "Orders"
 interaction = "data-transfer"
 depth = "context"
 
-[[xmip_applications.xmip_processes]]
+[[xmip_applications.work_processes]]
 name = "Approval"
 
 [[xmip_applications.send_ports]]
@@ -108,7 +108,7 @@ send_ports = ["Billing", "Ledger"]
 
 [[xmip_applications.subscriptions]]
 id = "large-orders"
-destination = { process = "Approval" }
+destination = { work-process = "Approval" }
 filter = "MessageType = 'Order' and Amount > 1000"
 
 [[xmip_applications.subscriptions]]
@@ -136,7 +136,7 @@ it, at startup phase 3:
   a backoff that is not a duration, an empty `order_key`, and a Send
   Location named empty or twice;
 - a Send Port Group holding a Send Port the Application does not declare;
-- a Subscription routing to an Xmip Process, Send Port or Send Port Group
+- a Subscription routing to a Work Process, Send Port or Send Port Group
   the Application does not declare.
 
 ## What the runtime holds of it
@@ -157,7 +157,7 @@ Location and Send Port views show the keys above, each edited in place. The
 Route view:
 
 - **The routes** (`routes.rs`): the Application as a graph — Receive
-  Locations, Subscriptions, Xmip Processes, Send Port Groups and Send Ports,
+  Locations, Subscriptions, Work Processes, Send Port Groups and Send Ports,
   each with its place along the route; every Receive Location *publishes*
   to every Subscription, a Subscription *routes* to its destination, and a
   Send Port Group *gathers* its Send Ports.
@@ -172,7 +172,7 @@ Route view:
   filter only when it edits one, in the canonical form, which reads back
   to the same rows and writes again byte for byte; a line written by hand
   is never reformatted by reading it.
-- **An edit** (`edit.rs`): declare a Receive Location, an Xmip Process or a
+- **An edit** (`edit.rs`): declare a Receive Location, a Work Process or a
   Send Port; add a Subscription routing to a target; set a Subscription's
   filter; connect a Subscription to another target. The edit changes the
   lines it touches and leaves every comment, order and layout elsewhere as

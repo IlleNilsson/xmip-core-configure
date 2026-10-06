@@ -43,9 +43,8 @@ cluster's file through the runtime's `xmip_validate_v1`, which reads it
 here and tells the two apart by the `[nodes]` table (`document_kind`); the
 desktop editor is a view
 over the same document and keeps no model of its own. A location's `start`
-and `transport` have no default: a document without them is refused. An
-Xmip Process's `required_modules`, `xmip_subprocesses` and `extensions`
-default to empty (ADR-0031, amendment 2026-09-24).
+and `transport` have no default: a document without them is refused. A
+Work Process's `required_modules` and `extensions` default to empty (ADR-0031, amendment 2026-09-24).
 
 A Location's `settings` and `contract_settings` tables are held to the
 declaration their technology makes of them (`location_problems`, ADR-0064
