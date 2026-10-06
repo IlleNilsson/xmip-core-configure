@@ -13,7 +13,7 @@
 //! not completed.
 //!
 //! An Xmip Application (ADR-0064) — an integration as a developer designs
-//! it: its Receive Ports and Locations, Subscriptions, Xmip Processes and
+//! it: its Receive Ports and Locations, Subscriptions, Work Processes and
 //! Send Ports, with no environment in it — is a section of the cluster's
 //! one `xmip.toml`, `[[xmip_applications]]` ([`section`]), read by
 //! [`parse_application`]. A node's configuration *binds* the sections it
@@ -80,7 +80,7 @@ pub struct XmipConfigurationDocument {
     #[serde(default)]
     pub modules: Vec<ModuleConfiguration>,
     #[serde(default)]
-    pub xmip_processes: Vec<XmipProcessConfiguration>,
+    pub work_processes: Vec<WorkProcessConfiguration>,
     /// Where Xmip starts working — runtime-model.md. Added 2026-09-05 so a
     /// node has all three stages of the message path, not only Process.
     #[serde(default)]
@@ -183,7 +183,7 @@ pub struct ModuleConfiguration {
     pub manifest: ModuleManifest,
 }
 
-/// How an Xmip Process runs its work, once claimed — runtime-model.md's
+/// How a Work Process runs its work, once claimed — runtime-model.md's
 /// "execution style". `Sequential` is the safe default (one at a time, in order
 /// per key); `Parallel` and `Concurrent` trade ordering for throughput, and are
 /// the lever an operator raises when a node falls behind (the Playground's
@@ -200,31 +200,18 @@ pub enum ExecutionStyle {
     Concurrent,
 }
 
-/// `[[xmip_processes]]`: one Xmip Process and what it needs.
+/// `[[work_processes]]`: one Work Process and what it needs.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct XmipProcessConfiguration {
+pub struct WorkProcessConfiguration {
     pub name: String,
     pub start: bool,
     /// Defaults to `Sequential` when the document omits it, so an existing
     /// configuration reads unchanged.
     #[serde(default)]
     pub execution_style: ExecutionStyle,
-    /// The three lists below default to empty, as the document's own lists
-    /// do: a Process that needs no module, has no Subprocess and no
-    /// Extension says nothing about them (ADR-0031, amendment 2026-09-24).
-    #[serde(default)]
-    pub required_modules: Vec<String>,
-    #[serde(default)]
-    pub xmip_subprocesses: Vec<XmipSubprocessConfiguration>,
-    #[serde(default)]
-    pub extensions: Vec<ExtensionManifest>,
-}
-
-/// An Xmip Subprocess inside a Process.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct XmipSubprocessConfiguration {
-    pub name: String,
-    /// Empty when omitted, as on the Process.
+    /// The two lists below default to empty, as the document's own lists
+    /// do: a Work Process that needs no module and no Extension says
+    /// nothing about them (ADR-0031, amendment 2026-09-24).
     #[serde(default)]
     pub required_modules: Vec<String>,
     #[serde(default)]
@@ -319,29 +306,27 @@ mod tests {
     fn a_process_execution_style_parses_and_defaults_to_sequential() {
         let source = format!(
             "{HEAD}
-[[xmip_processes]]
+[[work_processes]]
 name = \"fast\"
 start = true
 execution_style = \"concurrent\"
 required_modules = []
-xmip_subprocesses = []
 extensions = []
 
-[[xmip_processes]]
+[[work_processes]]
 name = \"ordered\"
 start = true
 required_modules = []
-xmip_subprocesses = []
 extensions = []
 "
         );
         let document = parse_toml(&source).expect("parses");
         assert_eq!(
-            document.xmip_processes[0].execution_style,
+            document.work_processes[0].execution_style,
             ExecutionStyle::Concurrent
         );
         assert_eq!(
-            document.xmip_processes[1].execution_style,
+            document.work_processes[1].execution_style,
             ExecutionStyle::Sequential,
             "an omitted style defaults to Sequential"
         );
@@ -387,11 +372,10 @@ extensions = []
 
     #[test]
     fn a_process_that_names_no_list_reads_them_as_empty() {
-        let source = format!("{HEAD}[[xmip_processes]]\nname = \"minimal\"\nstart = true\n");
+        let source = format!("{HEAD}[[work_processes]]\nname = \"minimal\"\nstart = true\n");
         let document = parse_toml(&source).expect("parses");
-        let process = &document.xmip_processes[0];
+        let process = &document.work_processes[0];
         assert!(process.required_modules.is_empty());
-        assert!(process.xmip_subprocesses.is_empty());
         assert!(process.extensions.is_empty());
     }
 
