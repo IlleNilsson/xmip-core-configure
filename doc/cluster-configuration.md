@@ -124,12 +124,11 @@ document holding `[nodes]`, saying it is a cluster's to slice.
 ## Who slices
 
 - **Desired state**, as it deploys each node (`deployment-model.md`
-  section 8): the Ansible role `xmip_node` and the DSC document
-  `deploy/dsc/msdsc/xmip-node.dsc.yaml` place the cluster's `xmip.toml` and write
-  the node `xmip-service --configuration <xmip.toml> --node <name> --slice`'s
-  output as its `xmip-node.toml`. Neither takes the file apart itself; the
-  estate root's `cargo test --test deploy` renders both and reads what they
-  write.
+  section 8): the Ansible role `xmip_node` places the cluster's `xmip.toml`
+  and writes the node `xmip-service --configuration <xmip.toml> --node <name>
+  --slice`'s output as its `xmip-node.toml`. It does not take the file apart
+  itself; the estate root's `cargo test --test deploy` renders it and reads
+  what it writes.
 - **The Operation Desktop**, when its Configure page saves the cluster's
   file (ADR-0031, amendment 2026-10-05: *the cluster TOML file is sliced
   into node TOML files and shipped to each node on save*): through the
