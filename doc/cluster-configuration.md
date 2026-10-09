@@ -125,7 +125,7 @@ document holding `[nodes]`, saying it is a cluster's to slice.
 
 - **Desired state**, as it deploys each node (`deployment-model.md`
   section 8): the Ansible role `xmip_node` and the DSC document
-  `deploy/dsc/xmip-node.dsc.yaml` place the cluster's `xmip.toml` and write
+  `deploy/dsc/msdsc/xmip-node.dsc.yaml` place the cluster's `xmip.toml` and write
   the node `xmip-service --configuration <xmip.toml> --node <name> --slice`'s
   output as its `xmip-node.toml`. Neither takes the file apart itself; the
   estate root's `cargo test --test deploy` renders both and reads what they
