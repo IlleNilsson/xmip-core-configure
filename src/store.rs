@@ -1,6 +1,5 @@
 //! `[store]`: the key store an embedded Storage node's records are sealed
-//! under (ADR-0018, amendments 2026-09-30 and 2026-10-03), and where it
-//! keeps its audit database (ADR-0070, amendment 2026-10-10).
+//! under (ADR-0018, amendments 2026-09-30 and 2026-10-03).
 //!
 //! A node with no Storage node listed in `[storage]` is its own embedded
 //! Storage node (`deployment-model.md` section 3), and Xmip encrypts its
@@ -15,7 +14,6 @@
 //! [store]
 //! key_store = "xmip-core-secret-file"     # the platform's, by default
 //! keys = "/opt/xmip/data/key"
-//! audit = "/srv/xmip-audit/audit.sqlite"
 //! ```
 //!
 //! A relative path is relative to the configuration file, as an Xmip
@@ -24,14 +22,6 @@
 //! platform's key store (ADR-0063 clause 4) — DPAPI on Windows, the keychain
 //! on macOS, a private file on every other Unix — keeping its keys at
 //! `<data>/key`.
-//!
-//! The audit database is a data domain of its own, so it may be on other
-//! storage than the other two (the owner, 2026-10-10: *The audit part
-//! might be better of in its own database so it can be hosted on a
-//! different set of nodes, different storage*): `audit` is its file, on
-//! the administration database's engine, `SQLite`; absent, it is beside
-//! the other two, under the data directory (`xmip-core-runtime`,
-//! `storage.rs`).
 //!
 //! Which key stores there are is never this crate's: the program that
 //! starts a node links them, and a node naming one its program was not
@@ -69,9 +59,6 @@ pub struct StoreConfiguration {
     /// Where a key store that keeps files keeps its keys.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub keys: Option<String>,
-    /// The audit database's file.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub audit: Option<String>,
 }
 
 /// The key store `[store]` names, every default taken and every path
@@ -80,8 +67,6 @@ pub struct StoreConfiguration {
 pub struct Store {
     pub key_store: String,
     pub keys: PathBuf,
-    /// The audit database's file, where the configuration names one.
-    pub audit: Option<PathBuf>,
 }
 
 impl StoreConfiguration {
@@ -104,7 +89,6 @@ impl StoreConfiguration {
                 .keys
                 .as_ref()
                 .map_or_else(|| data.join(DEFAULT_KEYS), |keys| base.join(keys)),
-            audit: self.audit.as_ref().map(|audit| base.join(audit)),
         }
     }
 }
@@ -123,20 +107,15 @@ mod tests {
             .resolve(Path::new("/opt/xmip/data"), Path::new("/opt/xmip/config"));
         assert_eq!(store.key_store, PLATFORM_KEY_STORE);
         assert_eq!(store.keys, Path::new("/opt/xmip/data/key"));
-        assert_eq!(store.audit, None, "beside the other two");
     }
 
     #[test]
-    fn a_named_key_store_and_audit_database_are_read_relative_to_the_configuration() {
-        let text = "key_store = \"xmip-core-secret-file\"\nkeys = \"key\"\n\
-                    audit = \"../audit/audit.sqlite\"\n";
-        let store = read(text)
+    fn a_named_key_store_is_read_relative_to_the_configuration() {
+        let store = read("key_store = \"xmip-core-secret-file\"\nkeys = \"key\"\n")
             .expect("reads")
             .resolve(Path::new("/opt/xmip/data"), Path::new("/etc/xmip"));
         assert_eq!(store.key_store, "xmip-core-secret-file");
         assert_eq!(store.keys, Path::new("/etc/xmip/key"));
-        let audit = store.audit.expect("named");
-        assert_eq!(audit, Path::new("/etc/xmip/../audit/audit.sqlite"));
     }
 
     #[test]

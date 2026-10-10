@@ -21,9 +21,11 @@
 //! [nodes.<node>.tuning]
 //! receive_threads_per_hardware_thread = 4
 //!
+//! [nodes.<another>.runtime]
+//! storage = "postgresql"
+//! connection = "host=db-1.example dbname=xmip_runtime user=xmip_storage"
+//!
 //! [nodes.<another>.storage.database]
-//! runtime = "postgresql://xmip_storage@db-1.example/xmip_runtime"
-//! administration = "postgresql://xmip_storage@db-1.example/xmip_administration"
 //! password = "xmip-storage-database"
 //! ```
 //!

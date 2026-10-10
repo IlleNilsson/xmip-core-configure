@@ -106,9 +106,8 @@ the Journeys it holds in the Ledger (ADR-0013, amendments 2026-09-30 and
 2026-10-03) — is kept there. The engines are no node's choice: the runtime
 database is always RocksDB (ADR-0015 and ADR-0018, amendments 2026-10-01),
 and `engine` and `place` are refused as unknown keys. `[store]` names the
-key store and where the audit database is, and every key may be left out
-(`src/store.rs`, ADR-0018 amendments 2026-09-30 and 2026-10-03; ADR-0070,
-amendment 2026-10-10):
+key store, and every key may be left out (`src/store.rs`, ADR-0018
+amendments 2026-09-30 and 2026-10-03):
 
 ```toml
 # a complete node file
@@ -121,7 +120,6 @@ data = "../data"                              # the default
 [store]
 key_store = "xmip-core-secret-dpapi"          # the platform's, by default
 keys = "../data/key"                          # the default
-audit = "../data/storage/audit.sqlite"        # the default
 ```
 
 - **`[service] data`** is the node's data directory, relative to this file;
@@ -134,14 +132,6 @@ audit = "../data/storage/audit.sqlite"        # the default
   macOS, `xmip-core-secret-file` on every other Unix.
 - **`keys`**: where a key store that keeps files keeps them; absent,
   `<data>/key`. The keychain keeps its keys as items and does not read it.
-- **`audit`**: the audit database's file, SQLite as the administration
-  database's, relative to this file; absent, `<data>/storage/audit.sqlite`,
-  beside the runtime database (`<data>/storage/runtime`) and the
-  administration database (`<data>/storage/administration.sqlite`). The
-  audit database is a data domain of its own, so it may be on other
-  storage than the other two (the owner, 2026-10-10: *The audit part might
-  be better of in its own database so it can be hosted on a different set
-  of nodes, different storage*).
 
 Which key stores a node can use is its program's: `xmip-service` links them
 by build feature, as it links transports, and RocksDB and SQLite with them.
@@ -217,34 +207,61 @@ nodes = ["storage-1.example:7443", "storage-2.example:7443"]
   through the next while one is stopped. An address without its port is
   refused in words, and so is a Storage node named twice.
 
-A Storage node in front of a database server IT runs (option A) names it
-(`src/database.rs`):
+### Where each data domain is kept: `[runtime]`, `[administration]`, `[audit]`
+
+Xmip Storage keeps three databases, one to each data domain, and each is a
+table of its own, its `storage` and its `connection` (`src/database.rs`;
+the owner, 2026-10-10: *i would do it like runtime, storage, connection
+string. Same for audit and administration*, and *Yes, better*). Each may be
+on another technology and another server:
 
 ```toml
+[runtime]
+storage    = "postgresql"
+connection = "host=db-1.example port=5432 dbname=xmip_runtime user=xmip_storage"
+
+[administration]
+storage    = "sqlserver"
+connection = "Server=tcp:sql-1.example,1433;Database=xmip_administration;User Id=xmip_storage"
+
+[audit]
+storage    = "sqlite"
+connection = "D:/Xmip/data/storage/audit.sqlite"
+
 [storage.database]
-runtime        = "postgresql://xmip_storage@db-1.example:5432/xmip_runtime"
-administration = "postgresql://xmip_storage@db-2.example:5432/xmip_administration"
-audit          = "postgresql://xmip_storage@db-3.example:5432/xmip_audit"
-password       = "xmip-storage-database"       # a secret's name, never the password
-trust_anchor   = "../config/database-authority.pem"
+password     = "xmip-storage-database"       # a secret's name, never the password
+trust_anchor = "../config/database-authority.pem"
 ```
 
-- **`runtime`**, **`administration`** and **`audit`**: the three databases
-  Xmip Storage keeps on every backend, one to each data domain, separate,
-  which IT may place on different servers:
-  `<server>://<login>@<host>[:<port>]/<database>`, the server `postgresql`
-  or `sqlserver` — the same for all three — and the port the server's own
-  (5432, 1433) where it is left out.
-- **`password`**: the name of the secret the login's password is kept
-  under, resolved through the key home (ADR-0063 clause 4); the password is
-  never written here.
-- **`trust_anchor`**: the authority the server's certificate reaches, PEM,
-  relative to this file; absent, the operating system's trust store. Xmip
-  always speaks TLS to the database server.
+- **`storage`**: `rocksdb`, `sqlite`, `postgresql` or `sqlserver`. Embedded,
+  the runtime database is `rocksdb` and the administration and audit
+  databases `sqlite` (ADR-0015, amendment 2026-10-01).
+- **`connection`**: on an embedded engine, the store's path, relative to
+  this file; on a database server, the server's own connection string —
+  `host=<host> [port=<port>] dbname=<database> [user=<login>]` for
+  PostgreSQL, `Server=[tcp:]<host>[,<port>];Database=<database>[;User
+  Id=<login>]` for SQL Server, the port the server's own (5432, 1433) where
+  it is left out. Nothing else is written in it: no password, no option.
+  Two domains naming one database on one server are refused: the three are
+  separate.
+- **A table left out** is the embedded Storage node's own, under the data
+  directory: the runtime database `rocksdb` at `<data>/storage/runtime`,
+  the administration database `sqlite` at
+  `<data>/storage/administration.sqlite`, the audit database `sqlite` at
+  `<data>/storage/audit.sqlite`.
+- **`[storage.database] password`**: where a domain names a database
+  server, the name of the secret the login's password is kept under,
+  resolved through the key home (ADR-0063 clause 4); the password is never
+  written here.
+- **`[storage.database] trust_anchor`**: the authority the server's
+  certificate reaches, PEM, relative to this file; absent, the operating
+  system's trust store. Xmip always speaks TLS to the database server.
 
-What a site's IT operators install and run for it — the software, the
-scripts that make each database and its roles, the settings Xmip
-depends on — is `deploy/database/postgresql/README.md` and
+A database server's backend is not built yet: a node naming one for a
+domain is refused as it starts, in words. What a site's IT operators
+install and run for it — the software, the scripts that make each
+database and its roles, the settings Xmip depends on — is
+`deploy/database/postgresql/README.md` and
 `deploy/database/sqlserver/README.md` at the estate root.
 
 ### A Location's settings
