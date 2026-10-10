@@ -49,6 +49,7 @@ pub use binding::{
     ApplicationBinding, Bound, BoundLocation, BoundReceivePort, bind, binding_problems,
 };
 pub use cluster::{is_cluster, slice, slices};
+pub use database::DomainConfiguration;
 pub use entry::subscription_entry;
 pub use port::{
     Depth, DesignedReceiveLocation, DesignedSendPort, Failover, Interaction, OnFailure, Retry,
@@ -98,6 +99,16 @@ pub struct XmipConfigurationDocument {
     /// them. A binding binds the section of its name.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub xmip_applications: Vec<ApplicationSection>,
+    /// What each of Xmip Storage's three data domains is kept on, each
+    /// its storage and its connection ([`database`], the owner,
+    /// 2026-10-10). Absent, the embedded Storage node's own, under the
+    /// node's data directory.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub runtime: Option<DomainConfiguration>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub administration: Option<DomainConfiguration>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub audit: Option<DomainConfiguration>,
     /// The key store an embedded Storage node's records are sealed under
     /// ([`store`], ADR-0018 amendments 2026-09-30 and 2026-10-03). Absent,
     /// the platform's, keeping its keys in the installed layout's place.
@@ -116,6 +127,20 @@ pub struct XmipConfigurationDocument {
     /// technology reads a Location's settings; empty, every default.
     #[serde(default, skip_serializing_if = "LocationSettings::is_empty")]
     pub tuning: LocationSettings,
+}
+
+impl XmipConfigurationDocument {
+    /// The three data domains' tables, by the word each is named by, in
+    /// the order runtime, administration, audit; `None` where one is left
+    /// out.
+    #[must_use]
+    pub fn domains(&self) -> [(&'static str, Option<&DomainConfiguration>); 3] {
+        [
+            ("runtime", self.runtime.as_ref()),
+            ("administration", self.administration.as_ref()),
+            ("audit", self.audit.as_ref()),
+        ]
+    }
 }
 
 /// Which of the two documents a text is. A cluster's `xmip.toml` declares
@@ -338,6 +363,26 @@ extensions = []
         assert!(!offline.service.online, "ADR-0045: offline unless said");
         let online = parse_toml(&format!("{HEAD}online = true\n")).expect("parses");
         assert!(online.service.online);
+    }
+
+    #[test]
+    fn each_data_domain_is_a_table_of_its_own_or_left_out() {
+        let text = format!(
+            "{HEAD}[runtime]\nstorage = \"postgresql\"\n\
+             connection = \"host=db-1 port=5432 dbname=xmip_runtime\"\n\
+             [audit]\nstorage = \"sqlite\"\nconnection = \"D:/Xmip/data/storage/audit.sqlite\"\n"
+        );
+        let document = parse_toml(&text).expect("parses");
+        let domains = document.domains();
+        let words: Vec<&str> = domains.iter().map(|(word, _)| *word).collect();
+        assert_eq!(words, ["runtime", "administration", "audit"]);
+        assert_eq!(domains[0].1.map(|d| d.storage.as_str()), Some("postgresql"));
+        assert_eq!(domains[1].1, None, "left out: the embedded node's own");
+        assert_eq!(domains[2].1.map(|d| d.storage.as_str()), Some("sqlite"));
+        assert_eq!(
+            parse_toml(&toml::to_string(&document).expect("writes")).expect("reads back"),
+            document
+        );
     }
 
     #[test]

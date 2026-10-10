@@ -31,11 +31,16 @@ receive_threads_per_hardware_thread = 4
 name = "drop"
 address = "/srv/xmip/in"
 
+[nodes.<another>.runtime]
+storage    = "postgresql"
+connection = "host=db-1.example dbname=xmip_runtime user=xmip_storage"
+
+[nodes.<another>.audit]
+storage    = "postgresql"
+connection = "host=db-2.example dbname=xmip_audit user=xmip_storage"
+
 [nodes.<another>.storage.database]
-runtime        = "postgresql://xmip_storage@db-1.example/xmip_runtime"
-administration = "postgresql://xmip_storage@db-1.example/xmip_administration"
-audit          = "postgresql://xmip_storage@db-2.example/xmip_audit"
-password       = "xmip-storage-database"
+password = "xmip-storage-database"
 ```
 
 `<cluster>`, `<node>` and `<another>` stand for the names whoever runs the
@@ -171,7 +176,8 @@ Desktop's Configure page; what both show and do is this crate's, reached
 through the runtime's `xmip_operate.h` section 10:
 
 - **`views::Views::of`** (`src/views.rs`) answers one view per kind, in
-  this order: Cluster (`[service]`, `[tuning]`, `[storage]`, `[store]`),
+  this order: Cluster (`[service]`, `[tuning]`, `[runtime]`,
+  `[administration]`, `[audit]`, `[storage]`, `[store]`),
   Node (each `[nodes.<name>]`), Receive Port, Receive Location, Send Port,
   Send Location, Send Port Group, Prepare, Promote, Demote, Route,
   Transformation, Process. A list kind finds its entries wherever the file

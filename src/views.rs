@@ -88,7 +88,15 @@ enum Holder {
 }
 
 /// The tables of the cluster's own that a node's document reads.
-pub const CLUSTER_TABLES: [&str; 4] = ["service", "tuning", "storage", "store"];
+pub const CLUSTER_TABLES: [&str; 7] = [
+    "service",
+    "tuning",
+    "runtime",
+    "administration",
+    "audit",
+    "storage",
+    "store",
+];
 
 const UNDEFINED: &str = "The configuration does not define this yet: xmip-core-configure reads \
                          no section for it, so there is nothing here to edit.";
