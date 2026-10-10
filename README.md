@@ -93,7 +93,7 @@ at, `host:port` each, tried round robin (`storage.rs`,
 `deployment-model.md` section 7). `[runtime]`, `[administration]` and
 `[audit]` say what each of Xmip Storage's three data domains is kept on, a
 table each, its `storage` — `rocksdb`, `sqlite`, `postgresql` or
-`sqlserver` — and its `connection`, a path or the server's own connection
+`mssql` — and its `connection`, a path or the server's own connection
 string; a table left out is the embedded Storage node's own under the data
 directory. `[storage.database]` names the secret a database server's
 password is kept under and the authority its certificate reaches

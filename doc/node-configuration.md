@@ -221,7 +221,7 @@ storage    = "postgresql"
 connection = "host=db-1.example port=5432 dbname=xmip_runtime user=xmip_storage"
 
 [administration]
-storage    = "sqlserver"
+storage    = "mssql"
 connection = "Server=tcp:sql-1.example,1433;Database=xmip_administration;User Id=xmip_storage"
 
 [audit]
@@ -233,7 +233,7 @@ password     = "xmip-storage-database"       # a secret's name, never the passwo
 trust_anchor = "../config/database-authority.pem"
 ```
 
-- **`storage`**: `rocksdb`, `sqlite`, `postgresql` or `sqlserver`. Embedded,
+- **`storage`**: `rocksdb`, `sqlite`, `postgresql` or `mssql`. Embedded,
   the runtime database is `rocksdb` and the administration and audit
   databases `sqlite` (ADR-0015, amendment 2026-10-01).
 - **`connection`**: on an embedded engine, the store's path, relative to
@@ -262,7 +262,7 @@ domain is refused as it starts, in words. What a site's IT operators
 install and run for it — the software, the scripts that make each
 database and its roles, the settings Xmip depends on — is
 `deploy/database/postgresql/README.md` and
-`deploy/database/sqlserver/README.md` at the estate root.
+`deploy/database/mssql/README.md` at the estate root.
 
 ### A Location's settings
 

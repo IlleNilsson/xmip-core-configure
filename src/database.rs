@@ -26,7 +26,7 @@
 //! trust_anchor = "/etc/xmip/database-authority.pem"
 //! ```
 //!
-//! `storage` is `rocksdb`, `sqlite`, `postgresql` or `sqlserver`; on an
+//! `storage` is `rocksdb`, `sqlite`, `postgresql` or `mssql`; on an
 //! embedded engine `connection` is the store's path, relative to the
 //! configuration file, and on a database server the server's own
 //! connection string. What each may say, and the one reading of it, is
