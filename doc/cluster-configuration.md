@@ -34,6 +34,7 @@ address = "/srv/xmip/in"
 [nodes.<another>.storage.database]
 runtime        = "postgresql://xmip_storage@db-1.example/xmip_runtime"
 administration = "postgresql://xmip_storage@db-1.example/xmip_administration"
+audit          = "postgresql://xmip_storage@db-2.example/xmip_audit"
 password       = "xmip-storage-database"
 ```
 

@@ -106,8 +106,9 @@ the Journeys it holds in the Ledger (ADR-0013, amendments 2026-09-30 and
 2026-10-03) — is kept there. The engines are no node's choice: the runtime
 database is always RocksDB (ADR-0015 and ADR-0018, amendments 2026-10-01),
 and `engine` and `place` are refused as unknown keys. `[store]` names the
-key store, and every key may be left out (`src/store.rs`, ADR-0018
-amendments 2026-09-30 and 2026-10-03):
+key store and where the audit database is, and every key may be left out
+(`src/store.rs`, ADR-0018 amendments 2026-09-30 and 2026-10-03; ADR-0070,
+amendment 2026-10-10):
 
 ```toml
 # a complete node file
@@ -120,6 +121,7 @@ data = "../data"                              # the default
 [store]
 key_store = "xmip-core-secret-dpapi"          # the platform's, by default
 keys = "../data/key"                          # the default
+audit = "../data/storage/audit.sqlite"        # the default
 ```
 
 - **`[service] data`** is the node's data directory, relative to this file;
@@ -132,6 +134,14 @@ keys = "../data/key"                          # the default
   macOS, `xmip-core-secret-file` on every other Unix.
 - **`keys`**: where a key store that keeps files keeps them; absent,
   `<data>/key`. The keychain keeps its keys as items and does not read it.
+- **`audit`**: the audit database's file, SQLite as the administration
+  database's, relative to this file; absent, `<data>/storage/audit.sqlite`,
+  beside the runtime database (`<data>/storage/runtime`) and the
+  administration database (`<data>/storage/administration.sqlite`). The
+  audit database is a data domain of its own, so it may be on other
+  storage than the other two (the owner, 2026-10-10: *The audit part might
+  be better of in its own database so it can be hosted on a different set
+  of nodes, different storage*).
 
 Which key stores a node can use is its program's: `xmip-service` links them
 by build feature, as it links transports, and RocksDB and SQLite with them.
@@ -214,15 +224,17 @@ A Storage node in front of a database server IT runs (option A) names it
 [storage.database]
 runtime        = "postgresql://xmip_storage@db-1.example:5432/xmip_runtime"
 administration = "postgresql://xmip_storage@db-2.example:5432/xmip_administration"
+audit          = "postgresql://xmip_storage@db-3.example:5432/xmip_audit"
 password       = "xmip-storage-database"       # a secret's name, never the password
 trust_anchor   = "../config/database-authority.pem"
 ```
 
-- **`runtime`** and **`administration`**: the two databases Xmip Storage
-  keeps on every backend, separate, which IT may place on different
-  servers: `<server>://<login>@<host>[:<port>]/<database>`, the server
-  `postgresql` or `sqlserver` — the same for both — and the port the
-  server's own (5432, 1433) where it is left out.
+- **`runtime`**, **`administration`** and **`audit`**: the three databases
+  Xmip Storage keeps on every backend, one to each data domain, separate,
+  which IT may place on different servers:
+  `<server>://<login>@<host>[:<port>]/<database>`, the server `postgresql`
+  or `sqlserver` — the same for all three — and the port the server's own
+  (5432, 1433) where it is left out.
 - **`password`**: the name of the secret the login's password is kept
   under, resolved through the key home (ADR-0063 clause 4); the password is
   never written here.
@@ -231,7 +243,7 @@ trust_anchor   = "../config/database-authority.pem"
   always speaks TLS to the database server.
 
 What a site's IT operators install and run for it — the software, the
-scripts that make both databases and their roles, the settings Xmip
+scripts that make each database and its roles, the settings Xmip
 depends on — is `deploy/database/postgresql/README.md` and
 `deploy/database/sqlserver/README.md` at the estate root.
 

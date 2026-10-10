@@ -91,10 +91,13 @@ place a test takes a cluster's or a node's name from.
 `[storage] nodes` lists the Storage nodes the node reaches Xmip Storage
 at, `host:port` each, tried round robin (`storage.rs`,
 `deployment-model.md` section 7), and `[storage.database]` names the
-database server a Storage node is in front of: two connections, the
-runtime and the administration database, the secret its password is kept
-under and the authority the server's certificate reaches (`database.rs`;
-what IT sets up for it is `deploy/database/<server>/README.md`). An address
+database server a Storage node is in front of: three connections, the
+runtime, the administration and the audit database, each of which may be
+on a server of its own, the secret its password is kept under and the
+authority the server's certificate reaches (`database.rs`; what IT sets up
+for it is `deploy/database/<server>/README.md`). An address
 without its port, a connection that is not `<server>://<login>@<host>[:<port>]/<database>`,
-a Storage node named twice and one database named for both are refused in
-words.
+a Storage node named twice and one database named for two are refused in
+words. On an embedded Storage node, `[store] audit` names the audit
+database's file, so it may be on other storage than the other two
+(`store.rs`).
