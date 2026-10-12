@@ -155,6 +155,8 @@ tcp_segment = 1460                          # bytes, 536 to 9000
 segments = 44                               # TCP segments a chunk holds, 1 to 1024
 receive_threads_per_hardware_thread = 2     # 1 to 64
 receive_idle = "1m"                         # a receive thread's idle time
+receive_poll = "1s"                         # a polled Location's rest after finding nothing
+receive_backoff = "5s"                      # a polled Location's rest after a failure
 send_threads_per_hardware_thread = 2        # 1 to 64
 send_idle = "1m"                            # a send thread's idle time
 send_lease = "30s"                          # how long a claim on a Journey holds
@@ -170,6 +172,14 @@ storage_pass_over = "5s"                    # how long one that did not answer w
   Receive Location's pool grows to this many threads per hardware thread
   the machine runs, and a thread with nothing to do ends after its idle
   time.
+- **`receive_poll`** and **`receive_backoff`**: how long a Receive
+  Location whose transport is polled — its receive looks and returns at
+  once, a directory listed, a query run (`transport::Waiting`) — rests
+  before it asks again after a receive that found nothing, and after one
+  that failed in a way asking again may mend, each measured from when that
+  receive began; a stop ends the rest at once. A Location whose receive
+  waits for what arrives is asked again at once (`runtime-model.md`
+  section 5, *How a receive runs*).
 - **`send_threads_per_hardware_thread`** and **`send_idle`**: the same for
   the node's one Send pool (`runtime-model.md` section 3).
 - **`send_lease`** and **`send_scan`**: how long a claim on a Journey holds
@@ -233,15 +243,16 @@ password     = "xmip-storage-database"       # a secret's name, never the passwo
 trust_anchor = "../config/database-authority.pem"
 ```
 
-- **`storage`**: `rocksdb`, `sqlite`, `postgresql` or `mssql`. Embedded,
-  the runtime database is `rocksdb` and the administration and audit
-  databases `sqlite` (ADR-0015, amendment 2026-10-01).
+- **`storage`**: `rocksdb`, `sqlite`, `postgresql`, `mssql` or `mariadb`.
+  Embedded, the runtime database is `rocksdb` and the administration and
+  audit databases `sqlite` (ADR-0015, amendment 2026-10-01).
 - **`connection`**: on an embedded engine, the store's path, relative to
   this file; on a database server, the server's own connection string —
   `host=<host> [port=<port>] dbname=<database> [user=<login>]` for
   PostgreSQL, `Server=[tcp:]<host>[,<port>];Database=<database>[;User
-  Id=<login>]` for SQL Server, the port the server's own (5432, 1433) where
-  it is left out. Nothing else is written in it: no password, no option.
+  Id=<login>]` for SQL Server, `Server=<host>[;Port=<port>];
+  Database=<database>[;User=<login>]` for MariaDB, the port the server's
+  own (5432, 1433, 3306) where it is left out. Nothing else is written in it: no password, no option.
   Two domains naming one database on one server are refused: the three are
   separate.
 - **A table left out** is the embedded Storage node's own, under the data
@@ -261,8 +272,9 @@ A database server's backend is not built yet: a node naming one for a
 domain is refused as it starts, in words. What a site's IT operators
 install and run for it — the software, the scripts that make each
 database and its roles, the settings Xmip depends on — is
-`deploy/database/postgresql/README.md` and
-`deploy/database/mssql/README.md` at the estate root.
+`deploy/database/postgresql/README.md`,
+`deploy/database/mssql/README.md` and
+`deploy/database/mariadb/README.md` at the estate root.
 
 ### A Location's settings
 
