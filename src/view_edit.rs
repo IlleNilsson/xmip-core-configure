@@ -122,9 +122,13 @@ pub fn apply(source: &str, edit: &ClusterEdit) -> Result<String, String> {
             name,
             values,
         } => {
+            let starts = starts_unless_told(source, section, values);
             let added = add_entry(root, section, name)?;
             for given in values {
                 put(added, &given.key, &given.value)?;
+            }
+            if starts {
+                put(added, &[START.to_string()], "true")?;
             }
         }
         ClusterEdit::RemoveEntry {
@@ -229,6 +233,29 @@ fn put(table: &mut Table, key: &[String], text: &str) -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+/// The key a Location starts by.
+const START: &str = "start";
+
+/// Whether a new entry of the list at `section` in `source` is written
+/// `start = true`: the designer writes it when it creates a Receive
+/// Location, Send Port or Send Location (the owner, 2026-10-13) — an entry
+/// whose table reads `start` and goes without it, as a Location does — and
+/// `values` do not say otherwise.
+fn starts_unless_told(source: &str, section: &[String], values: &[Given]) -> bool {
+    let Some((list, holder)) = section.split_last() else {
+        return false;
+    };
+    let held = crate::written::written(source)
+        .ok()
+        .and_then(|found| found.into_iter().find(|table| table.section == holder))
+        .map_or_else(|| holder.to_vec(), |table| table.table);
+    let table = [held, vec![list.clone()]].concat();
+    let reads_start = crate::keys::of_table(&table)
+        .iter()
+        .any(|key| key.key == START && key.kind == "boolean" && !key.required);
+    reads_start && !values.iter().any(|given| given.key == [START])
 }
 
 fn add_entry<'t>(
@@ -399,16 +426,15 @@ mod tests {
             value: value.to_string(),
         };
 
-        let refused = apply(&text, &add(Vec::new())).expect_err("start is required");
+        let refused = apply(&text, &add(Vec::new())).expect_err("transport is required");
         assert!(
-            refused.contains("would not read") && refused.contains("start"),
+            refused.contains("would not read") && refused.contains("transport"),
             "{refused}"
         );
 
         let edited = apply(
             &text,
             &add(vec![
-                given("start", "true"),
                 given("transport", "\"xmip-core-transport-http\""),
                 given("address", "\"https://in.example\""),
             ]),
@@ -432,6 +458,60 @@ mod tests {
         .expect("removes");
         assert_eq!(node(&removed, &first).receive_locations.len(), 1);
         assert!(apply(&text, &add(Vec::new())).is_err());
+    }
+
+    /// The designer writes `start = true` when it creates a Receive
+    /// Location, Send Port or Send Location, unless told otherwise; an
+    /// entry that does not read `start` is not given one.
+    #[test]
+    fn the_designer_writes_start_true_when_it_creates_a_location() {
+        let (text, first, _) = written();
+        let given = |key: &str, value: &str| Given {
+            key: path(&[key]),
+            value: value.to_string(),
+        };
+        let located = || {
+            vec![
+                given("transport", "\"xmip-core-transport-file\""),
+                given("address", "\"/var/xmip/out\""),
+            ]
+        };
+        let add = |section: &[&str], values: Vec<Given>| {
+            apply(
+                &text,
+                &ClusterEdit::AddEntry {
+                    section: path(section),
+                    name: "Billing".to_string(),
+                    values,
+                },
+            )
+            .expect("applies")
+        };
+
+        let sends = add(&["send_locations"], located());
+        assert!(node(&sends, &first).send_locations[0].start, "{sends}");
+
+        let mut bound = located();
+        bound.push(given("node", &format!("\"{first}\"")));
+        let ports = add(&["applications", "Orders", "send_ports"], bound);
+        let port = &node(&ports, &first).applications[0].send_ports[0];
+        assert!(port.location.start, "{ports}");
+
+        let mut told = located();
+        told.push(given("start", "false"));
+        let held = add(&["nodes", &first, "receive_locations"], told);
+        let receive = node(&held, &first).receive_locations;
+        assert!(receive.iter().any(|at| at.name == "Billing" && !at.start));
+
+        let designed = add(
+            &["xmip_applications", "Orders", "receive_ports"],
+            Vec::new(),
+        );
+        assert_eq!(
+            designed.matches("start = true").count(),
+            2,
+            "none added: {designed}"
+        );
     }
 
     #[test]

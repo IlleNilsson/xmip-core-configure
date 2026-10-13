@@ -42,8 +42,12 @@ The runtime builds its execution tree from the node's document and what
 cluster's file through the runtime's `xmip_validate_v1`, which reads it
 here and tells the two apart by the `[nodes]` table (`document_kind`); the
 desktop editor is a view
-over the same document and keeps no model of its own. A location's `start`
-and `transport` have no default: a document without them is refused. A
+over the same document and keeps no model of its own. A location's
+`transport` has no default: a document without it is refused. A Receive
+Location, Send Port or Send Location starts only where its `start` says
+`true`; nothing or `false` is known and not started, which every surface
+shows as `NOT_STARTED`, "not started: the configuration does not say true"
+(the owner, 2026-10-13). A
 Work Process's `required_modules` and `extensions` default to empty (ADR-0031, amendment 2026-09-24).
 
 A Location's `settings` and `contract_settings` tables are held to the
@@ -78,8 +82,9 @@ Cluster, Node, Receive Port, Receive Location, Send Port, Send Location,
 Send Port Group, Prepare, Promote, Demote, Route, Transformation, Process —
 with each entry's values (`field`) and an Application's routes, saying of
 a kind the configuration does not define yet that it does not, and
-`view_edit` makes the designer's edits in place, refusing one that would
-leave a node or an Application that read unable to.
+`view_edit` makes the designer's edits in place, writing `start = true` on
+each Receive Location, Send Port and Send Location it creates, and refusing
+one that would leave a node or an Application that read unable to.
 `parse_toml` refuses a cluster's file, and `document_kind` tells it apart,
 so `xmip_validate_v1` validates it node by node. `[tuning]` holds every
 outward and hardware assumption a node runs by; its keys, bounds and

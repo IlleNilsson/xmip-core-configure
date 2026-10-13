@@ -202,7 +202,12 @@ mod tests {
     fn every_table_of_the_file_has_its_readers_keys() {
         let node = crate::fixture::test_cluster().node(0).name.clone();
 
-        assert!(named(&["receive_locations"], "start").required);
+        let start = named(&["receive_locations"], "start");
+        assert!(
+            start.kind == "boolean" && !start.required,
+            "nothing: not started"
+        );
+        assert!(named(&["receive_locations"], "transport").required);
         assert_eq!(named(&["nodes", &node], "tuning").kind, "free");
         assert_eq!(named(&["nodes", &node], ROLES).kind, "roles");
         assert_eq!(
