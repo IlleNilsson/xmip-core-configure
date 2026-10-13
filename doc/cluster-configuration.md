@@ -26,6 +26,10 @@ name = "xmip-<node>"
 
 [nodes.<node>.tuning]                      # this node's, winning
 receive_threads_per_hardware_thread = 4
+local_timeout = "500ms"                    # a call to its local endpoint waits this long
+
+[nodes.<node>.operate]                     # its local endpoint starts without this
+role = "operator"                          # at xmip-<node>; local names another
 
 [[nodes.<node>.receive_locations]]         # merged with "drop" by its name
 name = "drop"
@@ -195,7 +199,10 @@ through the runtime's `xmip_operate.h` section 10:
 - **`view_edit::apply`** (`src/view_edit.rs`) makes one edit in place —
   set or remove a value, add or remove an entry of a list, declare a node,
   or one of an Application's own edits (`edit.rs`) on its section — keeping
-  every comment and layout it does not touch. It refuses an edit that
+  every comment and layout it does not touch. An entry it adds whose table
+  reads `start` and goes without it — a Receive Location, Send Port or Send
+  Location — it writes `start = true`, unless the edit gives `start`
+  itself: only `true` starts one (the owner, 2026-10-13). It refuses an edit that
   would leave a node that sliced and read unable to, or an Application
   section that read unable to, in the reader's words.
 - **What an editor needs** (ADR-0064, amendment 2026-10-13), in the same

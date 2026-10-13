@@ -169,10 +169,12 @@ mod tests {
         assert_eq!(root.required, ["service"]);
         let location = &shapes[&path(&["receive_locations"])];
         assert_eq!(location.kind, "list");
-        for required in ["name", "start", "transport", "address"] {
+        for required in ["name", "transport", "address"] {
             assert!(location.required.contains(&required), "{location:?}");
         }
-        assert!(!location.required.contains(&"contract"));
+        for optional in ["start", "contract"] {
+            assert!(!location.required.contains(&optional), "{location:?}");
+        }
         assert_eq!(
             shapes[&path(&["receive_locations", "start"])].kind,
             "boolean"

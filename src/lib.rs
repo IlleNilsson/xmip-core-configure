@@ -8,9 +8,10 @@
 //! field under other names and the runtime read that one; it is gone
 //! (open problem 25, row b).
 //!
-//! What the runtime requires, the document requires: a location's `start`
-//! and `transport` have no default, so a document without them is refused,
-//! not completed.
+//! What the runtime requires, the document requires: a location's
+//! `transport` has no default, so a document without it is refused, not
+//! completed. A location starts only where its `start` says `true`; one
+//! that says nothing or `false` is known and not started ([`NOT_STARTED`]).
 //!
 //! An Xmip Application (ADR-0064) — an integration as a developer designs
 //! it: its Receive Ports and Locations, Subscriptions, Work Processes and
@@ -79,6 +80,11 @@ use serde::{Deserialize, Serialize};
 /// The words every problem opens with that is the TOML reader's: a surface
 /// shows it whole, because its message spans lines.
 pub const PARSE_FAILED: &str = "configuration parse failed";
+
+/// What every surface shows for a Receive Location, Send Port or Send
+/// Location whose `start` is not `true`: it is known and not started (the
+/// owner, 2026-10-13).
+pub const NOT_STARTED: &str = "not started: the configuration does not say true";
 
 /// One node's configuration, as the TOML on disk says it (ADR-0031).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -263,8 +269,10 @@ pub struct WorkProcessConfiguration {
 
 /// A Receive Location or a Send Location, as configured. One shape for both:
 /// a name, the transport module that moves it, the address in that
-/// transport's own terms, and whether it starts. None of the four has a
-/// default. `credentials` names the secret the Location presents or checks —
+/// transport's own terms, and whether it starts. The first three have no
+/// default; `start` starts it only when it says `true`, and absent or
+/// `false` the Location is known and not started, [`NOT_STARTED`] (the
+/// owner, 2026-10-13). `credentials` names the secret the Location presents or checks —
 /// a reference, never the secret — and is absent where it needs none.
 /// `settings` is what the transport takes beyond the address, `contract` the
 /// contract module a Stream is held to and `contract_settings` what that
@@ -276,6 +284,7 @@ pub struct WorkProcessConfiguration {
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct ConfiguredLocation {
     pub name: String,
+    #[serde(default)]
     pub start: bool,
     pub transport: String,
     pub address: String,
@@ -443,13 +452,13 @@ extensions = []
     }
 
     #[test]
-    fn a_location_without_start_is_refused_not_defaulted() {
+    fn a_location_that_does_not_say_start_true_reads_as_not_started() {
         let source = format!(
             "{HEAD}[[receive_locations]]\nname = \"in\"\ntransport = \"file\"\n\
              address = \"C:/in\"\n"
         );
-        let error = parse_toml(&source).expect_err("start is required");
-        assert!(error.contains("start"), "names the missing key: {error}");
+        let document = parse_toml(&source).expect("nothing means not started");
+        assert!(!document.receive_locations[0].start);
     }
 
     #[test]

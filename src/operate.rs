@@ -5,13 +5,16 @@
 //! Windows and a Unix domain socket elsewhere (ADR-0014, amendment
 //! 2026-10-13).
 //!
-//! Absent, the node serves no operate listener and no surface operates it.
-//! Present, it names `local`, `listen` or both; `listen` takes
+//! The local endpoint always starts — decided by the owner, 2026-10-13:
+//! *the local endpoint always starts, named `xmip-<node>` unless the
+//! configuration names it* — so a node with no `[operate]` is operated on
+//! its own machine at `xmip-<node>` and from nowhere else. `local` names
+//! the endpoint otherwise; `listen` adds the network listener and takes
 //! `certificate`, `key` and `anchors` with it:
 //!
 //! ```toml
 //! [operate]
-//! local = "xmip-node1"                # the local endpoint's name or path
+//! local = "xmip-node1"                # the local endpoint's name
 //! listen = "0.0.0.0:7401"             # the node's address, the plane's port
 //! certificate = "tls/node.pem"        # this node's chain, leaf first
 //! key = "tls/node.key"                # its private key
@@ -21,12 +24,14 @@
 //!
 //! A relative path is relative to the configuration file. The address is
 //! the node's one address (ADR-0067 clause 1) and the port the operate
-//! plane's own; no port is assumed, and no local endpoint either: a bare
-//! name is `\\.\pipe\<name>` on Windows and a file in the temporary
-//! directory on Unix (`net::pipe::path_of`), a path is taken as one.
-//! `role` is the role the run states for every caller the connection
-//! proved — by its certificate, or on the local endpoint by the operating
-//! system (ADR-0009, amendment 2026-10-06): a word that is no role grants
+//! plane's own; no port is assumed. A local name is `\\.\pipe\<name>` on
+//! Windows, `/run/xmip/<name>.sock` on Linux and
+//! `/var/run/xmip/<name>.sock` on macOS; a name may change, the folder may
+//! not, and one that would leave it is refused as the node starts
+//! (`xmip-core-runtime`'s `plane::local::place`). `role` is the role the
+//! run states for every caller the connection proved — by its
+//! certificate, or on the local endpoint by the operating system
+//! (ADR-0009, amendment 2026-10-06): a word that is no role grants
 //! Observer, which acts on nothing.
 
 use std::path::{Path, PathBuf};
@@ -37,7 +42,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct OperateConfiguration {
-    /// The local endpoint's name or path.
+    /// The local endpoint's name; `xmip-<node>` where it is left out.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub local: Option<String>,
     /// Where the network listener binds: `host:port`.
@@ -82,15 +87,10 @@ impl OperateConfiguration {
     ///
     /// # Errors
     ///
-    /// A table naming neither listener, or `listen` without a key it
-    /// takes, in words naming the key.
+    /// `listen` without a key it takes, in words naming the key.
     pub fn network(&self) -> Result<Option<Network<'_>>, String> {
         let Some(listen) = self.listen.as_deref() else {
-            return if self.local.is_some() {
-                Ok(None)
-            } else {
-                Err("[operate] names neither local nor listen".to_string())
-            };
+            return Ok(None);
         };
         Ok(Some(Network {
             listen,
@@ -130,11 +130,10 @@ mod tests {
     fn a_local_endpoint_stands_alone_and_listen_takes_its_keys() {
         let local: OperateConfiguration = toml::from_str("local = \"xmip-node\"\n").expect("read");
         assert_eq!(local.network(), Ok(None));
+        // The local endpoint always starts: a table naming no listener is
+        // a role for it.
         let neither: OperateConfiguration = toml::from_str("role = \"operator\"\n").expect("read");
-        assert_eq!(
-            neither.network(),
-            Err("[operate] names neither local nor listen".to_string())
-        );
+        assert_eq!(neither.network(), Ok(None));
         let short: OperateConfiguration =
             toml::from_str("listen = \"x:1\"\ncertificate = \"c\"\n").expect("read");
         assert_eq!(

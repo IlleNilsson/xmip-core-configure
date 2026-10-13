@@ -45,8 +45,14 @@ From `module/platform/configure/src/lib.rs`:
   when a node falls behind (the Playground's `daily` scenario).
 - **`ConfiguredLocation`** — a Receive or a Send Location: a `name`, whether
   it will `start`, the `transport` module that moves it, and the `address` in
-  that transport's own terms. None of the four has a default; a document that
-  leaves out `start` or `transport` is refused, not completed. `credentials`,
+  that transport's own terms. `name`, `transport` and `address` have no
+  default; a document that leaves out `transport` is refused, not completed.
+  A Location starts only when its `start` says `true`; nothing or `false`
+  means not started — the node knows it, opens nothing for it, and every
+  surface shows it as "not started: the configuration does not say true"
+  (`configure::NOT_STARTED`; the owner, 2026-10-13). A bound Send Port is
+  held to the same rule, and the designer writes `start = true` on every
+  Receive Location, Send Port and Send Location it creates. `credentials`,
   optional, names the secret the Location presents or checks — a reference,
   never the secret. A Receive Location runs the identity pipeline (identify →
   authenticate → authorize, ADR-0019); a Send Location presents identity
@@ -148,18 +154,21 @@ follows it and acts on it, over gRPC. `local` is its endpoint on this
 machine — `xmip-cli --local`, `-Local`, a GUI whose `Surface` is `local` — a
 named pipe on Windows and a Unix domain socket elsewhere, opened only by the
 node's account and the machine's administrators, every caller the user the
-operating system says its process runs as; a bare name is `\\.\pipe\<name>`
-on Windows and a file in the temporary directory on Unix, a path is taken as
-one, and on a machine others log on to a path in a directory only the node's
-account and its operators reach is the one to give. `listen` is its address
-for another machine — `xmip-cli --remote`, `-Remote`, a GUI whose `Surface`
-is `remote` — inside Xmip's mutual TLS, and takes `certificate`, `key` and
-`anchors` with it. Absent, the node serves none, and no surface operates it.
-Present, it names `local`, `listen` or both:
+operating system says its process runs as. **It always starts** — decided by
+the owner, 2026-10-13: *the local endpoint always starts, named `xmip-<node>`
+unless the configuration names it* — at `\\.\pipe\<name>` on Windows,
+`/run/xmip/<name>.sock` on Linux and `/var/run/xmip/<name>.sock` on macOS,
+the folder the systemd unit or a launchd daemon makes for the node's
+account; a name may change, the folder may not, and a name that would leave
+it is refused. `listen` is its address for another machine — `xmip-cli
+--remote`, `-Remote`, a GUI whose `Surface` is `remote` — inside Xmip's
+mutual TLS, and takes `certificate`, `key` and `anchors` with it; without
+it the node serves no network listener. With no `[operate]` at all the node
+is operated at `xmip-<node>`, every caller an Observer:
 
 ```toml
 [operate]
-local = "xmip-node1"                # the local endpoint; no endpoint is assumed
+local = "xmip-node1"                # the local endpoint's name; xmip-<node> if left out
 listen = "0.0.0.0:7401"             # host:port; no port is assumed
 certificate = "tls/node.pem"        # this node's PEM chain, leaf first
 key = "tls/node.key"                # its PEM private key
@@ -174,6 +183,66 @@ word that is no role is Observer, which acts on nothing. A key it does not
 know is refused. `xmip-service` refuses to start a node whose listener cannot
 bind or whose files cannot be read, as it refuses any node that cannot
 start.
+
+### Where a node's certificates come from: `[provision]`
+
+A node's certificates are obtained and renewed by `xmip-core-provision`
+(ADR-0034; ADR-0033, amendment 2026-10-13), one table per purpose:
+`[provision.receive]` for what a Party reaches — a Receive Location's server
+certificate — and `[provision.node]` for node to node, where each end presents
+one in mutual TLS and so needs server and client authentication. `source`
+names the technology by its module name and the rest of the table is its
+settings; a table with no `source` is the operator's own files. A certificate
+is obtained again at two thirds of the life it was issued with, whatever that
+life is. No source is a default; Let's Encrypt is one directory an `acme`
+source may name, and serves `receive` only: it has issued no client
+authentication since 2026-07-08, so between nodes the cluster's own
+authority issues.
+
+```toml
+[provision.receive]                      # what Parties reach
+source = "xmip-core-provision-acme"
+directory = "https://acme-v02.api.letsencrypt.org/directory"
+names = "partner-gateway.example"        # DNS names, comma-separated
+agree_terms = true                       # the authority's terms; false unless said
+challenge = "http-01"                    # or "dns-01"
+challenge_listen = "0.0.0.0:8080"        # any port; public port 80 forwarded here
+
+[provision.node]                         # between nodes
+source = "xmip-core-provision-acme"
+directory = "https://<authority-node>.example:9443/directory"
+anchors = "tls/cluster-anchor.pem"       # the cluster authority's certificate
+names = "<node>.example"
+challenge_listen = "0.0.0.0:80"
+```
+
+| `source` | settings |
+| --- | --- |
+| none: the operator's files | `certificate` and `key` required, PEM, relative to this file; `anchors` optional |
+| `xmip-core-provision-acme` | `directory` and `names` required; `challenge` `http-01` (default) or `dns-01`; `challenge_listen` (default `0.0.0.0:80`); `anchors`, the PEM the directory's TLS certificate must reach (absent, the operating system's trust store); `contact`; `agree_terms` (default false); `timeout` (default `10s`); `validation_wait` (default `2m`) |
+| `xmip-core-provision-internal-ca` | `names`, `lifetime` and `authority_lifetime` required; `serve`, host and port where the authority answers ACME for the cluster's other nodes; `challenge_port`, where it asks a node's http-01 answer (default 80) |
+| `xmip-core-provision-self-signed` | `names` and `lifetime` required: a lone offline node, its certificate its own anchor |
+
+- **http-01** is asked on the name's port 80 by Let's Encrypt and on no
+  other port; the node's answer listens wherever `challenge_listen` says,
+  and one that listens elsewhere is reached from public port 80 through
+  forwarding. A port below 1024 needs an account allowed to bind it.
+- **dns-01** needs no port and suits a node behind a firewall; it writes the
+  domain's TXT record through a DNS provider's module (`acme::DnsWriter`).
+  Xmip ships none for a vendor, and a node choosing dns-01 with none linked
+  is refused in words.
+- **The cluster's authority** keeps its root in the purpose's place and
+  issues to its own node directly; with `serve`, every other node names its
+  directory, `https://<its first name>:<port>/directory`, and its certificate
+  as `anchors`, and obtains its own by ACME like any other.
+
+A table is read through its technology's declaration
+(`provision::read`): an unknown purpose, a `source` the program does not
+link — naming those it does — an unknown key, a value of the wrong kind and
+a required setting left out are each refused, naming the setting. Which
+sources a node can use is its program's. `xmip-service` does not read
+`[provision]` yet: certificates still reach a node as files under
+`[operate]` and the Storage tables (open problem 27).
 
 ### What a node runs by: `[tuning]`
 
@@ -198,6 +267,7 @@ send_lease = "30s"                          # how long a claim on a Journey hold
 send_scan = "1s"                            # how often the send queues are read
 storage_timeout = "5s"                      # each connect and read to a Storage node
 storage_pass_over = "5s"                    # how long one that did not answer waits its turn
+local_timeout = "2s"                        # how long a call to the local endpoint waits
 ```
 
 - **`tcp_segment`** and **`segments`**: a Stream is written to the Ledger
@@ -226,6 +296,12 @@ storage_pass_over = "5s"                    # how long one that did not answer w
   answer is asked only after the rest. Read and checked, and used by
   nothing `xmip-service` runs: it reaches no Storage node of its own
   ([built, not in the assembled service](../../../../doc/architecture/estate-map.md#storage-nodes)).
+- **`local_timeout`**: how long a surface's call to the node's local
+  endpoint waits — decided by the owner, 2026-10-13: *a local call waits at
+  most a set time — `[tuning]`, default 2 s — then says the node did not
+  answer and shows it so; the tool recovers on its own.* The node declares
+  it beside its endpoint (`local_timeout_ms`, ADR-0053), and a surface on
+  the machine that names no wait of its own takes it from there.
 
 Durations are a whole number and `ms`, `s`, `m` or `h`, above nothing and
 at most an hour. Which keys there are, their kinds, bounds and defaults are
