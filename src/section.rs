@@ -76,6 +76,27 @@ impl ApplicationSection {
     }
 }
 
+/// What `[[xmip_applications]]` alone is read as.
+#[derive(Deserialize)]
+struct Held {
+    #[serde(default)]
+    xmip_applications: Vec<ApplicationSection>,
+}
+
+/// Every Xmip Application `source` holds as a section, in the order
+/// written, each read by the one reading of an Application: a cluster's
+/// file or a node's slice, read for `[[xmip_applications]]` alone.
+///
+/// # Errors
+/// When the text is not TOML or a section does not read as an Application.
+pub fn applications(source: &str) -> Result<Vec<XmipApplication>, String> {
+    let held: Held = toml::from_str(source).map_err(|error| error.to_string())?;
+    held.xmip_applications
+        .iter()
+        .map(ApplicationSection::application)
+        .collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -110,5 +131,21 @@ mod tests {
             "{refused}"
         );
         assert!(refused.contains("send_port"), "{refused}");
+    }
+
+    #[test]
+    fn every_section_a_file_holds_reads_in_order() {
+        let mut held = Table::new();
+        let orders = Value::Table(section(ORDERS).0);
+        held.insert(SECTIONS.into(), Value::Array(vec![orders.clone(), orders]));
+        let text = toml::to_string(&held).expect("writes");
+        let read = applications(&text).expect("reads");
+        assert_eq!(read.len(), 2);
+        assert_eq!(read[0], section(ORDERS).application().expect("reads"));
+        assert!(
+            applications("[service]\nname = \"n\"\n")
+                .expect("none")
+                .is_empty()
+        );
     }
 }

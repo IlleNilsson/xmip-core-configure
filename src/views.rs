@@ -3,8 +3,8 @@
 //! cluster toml file*, every designer a view of its own sections of it).
 //!
 //! [`Views::of`] reads a cluster's file and answers one view per artifact
-//! kind, in the order the designer lists them — Cluster, Node, Receive Port,
-//! Receive Location, Send Port, Send Location, Send Port Group, Prepare,
+//! kind, in the order the designer lists them — Cluster, Node, Party, Receive
+//! Port, Receive Location, Send Port, Send Location, Send Port Group, Prepare,
 //! Promote, Demote, Route, Transformation, Process — each with the entries
 //! the file holds of it: where each is ([`Entry::section`], the path an edit
 //! names it by, [`crate::view_edit`]), whose it is (the cluster's, a node's,
@@ -120,9 +120,10 @@ enum Reads {
     Undefined(&'static str),
 }
 
-const KINDS: [(&str, &str, Reads); 13] = [
+const KINDS: [(&str, &str, Reads); 14] = [
     ("cluster", "Cluster", Reads::Cluster),
     ("node", "Node", Reads::Nodes),
+    ("party", "Party", Reads::List("parties")),
     ("receive-port", "Receive Port", Reads::List("receive_ports")),
     (
         "receive-location",
@@ -361,6 +362,7 @@ fn holds(holder: Holder, list: &str) -> bool {
             "send_locations",
             "work_processes",
             "applications",
+            "parties",
         ],
         Holder::Binding => &["receive_locations", "send_ports"],
         Holder::Application => &[
@@ -488,6 +490,7 @@ receive_idle = "30s"
             [
                 "Cluster",
                 "Node",
+                "Party",
                 "Receive Port",
                 "Receive Location",
                 "Send Port",
@@ -619,7 +622,8 @@ receive_idle = "30s"
             "[[xmip_applications.send_ports]]",
             "[[xmip_applications.send_port]]",
         );
-        let route = Views::of(&broken).expect("reads").views.remove(10);
+        let broken = Views::of(&broken).expect("reads");
+        let route = view(&broken, "route");
         assert!(route.entries[1].routes.is_none());
         assert!(
             route.entries[1].problems[0].contains("send_port"),

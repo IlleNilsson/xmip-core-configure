@@ -42,6 +42,7 @@ pub mod filter;
 pub mod fixture;
 pub mod keys;
 pub mod operate;
+pub mod party;
 pub mod port;
 mod probe;
 mod reference_edit;
@@ -64,10 +65,11 @@ pub use cluster::{is_cluster, slice, slices};
 pub use database::DomainConfiguration;
 pub use entry::subscription_entry;
 pub use operate::OperateConfiguration;
+pub use party::PartyConfiguration;
 pub use port::{
     Depth, DesignedReceiveLocation, DesignedSendPort, Failover, Interaction, OnFailure, Retry,
 };
-pub use section::ApplicationSection;
+pub use section::{ApplicationSection, applications};
 pub use settings::{Declarations, LocationSettings, location_problems};
 pub use storage::StorageConfiguration;
 pub use store::StoreConfiguration;
@@ -117,6 +119,10 @@ pub struct XmipConfigurationDocument {
     /// them. A binding binds the section of its name.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub xmip_applications: Vec<ApplicationSection>,
+    /// `[[parties]]`: the Parties the cluster recognizes, each with its
+    /// identities ([`party`], ADR-0019). Empty when it names none.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub parties: Vec<PartyConfiguration>,
     /// What each of Xmip Storage's three data domains is kept on, each
     /// its storage and its connection ([`database`], the owner,
     /// 2026-10-10). Absent, the embedded Storage node's own, under the
@@ -313,8 +319,9 @@ pub struct ConfiguredLocation {
 /// ```
 ///
 /// ADR-0019 writes a `party` list beside `mechanism`, narrowing the set to
-/// named Parties; a node's configuration names no Party yet, so the key is
-/// refused rather than read as nothing.
+/// named Parties. A configuration names its Parties in `[[parties]]`
+/// ([`party`]), but no gate narrows by them yet, so the key is refused
+/// rather than read and not enforced.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Accept {

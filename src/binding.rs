@@ -182,7 +182,8 @@ fn section_problems(
 ///
 /// # Errors
 /// Every problem found, one sentence each: a binding's own
-/// ([`binding_problems`]), an Application the node binds and was not given,
+/// ([`binding_problems`]), the Parties' ([`crate::party::problems`]), an
+/// Application the node binds and was not given,
 /// a bound Application's own problems, a Location it does not declare, and
 /// a Subscription or Location name two of them share on this node.
 pub fn bind(
@@ -190,6 +191,7 @@ pub fn bind(
     applications: &[XmipApplication],
 ) -> Result<Bound, Vec<String>> {
     let mut problems = binding_problems(document);
+    problems.extend(crate::party::problems(&document.parties));
     let node = &document.service.node_name;
     let mut bound = Bound::default();
 
