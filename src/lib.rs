@@ -35,6 +35,7 @@ pub mod field;
 pub mod filter;
 #[cfg(any(test, feature = "test-support"))]
 pub mod fixture;
+pub mod operate;
 pub mod port;
 pub mod routes;
 pub mod section;
@@ -51,6 +52,7 @@ pub use binding::{
 pub use cluster::{is_cluster, slice, slices};
 pub use database::DomainConfiguration;
 pub use entry::subscription_entry;
+pub use operate::OperateConfiguration;
 pub use port::{
     Depth, DesignedReceiveLocation, DesignedSendPort, Failover, Interaction, OnFailure, Retry,
 };
@@ -127,6 +129,11 @@ pub struct XmipConfigurationDocument {
     /// technology reads a Location's settings; empty, every default.
     #[serde(default, skip_serializing_if = "LocationSettings::is_empty")]
     pub tuning: LocationSettings,
+    /// `[operate]`: the node's operate listener, where a surface on another
+    /// machine reads, follows and acts on it ([`operate`], ADR-0067).
+    /// Absent, the node serves none.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub operate: Option<OperateConfiguration>,
 }
 
 impl XmipConfigurationDocument {

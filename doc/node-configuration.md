@@ -140,6 +140,30 @@ starts, and so is a Storage node whose databases do not open — another
 process holding them among the reasons, and a program built without RocksDB
 or SQLite.
 
+### Where it is operated from another machine: `[operate]`
+
+`[operate]` is the node's operate listener (ADR-0067; ADR-0014, amendment
+2026-10-12): where a surface on another machine — `xmip-cli --remote`,
+`-Remote`, a GUI whose `Surface` is `remote` — reads the node's publication,
+follows it and acts on it, over gRPC inside Xmip's mutual TLS. Absent, the
+node serves none. Present, every key but `role` is required:
+
+```toml
+[operate]
+listen = "0.0.0.0:7401"             # host:port; no port is assumed
+certificate = "tls/node.pem"        # this node's PEM chain, leaf first
+key = "tls/node.key"                # its PEM private key
+anchors = "tls/cluster-anchor.pem"  # what a surface's certificate must reach
+role = "operator"                   # every proven caller's; Observer if left out
+```
+
+A relative path is relative to the configuration file. Every caller is the
+subject of the certificate it presented; `role` is what each may do, and a
+word that is no role is Observer, which acts on nothing. A key it does not
+know is refused. `xmip-service` refuses to start a node whose listener cannot
+bind or whose files cannot be read, as it refuses any node that cannot
+start.
+
 ### What a node runs by: `[tuning]`
 
 Every outward and hardware assumption a node runs by is configured, per
