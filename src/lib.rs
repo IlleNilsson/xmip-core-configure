@@ -23,7 +23,11 @@
 //! ([`edit`]) — is here too, and so is the designer's view of the cluster's
 //! one `xmip.toml`, artifact by artifact ([`views`]), and the edits it makes
 //! there ([`view_edit`]), because what the design means is this crate's to
-//! say; the language server reaches it through the runtime's library.
+//! say; the language server reaches it through the runtime's library. So
+//! is what an editor suggests, looks up and renames by (ADR-0064, amendment
+//! 2026-10-13): the keys each table may hold, read from these types
+//! ([`keys`], [`shape`]), where each table and key is written ([`written`]),
+//! and what names what ([`references`]).
 
 pub mod application;
 pub mod binding;
@@ -35,15 +39,21 @@ pub mod field;
 pub mod filter;
 #[cfg(any(test, feature = "test-support"))]
 pub mod fixture;
+pub mod keys;
 pub mod operate;
 pub mod port;
+mod probe;
+mod reference_edit;
+pub mod references;
 pub mod routes;
 pub mod section;
 pub mod settings;
+pub mod shape;
 pub mod storage;
 pub mod store;
 pub mod view_edit;
 pub mod views;
+pub mod written;
 
 pub use application::{DesignedElement, SendPortGroup, XmipApplication, parse_application};
 pub use binding::{
@@ -129,8 +139,9 @@ pub struct XmipConfigurationDocument {
     /// technology reads a Location's settings; empty, every default.
     #[serde(default, skip_serializing_if = "LocationSettings::is_empty")]
     pub tuning: LocationSettings,
-    /// `[operate]`: the node's operate listener, where a surface on another
-    /// machine reads, follows and acts on it ([`operate`], ADR-0067).
+    /// `[operate]`: the node's operate listener, where a surface on this
+    /// machine, at the local endpoint, or on another, at the network
+    /// address, reads, follows and acts on it ([`operate`], ADR-0067).
     /// Absent, the node serves none.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub operate: Option<OperateConfiguration>,

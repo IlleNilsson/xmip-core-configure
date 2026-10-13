@@ -140,16 +140,26 @@ starts, and so is a Storage node whose databases do not open — another
 process holding them among the reasons, and a program built without RocksDB
 or SQLite.
 
-### Where it is operated from another machine: `[operate]`
+### Where it is operated from: `[operate]`
 
-`[operate]` is the node's operate listener (ADR-0067; ADR-0014, amendment
-2026-10-12): where a surface on another machine — `xmip-cli --remote`,
-`-Remote`, a GUI whose `Surface` is `remote` — reads the node's publication,
-follows it and acts on it, over gRPC inside Xmip's mutual TLS. Absent, the
-node serves none. Present, every key but `role` is required:
+`[operate]` is the node's operate listener (ADR-0067; ADR-0014, amendments
+2026-10-12 and 2026-10-13): where a surface reads the node's publication,
+follows it and acts on it, over gRPC. `local` is its endpoint on this
+machine — `xmip-cli --local`, `-Local`, a GUI whose `Surface` is `local` — a
+named pipe on Windows and a Unix domain socket elsewhere, opened only by the
+node's account and the machine's administrators, every caller the user the
+operating system says its process runs as; a bare name is `\\.\pipe\<name>`
+on Windows and a file in the temporary directory on Unix, a path is taken as
+one, and on a machine others log on to a path in a directory only the node's
+account and its operators reach is the one to give. `listen` is its address
+for another machine — `xmip-cli --remote`, `-Remote`, a GUI whose `Surface`
+is `remote` — inside Xmip's mutual TLS, and takes `certificate`, `key` and
+`anchors` with it. Absent, the node serves none, and no surface operates it.
+Present, it names `local`, `listen` or both:
 
 ```toml
 [operate]
+local = "xmip-node1"                # the local endpoint; no endpoint is assumed
 listen = "0.0.0.0:7401"             # host:port; no port is assumed
 certificate = "tls/node.pem"        # this node's PEM chain, leaf first
 key = "tls/node.key"                # its PEM private key
@@ -157,8 +167,9 @@ anchors = "tls/cluster-anchor.pem"  # what a surface's certificate must reach
 role = "operator"                   # every proven caller's; Observer if left out
 ```
 
-A relative path is relative to the configuration file. Every caller is the
-subject of the certificate it presented; `role` is what each may do, and a
+A relative path is relative to the configuration file. Every caller on the
+network is the subject of the certificate it presented, and on the local
+endpoint the user its process runs as; `role` is what each may do, and a
 word that is no role is Observer, which acts on nothing. A key it does not
 know is refused. `xmip-service` refuses to start a node whose listener cannot
 bind or whose files cannot be read, as it refuses any node that cannot

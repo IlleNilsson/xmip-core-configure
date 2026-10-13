@@ -198,6 +198,26 @@ through the runtime's `xmip_operate.h` section 10:
   every comment and layout it does not touch. It refuses an edit that
   would leave a node that sliced and read unable to, or an Application
   section that read unable to, in the reader's words.
+- **What an editor needs** (ADR-0064, amendment 2026-10-13), in the same
+  views answer: `written` (`src/written.rs`), every table by its section
+  with the bytes of its header, its name, the text it covers and each key
+  and value; `references` (`src/references.rs`), each name that stands for
+  an entry declared elsewhere — a Receive Location's `receive_port`, a Send
+  Port Group's `send_ports`, a Subscription's `destination`, a binding's
+  `name`, each bound Location's `name` and `node`, a node's own
+  `[service] node_name` — with what it names, where that is declared and
+  every name it may take; and `keys` (`src/keys.rs`), every key each table
+  of the file may hold, its kind, the words it reads and whether it is
+  required, read from this crate's own types by listening to their
+  `Deserialize` (`src/shape.rs`, `src/probe.rs`), never listed a second
+  time. Edits that follow them (`src/reference_edit.rs`): `rename` renames
+  an entry or a node and every name standing for it; `remove-entry` is
+  refused while anything names the entry, saying which, unless
+  `references`, which removes the entries those names belong to (where the
+  name is what names that entry or a key it cannot be without), an array's
+  element, or the key; `refer` points a name at another entry;
+  `rename-key` renames a key, its value and place kept. Parties are not
+  part of the configuration yet, so nothing names one.
 
 ## The test cluster
 
