@@ -33,6 +33,11 @@ pub struct Views {
     /// The cluster's `[service] cluster_name`; empty when it names none.
     pub cluster: String,
     pub views: Vec<View>,
+    /// Where each table and key is written, what names what, and every key
+    /// a table may hold: what an editor looks up and suggests by.
+    pub written: Vec<crate::written::Written>,
+    pub references: Vec<crate::references::Reference>,
+    pub keys: &'static [crate::keys::Key],
 }
 
 /// One artifact kind and the entries the file holds of it.
@@ -181,6 +186,9 @@ impl Views {
                 .unwrap_or_default()
                 .to_string(),
             views,
+            written: crate::written::written(cluster)?,
+            references: crate::references::references(cluster)?,
+            keys: crate::keys::keys(),
         })
     }
 }

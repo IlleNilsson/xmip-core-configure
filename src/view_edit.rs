@@ -20,6 +20,7 @@ use toml_edit::{ArrayOfTables, DocumentMut, Item, Table, value};
 use crate::cluster::{self, NODES};
 use crate::edit::{ApplicationEdit, apply_to};
 use crate::field::NAMED_BY;
+use crate::reference_edit;
 use crate::section::{ApplicationSection, SECTIONS};
 
 /// One act of the cluster designer on the file.
@@ -47,9 +48,35 @@ pub enum ClusterEdit {
         values: Vec<Given>,
     },
     /// Remove the table at `section`: an entry of a list, or a node.
-    RemoveEntry { section: Vec<String> },
+    /// Refused while anything in the file names it, saying what does,
+    /// unless `references`, which removes what names it with it
+    /// ([`crate::reference_edit`]).
+    RemoveEntry {
+        section: Vec<String>,
+        #[serde(default)]
+        references: bool,
+    },
     /// Declare a node, `[nodes.<name>]`.
     AddNode { name: String },
+    /// Rename the entry or node at `section` to `name`, and every name in
+    /// the file that stands for it.
+    Rename { section: Vec<String>, name: String },
+    /// Make the name at `key` of the table at `section` — at `index`, in an
+    /// array — name `name` instead.
+    Refer {
+        section: Vec<String>,
+        key: Vec<String>,
+        #[serde(default)]
+        index: Option<usize>,
+        name: String,
+    },
+    /// Rename the key `key` of the table at `section` to `to`, its value
+    /// kept.
+    RenameKey {
+        section: Vec<String>,
+        key: Vec<String>,
+        to: String,
+    },
     /// One of the Application's own edits, made to its section.
     Application {
         application: String,
@@ -100,7 +127,22 @@ pub fn apply(source: &str, edit: &ClusterEdit) -> Result<String, String> {
                 put(added, &given.key, &given.value)?;
             }
         }
-        ClusterEdit::RemoveEntry { section } => remove_entry(root, section)?,
+        ClusterEdit::RemoveEntry {
+            section,
+            references,
+        } => reference_edit::remove(root, source, section, *references)?,
+        ClusterEdit::Rename { section, name } => {
+            reference_edit::rename(root, source, section, name)?;
+        }
+        ClusterEdit::Refer {
+            section,
+            key,
+            index,
+            name,
+        } => reference_edit::refer(root, section, key, *index, name)?,
+        ClusterEdit::RenameKey { section, key, to } => {
+            reference_edit::rename_key(root, section, key, to)?;
+        }
         ClusterEdit::AddNode { name } => {
             if name.trim().is_empty() {
                 return Err("a node requires a name".to_string());
@@ -134,7 +176,7 @@ pub fn apply(source: &str, edit: &ClusterEdit) -> Result<String, String> {
 /// The table at `section`: a key steps into a table, and into a list of
 /// tables together with the next step, the entry's name. With `create`, a
 /// table missing on the way is added; an entry never is.
-fn walk<'t>(
+pub(crate) fn walk<'t>(
     mut table: &'t mut Table,
     section: &[String],
     create: bool,
@@ -222,7 +264,7 @@ fn add_entry<'t>(
         .ok_or_else(|| format!("{list} lost what was added"))
 }
 
-fn remove_entry(root: &mut Table, section: &[String]) -> Result<(), String> {
+pub(crate) fn remove_entry(root: &mut Table, section: &[String]) -> Result<(), String> {
     let (last, path) = section.split_last().ok_or("name what to remove")?;
     if let Some((list, parent)) = path.split_last()
         && let Ok(holder) = walk(root, parent, false)
@@ -380,7 +422,14 @@ mod tests {
         assert_eq!(names, ["drop", "api"]);
 
         let section = path(&["nodes", &first, "receive_locations", "api"]);
-        let removed = apply(&edited, &ClusterEdit::RemoveEntry { section }).expect("removes");
+        let removed = apply(
+            &edited,
+            &ClusterEdit::RemoveEntry {
+                section,
+                references: false,
+            },
+        )
+        .expect("removes");
         assert_eq!(node(&removed, &first).receive_locations.len(), 1);
         assert!(apply(&text, &add(Vec::new())).is_err());
     }
@@ -402,14 +451,98 @@ mod tests {
                 .expect_err("twice")
                 .contains("already")
         );
-        let removed = apply(
+        let remove = |references| ClusterEdit::RemoveEntry {
+            section: path(&["nodes", &first]),
+            references,
+        };
+        let refused = apply(&text, &remove(false)).expect_err("a binding names it");
+        assert!(
+            refused.contains("applications.Orders.receive_locations.OrdersIn node"),
+            "{refused}"
+        );
+        let removed = apply(&text, &remove(true)).expect("removes");
+        assert!(!cluster::nodes(&removed).expect("reads").contains(&first));
+        assert!(
+            !removed.contains(&format!("node = \"{first}\"")),
+            "{removed}"
+        );
+        assert!(
+            removed.contains("[[applications]]\nname = \"Orders\""),
+            "{removed}"
+        );
+    }
+
+    #[test]
+    fn a_rename_follows_every_name_that_stands_for_it() {
+        let (text, first, _) = written();
+        let port = path(&["xmip_applications", "Orders", "send_ports", "Billing"]);
+        let renamed = apply(
             &text,
-            &ClusterEdit::RemoveEntry {
-                section: path(&["nodes", &first]),
+            &ClusterEdit::Rename {
+                section: port,
+                name: "Ledger".to_string(),
             },
         )
-        .expect("removes");
-        assert!(!cluster::nodes(&removed).expect("reads").contains(&first));
+        .expect("renames");
+        assert_eq!(renamed, text.replace("\"Billing\"", "\"Ledger\""));
+
+        let application = path(&["xmip_applications", "Orders"]);
+        let section = ClusterEdit::Rename {
+            section: application,
+            name: "Invoices".to_string(),
+        };
+        let renamed = apply(&text, &section).expect("renames");
+        assert!(
+            renamed.contains("[[applications]]\nname = \"Invoices\""),
+            "{renamed}"
+        );
+        assert!(renamed.contains("[[xmip_applications]]\nname = \"Invoices\""));
+        assert!(renamed.contains("[[xmip_applications.receive_ports]]\nname = \"Orders\""));
+
+        let absent = crate::fixture::test_cluster().absent();
+        let node = ClusterEdit::Rename {
+            section: path(&["nodes", &first]),
+            name: absent.clone(),
+        };
+        let renamed = apply(&text, &node).expect("renames");
+        assert!(
+            renamed.contains(&format!("node = \"{absent}\"")),
+            "{renamed}"
+        );
+        assert!(
+            renamed.contains(&format!("[nodes.{absent}.tuning]")),
+            "{renamed}"
+        );
+        assert!(!renamed.contains(&format!("[nodes.{first}.")), "{renamed}");
+    }
+
+    #[test]
+    fn a_dangling_name_is_referred_again_and_a_misspelled_key_renamed() {
+        let (text, _, _) = written();
+        let dangling = text.replace("send-port = \"Billing\"", "send-port = \"Biling\"");
+        let referred = apply(
+            &dangling,
+            &ClusterEdit::Refer {
+                section: path(&["xmip_applications", "Orders", "subscriptions", "billing"]),
+                key: path(&["destination", "send-port"]),
+                index: None,
+                name: "Billing".to_string(),
+            },
+        )
+        .expect("refers");
+        assert_eq!(referred, text);
+
+        let misspelled = text.replacen("address = \"/var", "adress = \"/var", 1);
+        let renamed = apply(
+            &misspelled,
+            &ClusterEdit::RenameKey {
+                section: path(&["receive_locations", "drop"]),
+                key: path(&["adress"]),
+                to: "address".to_string(),
+            },
+        )
+        .expect("renames the key");
+        assert_eq!(renamed, text);
     }
 
     #[test]
