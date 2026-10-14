@@ -257,6 +257,8 @@ fn named(array: &[Value]) -> bool {
 mod tests {
     use super::*;
     use crate::fixture::{TestCluster, test_cluster};
+    use crate::section::ApplicationSection;
+    use crate::storage::StorageAddress;
 
     /// The cluster under test, written from the test cluster's names: the
     /// first node gives its own service name, tuning and Locations, the
@@ -355,7 +357,7 @@ nodes = ["{third}.example:7443"]
         assert_eq!(second.service.name, "xmip");
         assert_eq!(second.service.node_name, written.second);
         assert_eq!(second.receive_locations[0].address, "/var/xmip/in");
-        assert!(second.storage.nodes.is_empty());
+        assert_eq!(second.storage.nodes, [] as [StorageAddress; 0]);
         assert_eq!(
             document(&written, &written.third).storage.nodes[0].as_str(),
             format!("{}.example:7443", written.third)
@@ -435,10 +437,10 @@ nodes = ["{third}.example:7443"]
         let binding = crate::parse_toml(&slice(&text, first).expect("slices")).expect("reads");
         let names: Vec<_> = binding.xmip_applications.iter().map(|s| s.name()).collect();
         assert_eq!(names, ["Orders"]);
-        assert!(crate::binding_problems(&binding).is_empty());
+        assert_eq!(crate::binding_problems(&binding), [] as [String; 0]);
 
         let bare = crate::parse_toml(&slice(&text, second).expect("slices")).expect("reads");
-        assert!(bare.xmip_applications.is_empty());
+        assert_eq!(bare.xmip_applications, [] as [ApplicationSection; 0]);
     }
 
     #[test]

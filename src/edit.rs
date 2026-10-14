@@ -293,11 +293,9 @@ filter = "MessageType='Order'"
         let billing = "name = \"Billing\" # the finance system\n";
         let with_ledger = format!("{billing}\n[[send_ports]]\nname = \"Ledger\"\n");
         assert_eq!(edited, ORDERS.replace(billing, &with_ledger));
-        assert!(
-            parse_application(&edited)
-                .expect("reads")
-                .problems()
-                .is_empty()
+        assert_eq!(
+            parse_application(&edited).expect("reads").problems(),
+            [] as [String; 0]
         );
     }
 

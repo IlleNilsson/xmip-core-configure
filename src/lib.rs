@@ -357,7 +357,7 @@ pub fn parse_toml(source: &str) -> Result<XmipConfigurationDocument, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{ExecutionStyle, parse_toml};
+    use super::{ExecutionStyle, ExtensionManifest, parse_toml};
 
     const HEAD: &str = "[service]\nname = \"n\"\ncluster_name = \"c\"\nnode_name = \"d\"\n";
 
@@ -454,8 +454,8 @@ extensions = []
         let source = format!("{HEAD}[[work_processes]]\nname = \"minimal\"\nstart = true\n");
         let document = parse_toml(&source).expect("parses");
         let process = &document.work_processes[0];
-        assert!(process.required_modules.is_empty());
-        assert!(process.extensions.is_empty());
+        assert_eq!(process.required_modules, [] as [String; 0]);
+        assert_eq!(process.extensions, [] as [ExtensionManifest; 0]);
     }
 
     #[test]

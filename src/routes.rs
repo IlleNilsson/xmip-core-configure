@@ -263,7 +263,7 @@ filter = "true"
         assert_eq!(billing.summary.as_deref(), Some("MessageType = 'Order'"));
         assert!(billing.filter.is_some());
         assert!(!billing.target && routes.nodes[3].target && routes.nodes[6].target);
-        assert!(routes.problems.is_empty());
+        assert_eq!(routes.problems, [] as [String; 0]);
         assert_eq!(routes.operators[0], "=");
         assert_eq!(routes.kinds, ["text", "integer", "boolean", "expression"]);
     }

@@ -173,7 +173,10 @@ mod tests {
     fn a_location_its_declaration_reads_has_no_problem() {
         let sound = location("[send_locations.settings]\ntopic = \"orders\"\n");
         assert_eq!(sound.settings.given().len(), 1);
-        assert!(location_problems(&sound, Applies::Send, &declared()).is_empty());
+        assert_eq!(
+            location_problems(&sound, Applies::Send, &declared()),
+            [] as [String; 0]
+        );
     }
 
     #[test]
@@ -211,7 +214,10 @@ mod tests {
             problems,
             ["the Send Location 'out' gives accept, which only a Receive Location reads"]
         );
-        assert!(location_problems(&accepting, Applies::Receive, &Declarations::new()).is_empty());
+        assert_eq!(
+            location_problems(&accepting, Applies::Receive, &Declarations::new()),
+            [] as [String; 0]
+        );
 
         let source = "[service]\nname = \"n\"\ncluster_name = \"c\"\nnode_name = \"d\"\n\
              [[receive_locations]]\nname = \"in\"\nstart = true\ntransport = \"t\"\n\
@@ -223,7 +229,10 @@ mod tests {
     #[test]
     fn a_technology_the_caller_does_not_carry_is_not_judged_here() {
         let unknown = location("[send_locations.settings]\nanything = 1\n");
-        assert!(location_problems(&unknown, Applies::Send, &Declarations::new()).is_empty());
+        assert_eq!(
+            location_problems(&unknown, Applies::Send, &Declarations::new()),
+            [] as [String; 0]
+        );
     }
 
     #[test]

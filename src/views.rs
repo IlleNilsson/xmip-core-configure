@@ -590,7 +590,7 @@ receive_idle = "30s"
         );
         assert!(places.contains(&"applications.Orders.receive_locations".to_string()));
         assert!(places.contains(&"xmip_applications.Orders.receive_locations".to_string()));
-        assert!(said(view(&views, "send-location")).is_empty());
+        assert_eq!(said(view(&views, "send-location")), [] as [String; 0]);
     }
 
     #[test]
