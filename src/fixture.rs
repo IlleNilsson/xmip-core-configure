@@ -204,8 +204,8 @@ mod tests {
     #[test]
     fn the_test_cluster_reads_with_a_name_and_its_nodes() {
         let cluster = test_cluster();
-        assert!(!cluster.name.is_empty());
-        assert!(!cluster.nodes.is_empty());
+        assert_ne!(cluster.name, "");
+        assert_ne!(cluster.nodes, [] as [TestNode; 0]);
         let first = cluster.node(0);
         assert!(first.roles.iter().all(|role| !role.is_empty()));
         if let Some(role) = first.roles.first() {
@@ -220,7 +220,7 @@ mod tests {
         assert_ne!(cluster.other(), cluster.name);
         let other = other_cluster();
         assert_eq!(cluster.other(), other.name);
-        assert!(!other.nodes.is_empty());
+        assert_ne!(other.nodes, [] as [TestNode; 0]);
         assert_eq!(
             cluster.node_scope(0),
             format!("xmip:///{}/node/{}", cluster.name, first.name)

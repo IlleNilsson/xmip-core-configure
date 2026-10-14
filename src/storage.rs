@@ -128,7 +128,7 @@ mod tests {
             nodes,
             ["storage-1.example:7443", "10.0.0.7:7443", "[fd00::7]:7443"]
         );
-        assert!(storage.problems().is_empty());
+        assert_eq!(storage.problems(), [] as [String; 0]);
         assert!(read("").expect("reads").is_default());
     }
 

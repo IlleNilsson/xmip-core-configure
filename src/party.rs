@@ -82,7 +82,7 @@ pub fn problems(parties: &[PartyConfiguration]) -> Vec<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{parties, problems};
+    use super::{PartyConfiguration, parties, problems};
 
     /// Two Parties named here and nowhere else, as a test's own data.
     fn two() -> String {
@@ -100,10 +100,9 @@ mod tests {
         assert_eq!(read[0].identities, [format!("CN={}.example", read[0].name)]);
         assert_eq!(read[1].identities.len(), 2);
         assert!(problems(&read).is_empty(), "{:?}", problems(&read));
-        assert!(
-            parties("[service]\nname = \"n\"\n")
-                .expect("none")
-                .is_empty()
+        assert_eq!(
+            parties("[service]\nname = \"n\"\n").expect("none"),
+            [] as [PartyConfiguration; 0]
         );
     }
 

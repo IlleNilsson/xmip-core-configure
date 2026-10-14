@@ -416,14 +416,14 @@ filter = "MessageType = 'Order'"
         assert_eq!(bound.receive_ports[0].name, "Orders");
         assert_eq!(bound.receive_ports[0].receive_locations[0].name, "OrdersIn");
         assert!(bound.send_locations.is_empty(), "the second node takes it");
-        assert!(bound.send_ports.is_empty());
+        assert_eq!(bound.send_ports, [] as [DesignedSendPort; 0]);
         assert_eq!(bound.subscriptions.len(), 1);
         assert_eq!(bound.subscriptions[0].id, "billing");
 
         let second = node(&binding(1));
         let bound = bind(&second, &[orders(&second)]).expect("binds on the second");
-        assert!(bound.receive_locations.is_empty());
-        assert!(bound.receive_ports.is_empty());
+        assert_eq!(bound.receive_locations, [] as [ConfiguredLocation; 0]);
+        assert_eq!(bound.receive_ports, [] as [BoundReceivePort; 0]);
         assert_eq!(bound.send_locations[0].name, "Billing");
         assert_eq!(bound.send_ports[0].name, "Billing");
     }
@@ -482,7 +482,7 @@ filter = "MessageType = 'Order'"
         let text = binding(0);
         let first = node(text.split("[[applications]]").next().expect("head"));
 
-        assert!(first.applications.is_empty());
+        assert_eq!(first.applications, [] as [ApplicationBinding; 0]);
         assert_eq!(
             bind(&first, &[]).expect("nothing to bind"),
             Bound::default()

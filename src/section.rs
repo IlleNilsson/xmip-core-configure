@@ -142,10 +142,9 @@ mod tests {
         let read = applications(&text).expect("reads");
         assert_eq!(read.len(), 2);
         assert_eq!(read[0], section(ORDERS).application().expect("reads"));
-        assert!(
-            applications("[service]\nname = \"n\"\n")
-                .expect("none")
-                .is_empty()
+        assert_eq!(
+            applications("[service]\nname = \"n\"\n").expect("none"),
+            [] as [XmipApplication; 0]
         );
     }
 }
