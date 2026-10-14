@@ -261,6 +261,7 @@ receive_threads_per_hardware_thread = 2     # 1 to 64
 receive_idle = "1m"                         # a receive thread's idle time
 receive_poll = "1s"                         # a polled Location's rest after finding nothing
 receive_backoff = "5s"                      # a polled Location's rest after a failure
+receive_drain = "1s"                        # the longest a stopping Location drains
 send_threads_per_hardware_thread = 2        # 1 to 64
 send_idle = "1m"                            # a send thread's idle time
 send_lease = "30s"                          # how long a claim on a Journey holds
@@ -285,6 +286,11 @@ local_timeout = "2s"                        # how long a call to the local endpo
   receive began; a stop ends the rest at once. A Location whose receive
   waits for what arrives is asked again at once (`runtime-model.md`
   section 5, *How a receive runs*).
+- **`receive_drain`**: how long, from the node's stop, a Receive Location
+  whose receive waits and whose far end let go of what it handed over —
+  raw TCP, a datagram — goes on taking what is already queued for it; it
+  stops sooner at the first receive that finds nothing (`runtime-model.md`
+  section 5, *A stop drains what the far end already let go of*).
 - **`send_threads_per_hardware_thread`** and **`send_idle`**: the same for
   the node's one Send pool (`runtime-model.md` section 3).
 - **`send_lease`** and **`send_scan`**: how long a claim on a Journey holds
