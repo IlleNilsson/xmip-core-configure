@@ -74,6 +74,7 @@ pub use settings::{Declarations, LocationSettings, location_problems};
 pub use storage::StorageConfiguration;
 pub use store::StoreConfiguration;
 
+use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
 use abi::{ExtensionManifest, ModuleManifest};
@@ -151,6 +152,13 @@ pub struct XmipConfigurationDocument {
     /// technology reads a Location's settings; empty, every default.
     #[serde(default, skip_serializing_if = "LocationSettings::is_empty")]
     pub tuning: LocationSettings,
+    /// `[provision.<purpose>]`: where the node's certificates come from, and
+    /// on the node whose authority signs a person's request,
+    /// `[provision.operator]` (ADR-0034, amendment 2026-10-15). Each table
+    /// as written, read through `xmip-core-provision`'s reading of it; empty
+    /// where the document names none.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub provision: BTreeMap<String, LocationSettings>,
     /// `[operate]`: the node's operate listener, where a surface on this
     /// machine, at the local endpoint, or on another, at the network
     /// address, reads, follows and acts on it ([`operate`], ADR-0067).
@@ -389,6 +397,21 @@ extensions = []
             ExecutionStyle::Sequential,
             "an omitted style defaults to Sequential"
         );
+    }
+
+    #[test]
+    fn each_provision_table_is_kept_as_written_by_its_purpose() {
+        let text = format!(
+            "{HEAD}
+[provision.operator]
+authority = \"authority\"
+lifetime = \"8h\"
+"
+        );
+        let document = parse_toml(&text).expect("parses");
+        let operator = &document.provision["operator"];
+        assert_eq!(operator.0["lifetime"].as_str(), Some("8h"));
+        assert!(parse_toml(HEAD).expect("parses").provision.is_empty());
     }
 
     #[test]
