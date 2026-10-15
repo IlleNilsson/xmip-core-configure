@@ -187,7 +187,8 @@ start.
 ### Where a node's certificates come from: `[provision]`
 
 A node's certificates are obtained and renewed by `xmip-core-provision`
-(ADR-0034; ADR-0033, amendment 2026-10-13), one table per purpose:
+(ADR-0034; ADR-0033, amendment 2026-10-13), one table per purpose
+(`XmipConfigurationDocument::provision`, each as written):
 `[provision.receive]` for what a Party reaches — a Receive Location's server
 certificate — and `[provision.node]` for node to node, where each end presents
 one in mutual TLS and so needs server and client authentication. `source`
@@ -235,6 +236,23 @@ challenge_listen = "0.0.0.0:80"
   issues to its own node directly; with `serve`, every other node names its
   directory, `https://<its first name>:<port>/directory`, and its certificate
   as `anchors`, and obtains its own by ACME like any other.
+
+**A person's certificate** — purpose `operator`, client authentication
+alone, its subject the person — is never obtained by a node: the person's
+surface makes its own key and a request, and the node whose authority
+signs it says where that authority is kept and how long the certificate
+lasts (ADR-0034, amendment 2026-10-15). The table names no `source`:
+
+```toml
+[provision.operator]                     # on the node whose authority signs
+authority = "authority"                  # holds authority.key and authority.pem; relative to this file
+lifetime = "720h"                        # thirty days unless said
+```
+
+`xmip-cli certificate <request> --sign <this file>` and
+`New-XmipCertificate -Request <request> -Configuration <this file>` sign by
+it; a request asking more than client authentication for a person is
+refused.
 
 A table is read through its technology's declaration
 (`provision::read`): an unknown purpose, a `source` the program does not
