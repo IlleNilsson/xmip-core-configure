@@ -57,8 +57,12 @@ settings are refused, each naming the technology and the setting. Which
 settings there are is never this crate's — the shape is `xmip-core`'s
 `settings`, each declaration its technology's, and the caller hands over
 the declarations it carries. A Receive Location's `accept` is the closed set
-of mechanisms it authenticates (ADR-0019 clause 1, `Accept`); it is refused
-on a Send Location.
+it authenticates (ADR-0019 clause 1, `Accept`): the mechanisms, and the
+Parties by their `[[parties]]` names, a name none declares a problem the
+binding reports (`party::accepted_problems`); it is refused on a Send
+Location. A verified identity resolves to the Party holding it
+(`party::holding`), each known by its place among `[[parties]]`, counted
+from one (`party::id`; ADR-0019, amendment 2026-10-19).
 
 `[store]` names the key store an embedded Storage node's records are
 sealed under and where that keeps its keys, and `[service] data` the node's

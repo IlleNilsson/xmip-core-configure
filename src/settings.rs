@@ -222,8 +222,10 @@ mod tests {
         let source = "[service]\nname = \"n\"\ncluster_name = \"c\"\nnode_name = \"d\"\n\
              [[receive_locations]]\nname = \"in\"\nstart = true\ntransport = \"t\"\n\
              address = \"a\"\n[receive_locations.accept]\nparty = [\"party-x\"]\n";
-        let refused = parse_toml(source).expect_err("no Party is named in a node yet");
-        assert!(refused.contains("party"), "{refused}");
+        let read = parse_toml(source).expect("a Party list is read");
+        assert_eq!(read.receive_locations[0].accept.party, ["party-x"]);
+        let refused = parse_toml(&source.replace("party =", "parties ="));
+        assert!(refused.is_err(), "an unknown key is refused");
     }
 
     #[test]
