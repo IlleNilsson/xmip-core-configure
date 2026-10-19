@@ -280,11 +280,14 @@ receive_idle = "1m"                         # a receive thread's idle time
 receive_poll = "1s"                         # a polled Location's rest after finding nothing
 receive_backoff = "5s"                      # a polled Location's rest after a failure
 receive_drain = "1s"                        # the longest a stopping Location drains
+node_receive_threads_per_hardware_thread = 4 # 1 to 256
+receive_chunks_per_thread = 8               # 1 to 4096
 send_threads_per_hardware_thread = 2        # 1 to 64
 send_idle = "1m"                            # a send thread's idle time
 send_lease = "30s"                          # how long a claim on a Journey holds
 send_scan = "1s"                            # how often the send queues are read
 failed_window = 100                         # oldest failed Journeys kept per Send Port, 1 to 10000
+send_chunks_per_thread = 16                 # 1 to 65536
 storage_timeout = "5s"                      # each connect and read to a Storage node
 storage_pass_over = "5s"                    # how long one that did not answer waits its turn
 local_timeout = "2s"                        # how long a call to the local endpoint waits
@@ -310,8 +313,24 @@ local_timeout = "2s"                        # how long a call to the local endpo
   raw TCP, a datagram — goes on taking what is already queued for it; it
   stops sooner at the first receive that finds nothing (`runtime-model.md`
   section 5, *A stop drains what the far end already let go of*).
+- **`node_receive_threads_per_hardware_thread`** and
+  **`receive_chunks_per_thread`**: the node's budget beside each Receive
+  Location's own pool. The node carries at most this many arrivals per
+  hardware thread at once across all its Receive Locations, and its carries
+  hold at most `receive_chunks_per_thread` chunks of Streams each, on
+  average; a carry is counted as holding eight — the chunk it writes, the
+  one it reads ahead, and what Xmip Storage encodes and seals of it,
+  measured at seven at most — so by default the carries bound the bytes. A receive takes no more arrivals than its Location's pool and the
+  node have room for, and what it does not take stays at its far end
+  (`runtime-model.md` section 3, *A node's budget beside its pools*).
 - **`send_threads_per_hardware_thread`** and **`send_idle`**: the same for
   the node's one Send pool (`runtime-model.md` section 3).
+- **`send_chunks_per_thread`**: the bytes the node's sends hold at once,
+  in chunks for each thread of the Send pool, beside the pool's count of
+  Journeys. A send whose transport streams is counted as holding six
+  chunks, what reading it holds, measured at a little over five; one
+  whose transport gathers the whole Message holds all of it, and waits for
+  room where others hold the rest (`runtime-model.md` section 10).
 - **`send_lease`** and **`send_scan`**: how long a claim on a Journey holds
   before it lapses unless renewed, and how often the queues of the Send
   Ports this node sends are read for unclaimed Journeys (`runtime-model.md`
