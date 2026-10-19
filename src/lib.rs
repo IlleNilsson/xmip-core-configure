@@ -314,34 +314,38 @@ pub struct ConfiguredLocation {
     pub accept: Accept,
 }
 
-/// `accept`: the closed set of mechanisms a Receive Location authenticates
-/// (ADR-0019 clause 1), each by the name its mechanism declares —
-/// `circumstance`, `mutual-tls`, `oauth2`. An identity presented by any
-/// other is refused at authentication and never tried against the rest.
-/// Absent or empty, the Location takes nothing: an unconfigured endpoint is
-/// closed, not open.
+/// `accept`: the closed set a Receive Location authenticates (ADR-0019
+/// clause 1) — the mechanisms, each by the name its mechanism declares,
+/// `circumstance`, `mutual-tls`, `oauth2`, and, where it narrows to them,
+/// the Parties, each by its name in `[[parties]]` ([`party`]). An identity
+/// presented by any other mechanism is refused at authentication and never
+/// tried against the rest; with `party` given, a verified identity that
+/// resolves to another Party, or to none, is refused there too. Absent or
+/// empty, the Location takes nothing: an unconfigured endpoint is closed,
+/// not open.
 ///
 /// ```toml
 /// [receive_locations.accept]
 /// mechanism = ["mutual-tls", "oauth2"]
+/// party     = ["<party>"]
 /// ```
-///
-/// ADR-0019 writes a `party` list beside `mechanism`, narrowing the set to
-/// named Parties. A configuration names its Parties in `[[parties]]`
-/// ([`party`]), but no gate narrows by them yet, so the key is refused
-/// rather than read and not enforced.
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Accept {
     #[serde(default)]
     pub mechanism: Vec<String>,
+    /// The Parties the Location takes, by name; empty, any identity the
+    /// mechanisms verify.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub party: Vec<String>,
 }
 
 impl Accept {
-    /// Whether the Location declares no mechanism: it takes nothing.
+    /// Whether the Location declares nothing it takes: no mechanism and no
+    /// Party.
     #[must_use]
     pub const fn is_empty(&self) -> bool {
-        self.mechanism.is_empty()
+        self.mechanism.is_empty() && self.party.is_empty()
     }
 }
 

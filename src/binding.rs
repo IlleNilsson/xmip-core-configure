@@ -182,8 +182,10 @@ fn section_problems(
 ///
 /// # Errors
 /// Every problem found, one sentence each: a binding's own
-/// ([`binding_problems`]), the Parties' ([`crate::party::problems`]), an
-/// Application the node binds and was not given,
+/// ([`binding_problems`]), the Parties' ([`crate::party::problems`]), a
+/// Receive Location accepting a Party none declares
+/// ([`crate::party::accepted_problems`]), an Application the node binds and
+/// was not given,
 /// a bound Application's own problems, a Location it does not declare, and
 /// a Subscription or Location name two of them share on this node.
 pub fn bind(
@@ -192,6 +194,15 @@ pub fn bind(
 ) -> Result<Bound, Vec<String>> {
     let mut problems = binding_problems(document);
     problems.extend(crate::party::problems(&document.parties));
+    let bound_receives = document.applications.iter().flat_map(|binding| {
+        binding
+            .receive_locations
+            .iter()
+            .map(|bound| &bound.location)
+    });
+    for location in document.receive_locations.iter().chain(bound_receives) {
+        problems.extend(crate::party::accepted_problems(&document.parties, location));
+    }
     let node = &document.service.node_name;
     let mut bound = Bound::default();
 

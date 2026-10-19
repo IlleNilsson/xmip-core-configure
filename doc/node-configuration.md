@@ -258,8 +258,11 @@ A table is read through its technology's declaration
 (`provision::read`): an unknown purpose, a `source` the program does not
 link — naming those it does — an unknown key, a value of the wrong kind and
 a required setting left out are each refused, naming the setting. Which
-sources a node can use is its program's. `xmip-service` does not read
-`[provision]` yet: certificates still reach a node as files under
+sources a node can use is its program's. `xmip-service` reads
+`[provision.receive]` as it starts, from the operator's own files alone, and
+hands it to every transport as the TLS its receives terminate with; it
+starts no provisioner, so a table naming a `source` is refused, and it reads
+no other purpose's table: certificates still reach a node as files under
 `[operate]` and the Storage tables (open problem 27).
 
 ### What a node runs by: `[tuning]`
@@ -491,24 +494,48 @@ read yet: a node refuses to start a Location that names a `contract`
 
 ### What a Receive Location accepts
 
-A Receive Location declares the **closed set** of mechanisms it
-authenticates (ADR-0019 clause 1), each by the name its mechanism declares:
+A Receive Location declares the **closed set** it authenticates (ADR-0019
+clause 1): the mechanisms, each by the name its mechanism declares, and,
+where it takes named Parties alone, those Parties, each by its name in
+`[[parties]]`:
 
 ```toml
+[[parties]]
+name       = "<party>"
+identities = ["CN=<party>.example"]
+
 [receive_locations.accept]
 mechanism = ["mutual-tls", "oauth2"]
+party     = ["<party>"]
 ```
 
 An identity presented by any other mechanism is refused at authentication,
-and never tried against the rest. A Receive Location that gives no `accept`
-takes nothing — an unconfigured endpoint is closed, not open — and one
-receiving from something that presents nothing, a drop folder or a raw
-socket, accepts `circumstance`: the circumstance is the transport identity
-(ADR-0019 clause 7). A node that starts one refuses a mechanism no
-authenticator it was built with verifies. A Send Location presents and
-accepts nothing, so `accept` on one is refused. ADR-0019 also writes a
-`party` list beside `mechanism`; a node's configuration names no Party yet,
-so that key is refused rather than read as nothing.
+and never tried against the rest. A verified identity resolves to the Party
+whose `identities` hold it, as its mechanism wrote it; where `party` is
+given, one resolving to another Party, or to none, is refused at
+authentication too, and audited with its claim. A Receive Location that
+gives no `accept` takes nothing — an unconfigured endpoint is closed, not
+open — and one receiving from something that presents nothing, a drop
+folder or a raw socket, accepts `circumstance`: the circumstance is the
+transport identity (ADR-0019 clause 7). A node that starts one refuses a
+mechanism no authenticator it was built with verifies, and a Party no
+`[[parties]]` declares. A Send Location presents and accepts nothing, so
+`accept` on one is refused. Where the node is built with the `location`
+policy, each Receive Location it starts admits what its `accept` takes.
+
+A Party is known to the gates, to a filter's `xmip.party` and to the audit
+by its place among `[[parties]]`, counted from one: the same on every node
+of the cluster, since every slice holds the same list (ADR-0019, amendment
+2026-10-19).
+
+**`mutual-tls` over tcp.** A tcp Receive Location whose settings say
+`tls = true` terminates TLS on every connection: it presents the node's
+`[provision.receive]` certificate and, where that table gives `anchors`,
+refuses a client whose certificate does not reach them before a byte of
+content is read. What the handshake proved — the certificate's subject,
+issuer and fingerprint — is what the first gate claims as `mutual-tls`. A
+Location saying `tls = true` on a node with no `[provision.receive]` is
+refused as the node starts.
 
 ### Binding an Xmip Application
 
