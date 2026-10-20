@@ -293,6 +293,7 @@ segments = 44                               # TCP segments a chunk holds, 1 to 1
 receive_threads_per_hardware_thread = 2     # 1 to 64
 receive_idle = "1m"                         # a receive thread's idle time
 receive_poll = "1s"                         # a polled Location's rest after finding nothing
+receive_sweep = "1s"                        # a watched Location's recovery sweep
 receive_backoff = "5s"                      # a polled Location's rest after a failure
 receive_drain = "1s"                        # the longest a stopping Location drains
 receive_handshake = "5s"                    # each TLS handshake read, apart from a Location's wait
@@ -324,6 +325,13 @@ local_timeout = "2s"                        # how long a call to the local endpo
   receive began; a stop ends the rest at once. A Location whose receive
   waits for what arrives is asked again at once (`runtime-model.md`
   section 5, *How a receive runs*).
+- **`receive_sweep`**: how long a polled Receive Location whose far end
+  tells it of a change — a file Receive Location's drop directory, watched
+  by the operating system's change notification (`transport::Notice`) —
+  rests after a receive that found nothing when no word comes: its
+  recovery sweep, for a file that lay there before the watch began or a
+  word missed. The word ends the rest at once (ADR-0024, amendment
+  2026-10-20).
 - **`receive_drain`**: how long, from the node's stop, a Receive Location
   whose receive waits and whose far end let go of what it handed over —
   raw TCP, a datagram — goes on taking what is already queued for it; it
