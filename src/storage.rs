@@ -145,9 +145,9 @@ mod tests {
             assert!(refused.contains(why), "{text}: {refused}");
         }
         assert!(
-            read("colour = \"lime\"\n")
+            read("color = \"lime\"\n")
                 .expect_err("unknown")
-                .contains("colour")
+                .contains("color")
         );
     }
 

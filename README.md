@@ -8,7 +8,7 @@ It owns configuration interpretation, not runtime execution or durable state.
 the estate, read by `parse_toml`. `XmipApplication` is the Xmip Application
 a developer designs (ADR-0064), a section of the cluster's one `xmip.toml`,
 `[[xmip_applications]]`, read by `parse_application` and checked by
-`problems`; its Subscriptions are `route`'s own, never modelled again. A
+`problems`; its Subscriptions are `route`'s own, never modeled again. A
 node's configuration binds the sections it runs in `[[applications]]`, and
 `bind` joins the two into what one node runs: the Locations its bindings
 give it, the Receive Ports they are at, the Send Ports they are, and every

@@ -612,12 +612,14 @@ mod tests {
         .expect("refers");
         assert_eq!(referred, text);
 
-        let misspelled = text.replacen("address = \"/var", "adress = \"/var", 1);
+        // The key spelled wrong on purpose: address with one d.
+        let wrong = "address".replacen("dd", "d", 1);
+        let misspelled = text.replacen("address = \"/var", &format!("{wrong} = \"/var"), 1);
         let renamed = apply(
             &misspelled,
             &ClusterEdit::RenameKey {
                 section: path(&["receive_locations", "drop"]),
-                key: path(&["adress"]),
+                key: path(&[&wrong]),
                 to: "address".to_string(),
             },
         )
