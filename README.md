@@ -60,9 +60,15 @@ the declarations it carries. A Receive Location's `accept` is the closed set
 it authenticates (ADR-0019 clause 1, `Accept`): the mechanisms, and the
 Parties by their `[[parties]]` names, a name none declares a problem the
 binding reports (`party::accepted_problems`); it is refused on a Send
-Location. A verified identity resolves to the Party holding it
-(`party::holding`), each known by its place among `[[parties]]`, counted
-from one (`party::id`; ADR-0019, amendment 2026-10-19).
+Location. Each Party is written with its `id`, a UUIDv7 minted once with
+it (`PartyConfiguration::new`, `party::mint`; the designer's `AddEntry`
+mints it for a Party it adds), and each identity with its `mechanism`, its
+`purpose` — `receive` or `send` — and its `value` (`PartyIdentity`; the
+owner, 2026-10-19); a Party without an id, or with one that is not a
+UUIDv7 or is another's, is a problem the binding reports in words
+(`party::problems`). A verified identity resolves to the Party holding its
+value under the mechanism that verified it, for the purpose asked
+(`party::holding`; ADR-0019, amendment 2026-10-20).
 
 `[store]` names the key store an embedded Storage node's records are
 sealed under and where that keeps its keys, and `[service] data` the node's
