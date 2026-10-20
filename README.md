@@ -97,9 +97,14 @@ defaults are the runtime's declaration (`tuning::TUNING`). With the
 cluster, `test/xmip.toml` or the file `XMIP_TEST_CLUSTER` names: the one
 place a test takes a cluster's or a node's name from.
 
-`[storage] nodes` lists the Storage nodes the node reaches Xmip Storage
-at, `host:port` each, tried round robin (`storage.rs`,
-`deployment-model.md` section 7). `[runtime]`, `[administration]` and
+A node's top-level `roles` is the role words its cluster's
+`[nodes.<name>] roles` declares, as the slice gives them; their parse is
+`node::NodeRole`'s, and only a node declaring `storage` keeps Xmip Storage
+itself (ADR-0056, amendment 2026-10-20). A cluster's shared top declares
+no roles: the editor's keys (`keys.rs`) offer `roles` under a node's own
+table alone. `[storage] nodes` lists the Storage nodes a node without the
+role reaches Xmip Storage at, `host:port` each, tried round robin
+(`storage.rs`, `deployment-model.md` section 7). `[runtime]`, `[administration]` and
 `[audit]` say what each of Xmip Storage's three data domains is kept on, a
 table each, its `storage` — `rocksdb`, `sqlite`, `postgresql`, `mssql` or
 `mariadb` — and its `connection`, a path or the server's own connection

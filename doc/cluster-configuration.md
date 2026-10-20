@@ -50,6 +50,18 @@ password = "xmip-storage-database"
 `<cluster>`, `<node>` and `<another>` stand for the names whoever runs the
 cluster chooses.
 
+Each node declares its roles in its own table, `roles`, in
+`node::NodeRole`'s words by comma or plus (ADR-0056, amendment 2026-10-01),
+never in the shared top; the slice gives them to the node's own document as
+its top-level `roles`. Only a node declaring `storage` keeps Xmip Storage
+itself; every other one names the Storage nodes in `[storage] nodes`, and
+a node with neither is refused as it starts (amendment 2026-10-20):
+
+```toml
+[nodes.<node>]
+roles = "executing, storage"
+```
+
 ## Xmip Applications, among its sections
 
 The Xmip Applications developers design are sections of the same file

@@ -92,6 +92,13 @@ pub const NOT_STARTED: &str = "not started: the configuration does not say true"
 /// One node's configuration, as the TOML on disk says it (ADR-0031).
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct XmipConfigurationDocument {
+    /// The roles the node declares, as its cluster's `[nodes.<name>]`
+    /// [`cluster::ROLES`] writes them and the slice gives them: role words
+    /// by comma or plus, whose parse is `node::NodeRole`'s. Absent, it
+    /// declares none. Only a node declaring `storage` keeps Xmip Storage
+    /// itself (ADR-0056, amendment 2026-10-20).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub roles: Option<String>,
     pub service: ServiceConfiguration,
     // All four collections default to empty. A node with modules and no
     // processes is legitimate, and so is one an editor has only half built —
