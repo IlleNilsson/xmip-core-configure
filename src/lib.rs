@@ -237,11 +237,32 @@ pub const DEFAULT_DATA: &str = "../data";
 
 impl ServiceConfiguration {
     /// The node's data directory, for the configuration file at
-    /// `configuration`.
+    /// `configuration`: written in the platform's own separators, a `.`
+    /// left out — `config\..\data\storage` never `config\../data\storage`
+    /// — and, on Windows, a `..` taken back as the system itself resolves
+    /// a path, by its words: `data\storage`. Elsewhere a `..` stays, since
+    /// a directory before it may be a link.
     #[must_use]
     pub fn data_directory(&self, configuration: &Path) -> PathBuf {
         let base = configuration.parent().unwrap_or_else(|| Path::new(""));
-        base.join(self.data.as_deref().unwrap_or(DEFAULT_DATA))
+        let joined = base.join(self.data.as_deref().unwrap_or(DEFAULT_DATA));
+        let mut clean = PathBuf::new();
+        for part in joined.components() {
+            match part {
+                std::path::Component::CurDir => {}
+                std::path::Component::ParentDir
+                    if cfg!(windows)
+                        && matches!(
+                            clean.components().next_back(),
+                            Some(std::path::Component::Normal(_))
+                        ) =>
+                {
+                    clean.pop();
+                }
+                other => clean.push(other),
+            }
+        }
+        clean
     }
 }
 
@@ -457,10 +478,24 @@ lifetime = \"8h\"
     fn the_data_directory_is_the_layouts_unless_the_document_names_one() {
         let path = std::path::Path::new("/opt/xmip/config/xmip-node.toml");
         let installed = parse_toml(HEAD).expect("parses");
+        let layout = if cfg!(windows) {
+            "/opt/xmip/data"
+        } else {
+            "/opt/xmip/config/../data"
+        };
         assert_eq!(
             installed.service.data_directory(path),
-            std::path::Path::new("/opt/xmip/config/../data")
+            std::path::Path::new(layout)
         );
+        // In the platform's own separators, whatever the document wrote.
+        let shown = installed
+            .service
+            .data_directory(std::path::Path::new("config/./xmip-node.toml"))
+            .join("storage")
+            .display()
+            .to_string();
+        let other = if cfg!(windows) { '/' } else { '\\' };
+        assert!(!shown.contains(other), "{shown}");
         assert!(installed.store.is_default());
         let named = parse_toml(&format!("{HEAD}data = \"state\"\n[store]\nkeys = \"k\"\n"))
             .expect("parses");
