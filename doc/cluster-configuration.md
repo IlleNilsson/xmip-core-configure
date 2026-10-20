@@ -103,6 +103,63 @@ transport = "xmip-core-transport-file"
 address = "/var/xmip/in/orders"
 ```
 
+### One machine, a file in and a file out
+
+The smallest cluster that carries a Message: one node keeping Xmip Storage
+itself, a file Receive Location accepting what is dropped in its folder by
+the folder's implied identity, `circumstance`, a Subscription taking every
+such file, and a file Send Location writing each in its directory under the
+name it was dropped under (open problem 33, repaired 2026-10-20). A build
+from the site `personal-computer` carries everything it names.
+
+```toml
+[service]
+name = "xmip"
+cluster_name = "<cluster>"
+
+[[xmip_applications]]
+name = "FileCopy"
+
+[[xmip_applications.receive_ports]]
+name = "In"
+
+[[xmip_applications.receive_locations]]
+name = "Drop"
+receive_port = "In"
+interaction = "data-transfer"
+depth = "light"
+
+[[xmip_applications.send_ports]]
+name = "Out"
+
+[[xmip_applications.subscriptions]]
+id = "every-dropped-file"
+destination = { send-port = "Out" }
+filter = "xmip.transport.mechanism = 'circumstance'"
+
+[nodes.<node>]
+roles = "executing, storage"
+
+[[nodes.<node>.applications]]
+name = "FileCopy"
+
+[[nodes.<node>.applications.receive_locations]]
+name = "Drop"
+node = "<node>"
+start = true
+transport = "xmip-core-transport-file"
+address = "/var/xmip/in"
+[nodes.<node>.applications.receive_locations.accept]
+mechanism = ["circumstance"]
+
+[[nodes.<node>.applications.send_ports]]
+name = "Out"
+node = "<node>"
+start = true
+transport = "xmip-core-transport-file"
+address = "/var/xmip/out"
+```
+
 `ApplicationSection` (`src/section.rs`) reads a section as the Application
 it is, through `parse_application`, the one reading of an Application.
 `binding_problems` refuses a binding where the configuration holds no

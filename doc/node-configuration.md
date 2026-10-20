@@ -76,6 +76,8 @@ A node's flow is **Receive Location → Work Process → Send Location**, refere
    one folder and puts them in another:
    ```toml
    # a complete node file
+   roles = "executing, storage"        # one machine keeps Xmip Storage itself
+
    [service]
    name = "xmip-<node>"
    cluster_name = "<cluster>"
@@ -91,12 +93,14 @@ A node's flow is **Receive Location → Work Process → Send Location**, refere
    start = true
    transport = "xmip-core-transport-file"
    address = "/var/xmip/in/invoices"
+   [receive_locations.accept]
+   mechanism = ["circumstance"]        # a drop folder's implied identity
 
    [[send_locations]]
    name = "forward"
    start = true
    transport = "xmip-core-transport-file"
-   address = "/var/xmip/out/invoices"
+   address = "/var/xmip/out/invoices"  # a directory: each file under its received name
    ```
    `# a complete node file` marks it as a whole document:
    `test/Example.Test.ps1` at the estate root has the runtime validate every
@@ -291,6 +295,7 @@ receive_idle = "1m"                         # a receive thread's idle time
 receive_poll = "1s"                         # a polled Location's rest after finding nothing
 receive_backoff = "5s"                      # a polled Location's rest after a failure
 receive_drain = "1s"                        # the longest a stopping Location drains
+receive_handshake = "5s"                    # each TLS handshake read, apart from a Location's wait
 node_receive_threads_per_hardware_thread = 4 # 1 to 256
 receive_chunks_per_thread = 8               # 1 to 4096
 send_threads_per_hardware_thread = 2        # 1 to 64
@@ -324,6 +329,12 @@ local_timeout = "2s"                        # how long a call to the local endpo
   raw TCP, a datagram — goes on taking what is already queued for it; it
   stops sooner at the first receive that finds nothing (`runtime-model.md`
   section 5, *A stop drains what the far end already let go of*).
+- **`receive_handshake`**: the most each read of a TLS handshake a Receive
+  Location terminates waits on the client (`tls = true`). It is the
+  guard's, apart from the Location's own `timeout`, which bounds the
+  content and is put back before a byte of it is read, so a Location's
+  wait is never raised for a slow handshake (ADR-0033, amendment
+  2026-10-20).
 - **`node_receive_threads_per_hardware_thread`** and
   **`receive_chunks_per_thread`**: the node's budget beside each Receive
   Location's own pool. The node carries at most this many arrivals per
@@ -509,32 +520,50 @@ where it takes named Parties alone, those Parties, each by its name in
 
 ```toml
 [[parties]]
+id         = "<a UUIDv7, minted once with the Party>"
 name       = "<party>"
-identities = ["CN=<party>.example"]
+identities = [
+  { mechanism = "mutual-tls", purpose = "receive", value = "CN=<party>.example" },
+]
 
 [receive_locations.accept]
 mechanism = ["mutual-tls", "oauth2"]
 party     = ["<party>"]
 ```
 
+**A Party is written with its `id`**, a UUIDv7 minted once when the Party
+is written and never derived from where it stands in the list (the owner,
+2026-10-19): it is what a verified identity resolves to, what a filter's
+`xmip.party` holds and what the audit records. Every surface that writes a
+Party writes one — the designer mints it as it adds the Party — and a
+Party without one, or with one that is not a UUIDv7 or is another Party's,
+is refused in words as the node starts. **Each identity states its
+mechanism and its purpose** (the owner, 2026-10-19; ADR-0019 clause 4): the
+mechanism that verifies it, by the name it declares, and whether it is for
+`receive` — matched against what arrives — or `send` — what Xmip presents.
+
 An identity presented by any other mechanism is refused at authentication,
 and never tried against the rest. A verified identity resolves to the Party
-whose `identities` hold it, as its mechanism wrote it; where `party` is
-given, one resolving to another Party, or to none, is refused at
-authentication too, and audited with its claim. A Receive Location that
-gives no `accept` takes nothing — an unconfigured endpoint is closed, not
-open — and one receiving from something that presents nothing, a drop
-folder or a raw socket, accepts `circumstance`: the circumstance is the
-transport identity (ADR-0019 clause 7). A node that starts one refuses a
-mechanism no authenticator it was built with verifies, and a Party no
-`[[parties]]` declares. A Send Location presents and accepts nothing, so
-`accept` on one is refused. Where the node is built with the `location`
-policy, each Receive Location it starts admits what its `accept` takes.
+holding its value under the mechanism that verified it, for `receive`;
+where `party` is given, one resolving to another Party, or to none, is
+refused at authentication too, and audited with its claim. A Receive
+Location that gives no `accept` takes nothing — an unconfigured endpoint is
+closed, not open — and one receiving from something that presents nothing,
+a drop folder or a raw socket, accepts `circumstance`: the circumstance is
+the transport identity, implied by where the Stream came from, and every
+build of `xmip-service` verifies it (ADR-0019 clause 7; the owner,
+2026-10-19). A node that starts one refuses a mechanism no authenticator it
+was built with verifies, and a Party no `[[parties]]` declares. A Send
+Location presents and accepts nothing, so `accept` on one is refused. Where
+the node is built with the `location` policy, each Receive Location it
+starts admits what its `accept` takes, and each Send Location it starts is
+admitted for what reached it (the owner, 2026-10-19); without a policy,
+nothing is permitted.
 
-A Party is known to the gates, to a filter's `xmip.party` and to the audit
-by its place among `[[parties]]`, counted from one: the same on every node
-of the cluster, since every slice holds the same list (ADR-0019, amendment
-2026-10-19).
+**A file Send Location's address names a directory**, and each Message is
+written there under the name it was received under, `file.name` in its
+context, which a file Receive Location writes; a Message carrying none is
+refused at the send in words (ADR-0024, amendment 2026-10-20).
 
 **`mutual-tls` over tcp.** A tcp Receive Location whose settings say
 `tls = true` terminates TLS on every connection: it presents the node's

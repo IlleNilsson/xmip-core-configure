@@ -65,7 +65,7 @@ pub use cluster::{is_cluster, slice, slices};
 pub use database::DomainConfiguration;
 pub use entry::subscription_entry;
 pub use operate::OperateConfiguration;
-pub use party::PartyConfiguration;
+pub use party::{PartyConfiguration, PartyIdentity};
 pub use port::{
     Depth, DesignedReceiveLocation, DesignedSendPort, Failover, Interaction, OnFailure, Retry,
 };

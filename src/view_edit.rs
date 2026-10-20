@@ -20,6 +20,7 @@ use toml_edit::{ArrayOfTables, DocumentMut, Item, Table, value};
 use crate::cluster::{self, NODES};
 use crate::edit::{ApplicationEdit, apply_to};
 use crate::field::NAMED_BY;
+use crate::party;
 use crate::reference_edit;
 use crate::section::{ApplicationSection, SECTIONS};
 
@@ -129,6 +130,16 @@ pub fn apply(source: &str, edit: &ClusterEdit) -> Result<String, String> {
             }
             if starts {
                 put(added, &[START.to_string()], "true")?;
+            }
+            // A Party is written with its identifier, minted once now (the
+            // owner, 2026-10-19), unless `values` gave it one.
+            let party = section.last().is_some_and(|list| list == party::PARTIES);
+            if party && !values.iter().any(|given| given.key == [party::ID]) {
+                put(
+                    added,
+                    &[party::ID.to_string()],
+                    &format!("\"{}\"", party::mint()),
+                )?;
             }
         }
         ClusterEdit::RemoveEntry {
@@ -708,6 +719,36 @@ mod tests {
                 edit: ApplicationEdit::AddSendPort { name: "A".into() },
             })
             .contains("no entry 'Invoices'")
+        );
+    }
+
+    #[test]
+    fn a_party_the_designer_adds_is_written_with_an_id_minted_once() {
+        let (text, _, _) = written();
+        let identities = "[{ mechanism = \"api-key\", purpose = \"receive\", value = \"k\" }]";
+        let edited = apply(
+            &text,
+            &ClusterEdit::AddEntry {
+                section: path(&[party::PARTIES]),
+                name: "partner".to_string(),
+                values: vec![Given {
+                    key: path(&["identities"]),
+                    value: identities.to_string(),
+                }],
+            },
+        )
+        .expect("applies");
+
+        let read = party::parties(&edited).expect("reads");
+        let added = read
+            .iter()
+            .find(|one| one.name == "partner")
+            .expect("added");
+        assert!(added.id.is_some_and(party::is_uuid_v7), "{edited}");
+        assert!(
+            party::problems(&read).is_empty(),
+            "{:?}",
+            party::problems(&read)
         );
     }
 }
