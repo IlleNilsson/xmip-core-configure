@@ -104,8 +104,14 @@ A node's flow is **Receive Location → Work Process → Send Location**, refere
 
 ### The key store a node's records are sealed under
 
-A node that lists no Storage node in `[storage]` is its own embedded
-Storage node, and Xmip encrypts its databases itself: every record sealed
+A node declaring the `storage` role that lists no Storage node in
+`[storage]` is its own embedded Storage node; only a node with the Storage
+role stores, and one declaring neither the role nor `[storage] nodes` is
+refused as it starts, in words naming both (ADR-0056, amendment
+2026-10-20). Its roles are the top-level `roles`, the role words its
+cluster's `[nodes.<name>] roles` declares, which the slice writes there
+(`src/lib.rs`, [`cluster-configuration.md`](cluster-configuration.md)).
+An embedded Storage node's databases Xmip encrypts itself: every record sealed
 under a data key a key store wraps (ADR-0063). What a node keeps across a
 restart — a paused Subscription's standing in the administration database,
 the Journeys it holds in the Ledger (ADR-0013, amendments 2026-09-30 and
@@ -117,6 +123,8 @@ amendments 2026-09-30 and 2026-10-03):
 
 ```toml
 # a complete node file
+roles = "storage"                             # it keeps Xmip Storage itself
+
 [service]
 name = "xmip-<node>"
 cluster_name = "<cluster>"
@@ -366,9 +374,9 @@ wrong kind or outside its bounds is refused at startup phase 3, and by
 ### Where a node reaches Xmip Storage
 
 Every node calls Xmip Storage — the nodes declaring the Storage role — for
-all storage, never a database directly, and finds them from a list of their
-addresses, tried round robin (`deployment-model.md` section 7;
-`src/storage.rs`):
+all storage, never a database directly; a node without the role finds them
+from a list of their addresses, tried round robin (`deployment-model.md`
+section 7; `src/storage.rs`):
 
 ```toml
 [storage]

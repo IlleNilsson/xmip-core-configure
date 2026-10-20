@@ -67,11 +67,21 @@ pub fn of_table(table: &[String]) -> Vec<&'static Key> {
 
 fn read() -> Vec<Key> {
     let document = shapes::<XmipConfigurationDocument>();
-    let mut keys = listed(&document, &[]);
+    // A node declares its roles under its own table, never the cluster's
+    // shared top: the document's [`ROLES`] is the slice's copy of it.
+    let declared = |key: &Key, at: usize| key.key == ROLES && key.table.len() == at;
+    let mut keys: Vec<Key> = listed(&document, &[])
+        .into_iter()
+        .filter(|key| !declared(key, 0))
+        .collect();
 
     keys.push(key(&[], NODES, "free", &[], false));
     let node = [NODES, ANY_NODE];
-    keys.extend(listed(&document, &node));
+    keys.extend(
+        listed(&document, &node)
+            .into_iter()
+            .filter(|key| !declared(key, node.len())),
+    );
     keys.push(key(&node, ROLES, "roles", &[], false));
 
     let application = shapes::<XmipApplication>();
@@ -210,6 +220,12 @@ mod tests {
         assert!(named(&["receive_locations"], "transport").required);
         assert_eq!(named(&["nodes", &node], "tuning").kind, "free");
         assert_eq!(named(&["nodes", &node], ROLES).kind, "roles");
+        let roles = of_table(&path(&["nodes", &node]));
+        assert_eq!(roles.iter().filter(|key| key.key == ROLES).count(), 1);
+        assert!(
+            of_table(&[]).iter().all(|key| key.key != ROLES),
+            "no shared roles"
+        );
         assert_eq!(
             named(&["nodes", &node, "service"], "online").kind,
             "boolean"
