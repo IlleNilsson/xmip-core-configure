@@ -250,7 +250,7 @@ pub struct ModuleConfiguration {
 /// "execution style". `Sequential` is the safe default (one at a time, in order
 /// per key); `Parallel` and `Concurrent` trade ordering for throughput, and are
 /// the lever an operator raises when a node falls behind (the Playground's
-/// `daily` scenario). Serialised kebab-case on the wire.
+/// `daily` scenario). Serialized kebab-case on the wire.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
 pub enum ExecutionStyle {

@@ -124,7 +124,7 @@ mod tests {
         assert!(engine.contains("engine"), "{engine}");
         let place = read("place = \"state/runtime\"\n").expect_err("refused");
         assert!(place.contains("place"), "{place}");
-        let unknown = read("colour = \"lime\"\n").expect_err("refused");
-        assert!(unknown.contains("colour"), "{unknown}");
+        let unknown = read("color = \"lime\"\n").expect_err("refused");
+        assert!(unknown.contains("color"), "{unknown}");
     }
 }

@@ -181,10 +181,10 @@ mod tests {
 
     #[test]
     fn unknown_wrong_kind_missing_and_other_side_each_name_the_setting() {
-        let unsound = location("[send_locations.settings]\ncolour = \"lime\"\ngroup = \"g\"\n");
+        let unsound = location("[send_locations.settings]\ncolor = \"lime\"\ngroup = \"g\"\n");
         let problems = location_problems(&unsound, Applies::Send, &declared());
         assert_eq!(problems.len(), 3, "{problems:?}");
-        for word in ["colour", "group", "topic"] {
+        for word in ["color", "group", "topic"] {
             assert!(
                 problems
                     .iter()
