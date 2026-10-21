@@ -20,7 +20,17 @@
 //! key = "tls/node.key"                # its private key
 //! anchors = "tls/cluster-anchor.pem"  # what a surface's certificate reaches
 //! role = "operator"                   # every proven caller's; Observer if left out
+//! admit = ['CONTOSO\xmip-operators']  # who else may open the local endpoint
 //! ```
+//!
+//! **Who may open the local endpoint** is the operating system's to
+//! enforce and the configuration's to say (the owner, 2026-10-19: *local
+//! callers are proven by the operating system*): the node's own account
+//! and the machine's administrators — on Unix the superuser — always, and
+//! each account or group `admit` names beside them; nobody else. A name
+//! the system does not know is refused as the node starts. A tcp
+//! connection is never one of them for coming over loopback: it presents
+//! a certificate like any caller from another machine.
 //!
 //! A relative path is relative to the configuration file. The address is
 //! the node's one address (ADR-0067 clause 1) and the port the operate
@@ -60,6 +70,11 @@ pub struct OperateConfiguration {
     /// The role every proven caller holds; Observer where it is left out.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub role: Option<String>,
+    /// The accounts and groups the operating system lets open the local
+    /// endpoint beside the node's own account and the machine's
+    /// administrators; nobody else where it is left out.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub admit: Vec<String>,
 }
 
 /// The network listener's keys, all given.
@@ -134,6 +149,10 @@ mod tests {
         // a role for it.
         let neither: OperateConfiguration = toml::from_str("role = \"operator\"\n").expect("read");
         assert_eq!(neither.network(), Ok(None));
+        assert!(neither.admit.is_empty(), "nobody else where it says none");
+        let admitting: OperateConfiguration =
+            toml::from_str("admit = ['CONTOSO\\xmip-operators', \"xmip\"]\n").expect("read");
+        assert_eq!(admitting.admit, ["CONTOSO\\xmip-operators", "xmip"]);
         let short: OperateConfiguration =
             toml::from_str("listen = \"x:1\"\ncertificate = \"c\"\n").expect("read");
         assert_eq!(

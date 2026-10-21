@@ -165,8 +165,13 @@ or SQLite.
 follows it and acts on it, over gRPC. `local` is its endpoint on this
 machine — `xmip-cli --local`, `-Local`, a GUI whose `Surface` is `local` — a
 named pipe on Windows and a Unix domain socket elsewhere, opened only by the
-node's account and the machine's administrators, every caller the user the
-operating system says its process runs as. **It always starts** — decided by
+node's account, the machine's administrators (the superuser on Unix) and each
+account or group `admit` names, every caller the account the operating system
+says its process runs as — decided by the owner, 2026-10-19: *local callers
+are proven by the operating system*; a tcp connection over loopback is
+trusted for nothing and presents a certificate like any other (open problem
+35). A name in `admit` the system does not know is refused as the node
+starts. **It always starts** — decided by
 the owner, 2026-10-13: *the local endpoint always starts, named `xmip-<node>`
 unless the configuration names it* — at `\\.\pipe\<name>` on Windows,
 `/run/xmip/<name>.sock` on Linux and `/var/run/xmip/<name>.sock` on macOS,
@@ -186,6 +191,7 @@ certificate = "tls/node.pem"        # this node's PEM chain, leaf first
 key = "tls/node.key"                # its PEM private key
 anchors = "tls/cluster-anchor.pem"  # what a surface's certificate must reach
 role = "operator"                   # every proven caller's; Observer if left out
+admit = ['CONTOSO\xmip-operators']  # who else may open the local endpoint
 ```
 
 A relative path is relative to the configuration file. Every caller on the
