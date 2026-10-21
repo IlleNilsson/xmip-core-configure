@@ -21,6 +21,7 @@
 //! anchors = "tls/cluster-anchor.pem"  # what a surface's certificate reaches
 //! role = "operator"                   # every proven caller's; Observer if left out
 //! admit = ['CONTOSO\xmip-operators']  # who else may open the local endpoint
+//! group = "xmip-operators"            # on Unix, the socket's group; the node's own if left out
 //! ```
 //!
 //! **Who may open the local endpoint** is the operating system's to
@@ -28,7 +29,14 @@
 //! callers are proven by the operating system*): the node's own account
 //! and the machine's administrators — on Unix the superuser — always, and
 //! each account or group `admit` names beside them; nobody else. A name
-//! the system does not know is refused as the node starts. A tcp
+//! the system does not know is refused as the node starts. On Unix, where
+//! `admit` names anyone, the socket is `0660` and belongs to `group`, the
+//! node's own group where it is left out, so the file system lets only
+//! that group's members connect and the node judges each against `admit`
+//! after (the owner, 2026-10-21); an admitted account outside the group
+//! is refused by the file system, and a group the system does not know, or
+//! one the node's account is no member of, is refused as the node starts.
+//! A tcp
 //! connection is never one of them for coming over loopback: it presents
 //! a certificate like any caller from another machine.
 //!
@@ -75,6 +83,12 @@ pub struct OperateConfiguration {
     /// administrators; nobody else where it is left out.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub admit: Vec<String>,
+    /// On Unix, the group the local endpoint's socket belongs to where
+    /// `admit` names anyone, the socket then `0660`; the node's own group
+    /// where it is left out. Windows admits by the pipe's security
+    /// descriptor and reads it not.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub group: Option<String>,
 }
 
 /// The network listener's keys, all given.
@@ -153,6 +167,10 @@ mod tests {
         let admitting: OperateConfiguration =
             toml::from_str("admit = ['CONTOSO\\xmip-operators', \"xmip\"]\n").expect("read");
         assert_eq!(admitting.admit, ["CONTOSO\\xmip-operators", "xmip"]);
+        assert_eq!(admitting.group, None, "the node's own group");
+        let grouped: OperateConfiguration =
+            toml::from_str("admit = [\"ilian\"]\ngroup = \"xmip-operators\"\n").expect("read");
+        assert_eq!(grouped.group.as_deref(), Some("xmip-operators"));
         let short: OperateConfiguration =
             toml::from_str("listen = \"x:1\"\ncertificate = \"c\"\n").expect("read");
         assert_eq!(

@@ -171,6 +171,11 @@ says its process runs as — decided by the owner, 2026-10-19: *local callers
 are proven by the operating system*; a tcp connection over loopback is
 trusted for nothing and presents a certificate like any other (open problem
 35). A name in `admit` the system does not know is refused as the node
+starts. On Unix, where `admit` names anyone, the socket is `0660` and
+belongs to `group`, the node's own group where it is left out: the file
+system lets only that group's members connect, and the node judges each
+against `admit` after (the owner, 2026-10-21); a group the system does not
+know, or one the node's account is no member of, is refused as the node
 starts. **It always starts** — decided by
 the owner, 2026-10-13: *the local endpoint always starts, named `xmip-<node>`
 unless the configuration names it* — at `\\.\pipe\<name>` on Windows,
@@ -192,6 +197,7 @@ key = "tls/node.key"                # its PEM private key
 anchors = "tls/cluster-anchor.pem"  # what a surface's certificate must reach
 role = "operator"                   # every proven caller's; Observer if left out
 admit = ['CONTOSO\xmip-operators']  # who else may open the local endpoint
+group = "xmip-operators"            # on Unix, the socket's group; the node's own if left out
 ```
 
 A relative path is relative to the configuration file. Every caller on the
@@ -576,8 +582,16 @@ nothing is permitted.
 
 **A file Send Location's address names a directory**, and each Message is
 written there under the name it was received under, `file.name` in its
-context, which a file Receive Location writes; a Message carrying none is
-refused at the send in words (ADR-0024, amendment 2026-10-20).
+context, which a file Receive Location writes (ADR-0024, amendment
+2026-10-20); a Message carrying none is written under the pattern the Send
+Location's `name` setting gives, `{message}` in it the Message's
+identifier, or under the identifier alone where it gives none (the owner,
+2026-10-21; ADR-0024, amendment 2026-10-21):
+
+```toml
+[applications.send_ports.settings]
+name = "order-{message}.edi"
+```
 
 **`mutual-tls` over tcp.** A tcp Receive Location whose settings say
 `tls = true` terminates TLS on every connection: it presents the node's
