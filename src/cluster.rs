@@ -168,6 +168,62 @@ pub fn slice(cluster: &str, node: &str) -> Result<String, String> {
     ))
 }
 
+/// The cluster's name its file `cluster` says, `[service] cluster_name`;
+/// none where it leaves the name to the environment ([`slice_named`]).
+///
+/// # Errors
+/// When the text is not TOML.
+pub fn cluster_name(cluster: &str) -> Result<Option<String>, String> {
+    let table = read(cluster)?;
+    Ok(table
+        .get("service")
+        .and_then(|service| service.get("cluster_name"))
+        .and_then(Value::as_str)
+        .map(str::to_string))
+}
+
+/// The node `node`'s configuration document, sliced from the cluster's file
+/// `cluster` as the environment it runs in names the cluster: `name`. A
+/// cluster's file need say nothing of where it runs (ADR-0028, amendment
+/// 2026-10-21: one file for a run on one computer and for the same cluster
+/// on machines of their own), so its name is the environment's to give —
+/// the run's `-Cluster`, or `xmip-service --cluster` on a machine. Where the
+/// file names none, `name` is its `[service] cluster_name`, and its service
+/// is `xmip-<node>` where nothing names it (ADR-0053); a file naming
+/// another cluster is refused, naming both.
+///
+/// # Errors
+/// As [`slice`]; where `name` is empty, or the file names another cluster.
+pub fn slice_named(cluster: &str, node: &str, name: &str) -> Result<String, String> {
+    if name.trim().is_empty() {
+        return Err("the environment names no cluster for the cluster's xmip.toml".to_string());
+    }
+    let mut table = read(cluster)?;
+    let Value::Table(service) = table
+        .entry("service")
+        .or_insert_with(|| Value::Table(Table::new()))
+    else {
+        return Err("[service] is not a table".to_string());
+    };
+    match service.get("cluster_name").and_then(Value::as_str) {
+        Some(written) if written != name => {
+            return Err(format!(
+                "the cluster's xmip.toml names the cluster '{written}', and its environment \
+                 names '{name}'"
+            ));
+        }
+        Some(_) => {}
+        None => {
+            service.insert("cluster_name".to_string(), Value::String(name.to_string()));
+        }
+    }
+    service
+        .entry("name")
+        .or_insert_with(|| Value::String(format!("xmip-{node}")));
+    let named = toml::to_string(&table).map_err(|error| error.to_string())?;
+    slice(&named, node)
+}
+
 /// Every node's document the cluster's file declares, by name: what a
 /// surface validates a cluster's file by, one node at a time.
 ///
@@ -471,5 +527,40 @@ nodes = ["{third}.example:7443"]
         assert!(roles(&format!("[nodes.{one}]\n{ROLES} = 1\n")).is_err());
         let declared = roles(&cluster.text).expect("the test cluster reads");
         assert_eq!(declared.len(), cluster.nodes.len());
+    }
+
+    /// A cluster's file says nothing of where it runs; the environment
+    /// names the cluster, and a file naming another is refused.
+    #[test]
+    fn the_environment_names_a_cluster_its_file_does_not() {
+        let cluster = test_cluster();
+        let (name, other) = (&cluster.name, &crate::fixture::other_cluster().name);
+        let node = &cluster.node(0).name;
+        let unnamed = format!("[nodes.{node}]\n{ROLES} = \"storage\"\n");
+
+        assert_eq!(cluster_name(&unnamed).expect("reads"), None);
+        let sliced = slice_named(&unnamed, node, name).expect("slices");
+        let document = crate::parse_toml(&sliced).expect("reads as a node's");
+        assert_eq!(document.service.cluster_name, *name);
+        assert_eq!(document.service.name, format!("xmip-{node}"));
+        assert_eq!(document.service.node_name, *node);
+
+        let written = format!("[service]\nname = \"xmip\"\ncluster_name = \"{name}\"\n{unnamed}");
+        assert_eq!(
+            cluster_name(&written).expect("reads").as_deref(),
+            Some(name.as_str())
+        );
+        let same = crate::parse_toml(&slice_named(&written, node, name).expect("the same name"))
+            .expect("reads");
+        assert_eq!(same.service.name, "xmip", "a name the file gives is kept");
+        let refused = slice_named(&written, node, other).expect_err("another cluster");
+        assert!(
+            refused.contains(&format!("'{name}'")) && refused.contains(&format!("'{other}'")),
+            "{refused}"
+        );
+        assert!(
+            slice_named(&unnamed, node, " ").is_err(),
+            "no name is no cluster"
+        );
     }
 }
