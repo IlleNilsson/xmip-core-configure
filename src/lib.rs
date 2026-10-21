@@ -61,7 +61,7 @@ pub use application::{DesignedElement, SendPortGroup, XmipApplication, parse_app
 pub use binding::{
     ApplicationBinding, Bound, BoundLocation, BoundReceivePort, bind, binding_problems,
 };
-pub use cluster::{is_cluster, slice, slices};
+pub use cluster::{is_cluster, slice, slice_named, slices};
 pub use database::DomainConfiguration;
 pub use entry::subscription_entry;
 pub use operate::OperateConfiguration;

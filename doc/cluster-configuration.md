@@ -191,6 +191,16 @@ writes the node `node` its configuration document, which
   other.
 - `configure::cluster::nodes` names the nodes a cluster's file declares, and
   `configure::slices` slices every one.
+- **A file may leave the cluster's name to its environment.**
+  `configure::slice_named(cluster, node, name)` slices as `slice` does, the
+  cluster called `name` where the file's `[service]` names none, its service
+  `xmip-<node>` where nothing names it, and refuses a file naming another
+  cluster, naming both; `configure::cluster::cluster_name` says which a file
+  names. A cluster's file that says nothing of where it runs — no cluster
+  name, no machine's address, no absolute path — is the same file on one
+  computer and on machines of their own (ADR-0028, amendment 2026-10-21):
+  the Playground's run names the cluster, and `xmip-service --slice
+  --cluster` and `--install --cluster` on a machine.
 
 **Only this file is edited.** A node's `xmip-node.toml` is its slice, written
 by desired state and never edited; one changed by hand breaks the
@@ -203,11 +213,14 @@ document holding `[nodes]`, saying it is a cluster's to slice.
 ## Who slices
 
 - **Desired state**, as it deploys each node (`deployment-model.md`
-  section 8): the Ansible role `xmip_node` places the cluster's `xmip.toml`
-  and writes the node `xmip-service --configuration <xmip.toml> --node <name>
-  --slice`'s output as its `xmip-node.toml`. It does not take the file apart
-  itself; the estate root's `cargo test --test deploy` renders it and reads
-  what it writes.
+  section 8): the environment templates — Microsoft DSC v3's
+  `deploy/dsc/msdsc/environment` and Ansible's role `xmip_node` — place the
+  cluster's `xmip.toml` and write the node `xmip-service --configuration
+  <xmip.toml> --node <name> --cluster <cluster> --slice`'s output as its
+  `xmip-node.toml`. Neither takes the file apart itself; the estate root's
+  `cargo test --test deploy` slices the Playground's file, which the example
+  environment runs, for every node it declares and reads each slice as
+  `xmip-service` does.
 - **The Operation Desktop**, when its Configure page saves the cluster's
   file (ADR-0031, amendment 2026-10-05: *the cluster TOML file is sliced
   into node TOML files and shipped to each node on save*): through the
