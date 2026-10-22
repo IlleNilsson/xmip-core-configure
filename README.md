@@ -87,14 +87,30 @@ Its Xmip Applications are sections of it, `[[xmip_applications]]`
 (`section.rs`, ADR-0064 amendment 2026-10-03), and nowhere else: a binding
 binds the section of its name, and the slice gives a node the sections its
 bindings name. The VS Code designer is a view of the file's
-own sections, artifact by artifact: `views` answers one view per kind —
-Cluster, Node, Receive Port, Receive Location, Send Port, Send Location,
-Send Port Group, Prepare, Promote, Demote, Route, Transformation, Process —
-with each entry's values (`field`) and an Application's routes, saying of
-a kind the configuration does not define yet that it does not, and
-`view_edit` makes the designer's edits in place, writing `start = true` on
+own sections, artifact by artifact: `views` answers one view per kind
+(`kinds.rs`) — Cluster, Node, Party, Module, Receive Port, Receive
+Location, Send Port, Send Location, Send Port Group, Prepare, Promote,
+Demote, Route, Transformation, Work Process — with each entry's values
+(`field`), what may be set on it (`offered`, the runtime handing in its
+`[tuning]` declaration and the role words through `Views::offering`), an
+Application's routes, and every compiled unit the file's modules declare,
+and `view_edit` makes the designer's edits in place — `add-element` adding
+one element to an array of unnamed tables, a Party's identity — writing `start = true` on
 each Receive Location, Send Port and Send Location it creates, and refusing
 one that would leave a node or an Application that read unable to.
+Prepare, Promote, Demote and Transformation are calls to compiled units
+(ADR-0066, amendment 2026-10-22; `step.rs`, `modules.rs`): a Module's
+manifest declares its units (`abi::ModuleUnit`: a name, a capability, the
+stages it serves in `xmip-core-node`'s stage words, `offline = true`, and
+its settings), `[[preparation_steps]]`, `[[promotions]]`, `[[demotions]]`
+and `[[transformations]]` — in a node's document and in an Application —
+call one each with settings, and a Port or Location attaches calls by name,
+`prepare`, `transform`, `promote` on receive and `demote` on send.
+`step::problems` refuses, in words, a module or unit not declared offline,
+a module or unit nobody declares, a unit of another capability, settings
+its unit's declaration refuses, an attachment naming nothing, and a unit
+attached at a stage it does not serve; `step::unrun` is what a node refuses
+to start, since running a unit is decided, not built.
 `parse_toml` refuses a cluster's file, and `document_kind` tells it apart,
 so `xmip_validate_v1` validates it node by node. `[tuning]` holds every
 outward and hardware assumption a node runs by; its keys, bounds and

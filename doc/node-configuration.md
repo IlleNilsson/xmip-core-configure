@@ -36,9 +36,10 @@ Journey to a Work Process ends saying no runtime runs it yet.
 From `module/platform/configure/src/lib.rs`:
 
 - **`WorkProcessConfiguration`** — `name`, `start`, `execution_style`,
-  `required_modules`, `extensions`. The last two default to empty when
-  omitted, as the document's own lists do (ADR-0031, amendment 2026-09-24);
-  `name` and `start` have no default.
+  `required_modules`, `extensions`, and `module`, `unit` and `settings`,
+  the compiled unit that is its flow (*Compiled units* below). The lists
+  default to empty when omitted, as the document's own lists do (ADR-0031,
+  amendment 2026-09-24); `name` and `start` have no default.
 - **`ExecutionStyle`** — `sequential` (the default), `parallel` or `concurrent`,
   as `doc/architecture/runtime-model.md` section 3, *Execution style*, defines
   them; this document does not redefine them. It is the lever an operator raises
@@ -571,6 +572,94 @@ Party's or endpoint's format, the Port in its one format (ADR-0031,
 amendment 2026-10-05; `runtime-model.md` section 20 has the keys). Not
 read yet: a node refuses to start a Location that names a `contract`
 ([decided, not built](../../../../doc/architecture/estate-map.md#arrival-validation)).
+
+### Compiled units: Prepare, Promote, Demote, Transformation and a flow
+
+Prepare, Promote, Demote, a Transformation and a Work Process's flow are
+compiled units a Module provides, and the configuration refers to them
+(ADR-0066, amendment 2026-10-22; the owner: *They are compiled units. They
+just have to be referred to in the VS Code extension, ending up in the TOML
+configuration.*). A unit is a function; a step entry is a call to it with
+arguments:
+
+```toml
+# a complete node file
+roles = "executing, storage"
+
+[service]
+name = "xmip-<node>"
+cluster_name = "<cluster>"
+node_name = "<node>"
+
+[[modules]]
+name = "codecs"
+start = true
+[modules.manifest]
+capabilities = []
+offline = true                        # required: Xmip uses only what works offline
+[modules.manifest.identity]
+name = "codecs"
+version = "1.0.0"                     # the version the configuration pins
+[modules.manifest.entrypoint]
+library_path = "codecs.dll"
+[[modules.manifest.units]]
+name = "Codec"
+capability = "prepare"                # prepare, promote, demote, transform, work-process, validate
+stages = ["receive", "send"]          # handed the one it is called at
+offline = true
+[[modules.manifest.units.settings]]
+name = "format"
+kind = "choice"
+choices = ["gzip", "zstd"]
+presence = "default"
+default = "gzip"
+meaning = "How the Stream is compressed."
+
+[[preparation_steps]]
+name = "Unzip"
+module = "codecs"
+unit = "Codec"
+settings = { format = "gzip" }
+
+[[receive_locations]]
+name = "drop"
+start = true
+transport = "xmip-core-transport-file"
+address = "/var/xmip/in"
+prepare = ["Unzip"]                   # Preparation Steps, in order
+[receive_locations.accept]
+mechanism = ["circumstance"]
+```
+
+- **A unit** is declared in its Module's manifest: its name, its
+  capability — never read from its name — the stages it serves, `receive`,
+  `process` and `send` in the message path's own words, that it works
+  offline, and what a call may give, each setting with its kind, presence,
+  default, words and meaning, as a technology declares a Location's
+  settings. Promote serves `receive` alone and Demote `send` alone. A
+  prepare unit at a stage is a Receive, Process or Send Preparation; a
+  Transformation is never a Preparation.
+- **A call** is an entry of `[[preparation_steps]]`, `[[promotions]]`,
+  `[[demotions]]` or `[[transformations]]`, here or in an Xmip
+  Application's section: `name`, `module`, `unit` — of the list's
+  capability — and `settings`, read through the unit's declaration. A Work
+  Process names its flow with `module`, `unit` and `settings`, a
+  `work-process` unit serving `process`.
+- **An attachment** names calls of its own document: `prepare = [...]`, in
+  order, `transform`, `promote` on a Receive Port or Location and `demote`
+  on a Send Port or Location; receive runs the Location's, then the Port's,
+  send the Port's, then the Location's. A unit is attached only at a stage
+  it serves.
+- **Refused in words** by `xmip_validate_v1` and as a node starts
+  (`step::problems`): a module or unit that does not say `offline = true`,
+  a module no `[[modules]]` declares, a unit its manifest does not declare
+  or declares as another capability, a stage that is none or listed twice,
+  settings the unit's declaration refuses, an attachment naming no call, a
+  unit attached at a stage it does not serve, a Promotion on send and a
+  Demotion on receive. Running a unit is [decided, not built](../../../../doc/architecture/estate-map.md#process-execution):
+  a node refuses to start a Port or Location that attaches one.
+- **Assignment is not configured**: a Work Process's compiled code assigns
+  (the owner, 2026-10-22).
 
 ### What a Receive Location accepts
 

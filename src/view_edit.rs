@@ -48,6 +48,14 @@ pub enum ClusterEdit {
         #[serde(default)]
         values: Vec<Given>,
     },
+    /// Append to the array at `key` of the table at `section` one element,
+    /// an inline table of `values`: a Party's identity, say. The array is
+    /// added where it is missing.
+    AddElement {
+        section: Vec<String>,
+        key: Vec<String>,
+        values: Vec<Given>,
+    },
     /// Remove the table at `section`: an entry of a list, or a node.
     /// Refused while anything in the file names it, saying what does,
     /// unless `references`, which removes what names it with it
@@ -142,6 +150,11 @@ pub fn apply(source: &str, edit: &ClusterEdit) -> Result<String, String> {
                 )?;
             }
         }
+        ClusterEdit::AddElement {
+            section,
+            key,
+            values,
+        } => crate::element::add(walk(root, section, false)?, key, values)?,
         ClusterEdit::RemoveEntry {
             section,
             references,
@@ -749,6 +762,47 @@ mod tests {
             party::problems(&read).is_empty(),
             "{:?}",
             party::problems(&read)
+        );
+    }
+
+    #[test]
+    fn an_identity_is_added_to_a_party_as_one_element() {
+        let (text, _, _) = written();
+        let added = apply(
+            &text,
+            &ClusterEdit::AddEntry {
+                section: path(&[party::PARTIES]),
+                name: "partner".to_string(),
+                values: vec![Given {
+                    key: path(&["identities"]),
+                    value: "[]".to_string(),
+                }],
+            },
+        )
+        .expect("adds the Party");
+        let given = |key: &str, value: &str| Given {
+            key: path(&[key]),
+            value: value.to_string(),
+        };
+        let edited = apply(
+            &added,
+            &ClusterEdit::AddElement {
+                section: path(&[party::PARTIES, "partner"]),
+                key: path(&["identities"]),
+                values: vec![
+                    given("mechanism", "\"mutual-tls\""),
+                    given("purpose", "\"receive\""),
+                    given("value", "\"CN=partner\""),
+                ],
+            },
+        )
+        .expect("adds the identity");
+
+        let read = party::parties(&edited).expect("reads");
+        let identity = &read[0].identities[0];
+        assert_eq!(
+            (identity.mechanism.as_str(), identity.value.as_str()),
+            ("mutual-tls", "CN=partner")
         );
     }
 }

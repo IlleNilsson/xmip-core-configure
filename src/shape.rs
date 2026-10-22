@@ -53,17 +53,22 @@ pub fn shapes<T: DeserializeOwned>() -> Shapes {
     run(&state);
 
     // A field whose value refused what it was given stops its table's
-    // reading, so the fields after it are each read on their own.
+    // reading, so the fields after it are each read on their own — every
+    // table above it given only the way down to it, so a field an outer
+    // table refuses before it does not stop the reading short of it.
     loop {
         let unread = unread(&state.borrow().shapes);
         if unread.is_empty() {
             break;
         }
         for (table, field) in unread {
-            state.borrow_mut().given.insert(table.clone(), vec![field]);
+            let alone = alone(&state.borrow().shapes, &table, field);
+            state.borrow_mut().given.extend(alone.iter().cloned());
             run(&state);
             let mut held = state.borrow_mut();
-            held.given.remove(&table);
+            for (path, _) in &alone {
+                held.given.remove(path);
+            }
             let child = [table, vec![field.to_string()]].concat();
             held.shapes.entry(child).or_insert_with(|| Shape {
                 kind: "any",
@@ -73,7 +78,8 @@ pub fn shapes<T: DeserializeOwned>() -> Shapes {
     }
 
     // What a table requires, one field at a time: given only what it is
-    // known to require, it names the next one it goes without.
+    // known to require, and every table above it only the way down to it,
+    // it names the next one it goes without.
     let tables: Vec<Vec<String>> = state
         .borrow()
         .shapes
@@ -82,12 +88,22 @@ pub fn shapes<T: DeserializeOwned>() -> Shapes {
         .map(|(path, _)| path.clone())
         .collect();
     for table in tables {
+        let way: Vec<_> = table
+            .split_last()
+            .map(|(last, above)| {
+                let shapes = &state.borrow().shapes;
+                let field = shapes
+                    .get(above)
+                    .and_then(|shape| shape.fields.iter().find(|key| *key == last).copied());
+                field.map_or_else(Vec::new, |field| alone(shapes, above, field))
+            })
+            .unwrap_or_default();
         loop {
             let required = state.borrow().shapes[&table].required.clone();
-            state
-                .borrow_mut()
-                .given
-                .insert(table.clone(), required.clone());
+            let mut held = state.borrow_mut();
+            held.given.extend(way.iter().cloned());
+            held.given.insert(table.clone(), required.clone());
+            drop(held);
             run(&state);
             let mut held = state.borrow_mut();
             match held.missing.take() {
@@ -99,10 +115,34 @@ pub fn shapes<T: DeserializeOwned>() -> Shapes {
                 _ => break,
             }
         }
-        state.borrow_mut().given.remove(&table);
+        let mut held = state.borrow_mut();
+        for (path, _) in &way {
+            held.given.remove(path);
+        }
+        held.given.remove(&table);
     }
 
     state.into_inner().shapes
+}
+
+/// What each table on the way to `field` of `table` is given to read it
+/// alone: the table that field, and each table above it the key leading on.
+fn alone(
+    shapes: &Shapes,
+    table: &[String],
+    field: &'static str,
+) -> Vec<(Vec<String>, Vec<&'static str>)> {
+    let mut given = vec![(table.to_vec(), vec![field])];
+    for depth in 0..table.len() {
+        let above = table[..depth].to_vec();
+        let on = shapes
+            .get(&above)
+            .and_then(|shape| shape.fields.iter().find(|key| **key == table[depth]));
+        if let Some(on) = on {
+            given.push((above, vec![*on]));
+        }
+    }
+    given
 }
 
 /// The fields whose value no reading has reached yet.
@@ -183,6 +223,10 @@ mod tests {
             shapes[&path(&["receive_locations", "settings"])].kind,
             "free"
         );
+        for key in ["listen", "certificate", "key", "anchors"] {
+            assert_eq!(shapes[&path(&["storage", key])].kind, "text", "{key}");
+        }
+        assert_eq!(shapes[&path(&["storage", "nodes"])].kind, "array");
         let style = &shapes[&path(&["work_processes", "execution_style"])];
         assert_eq!(style.kind, "choice");
         assert!(style.choices.contains(&"concurrent"), "{style:?}");

@@ -261,23 +261,31 @@ artifact (ADR-0064, amendment 2026-10-03), and so is the Operation
 Desktop's Configure page; what both show and do is this crate's, reached
 through the runtime's `xmip_operate.h` section 10:
 
-- **`views::Views::of`** (`src/views.rs`) answers one view per kind, in
-  this order: Cluster (`[service]`, `[tuning]`, `[runtime]`,
-  `[administration]`, `[audit]`, `[storage]`, `[store]`),
-  Node (each `[nodes.<name>]`), Receive Port, Receive Location, Send Port,
-  Send Location, Send Port Group, Prepare, Promote, Demote, Route,
-  Transformation, Process. A list kind finds its entries wherever the file
-  holds them — the cluster's shared sections, a node's own, a binding, an
-  Application section — each with the path an edit names it by, whose it
-  is, and its values as TOML writes them (`src/field.rs`), and says where a
-  new one may be added. A Route entry is an Application section with its
-  routes as a graph (`routes.rs`), or the reason it does not read; the
-  bindings are Route entries too. Receive Port, Prepare, Promote, Demote
-  and Transformation are answered as not defined, with a sentence saying
-  so: `[[receive_ports]]` is recorded in `runtime-model.md` and not read
-  here yet, and the others have no section. Work Process lists the
-  `[[work_processes]]` entries and says that a Work Process's flow is
-  not defined yet.
+- **`views::Views::of`** (`src/views.rs`, the kinds in `src/kinds.rs`)
+  answers one view per kind, in this order: Cluster (`[service]`,
+  `[tuning]`, `[runtime]`, `[administration]`, `[audit]`, `[storage]`,
+  `[store]`, `[operate]`, `[provision]`), Node (each `[nodes.<name>]`),
+  Party, Module, Receive Port, Receive Location, Send Port, Send Location,
+  Send Port Group, Prepare, Promote, Demote, Route, Transformation, Work
+  Process. A list kind finds its entries wherever the file holds them — the
+  cluster's shared sections, a node's own, a binding, an Application
+  section — each with the path an edit names it by, whose it is, and its
+  values as TOML writes them (`src/field.rs`), and says where a new one may
+  be added. A Route entry is an Application section with its routes as a
+  graph (`routes.rs`), or the reason it does not read; the bindings are
+  Route entries too. Prepare, Promote, Demote and Transformation list the
+  calls to compiled units, `[[preparation_steps]]`, `[[promotions]]`,
+  `[[demotions]]` and `[[transformations]]`, and Module the `[[modules]]`
+  whose manifests declare the units (ADR-0066, amendment 2026-10-22;
+  [`node-configuration.md`](node-configuration.md)); the answer also says
+  every unit the file's modules declare, its stages and its settings.
+- **What may be set** (`src/offered.rs`; ADR-0064, amendment 2026-10-22):
+  each entry carries `offered`, every key its table may hold and does not
+  write, its kind, whether it is required and the words or names it may
+  take; an array of unnamed tables, a Party's `identities`, is offered as
+  the keys of one element, added by `add-element`. The runtime hands in
+  what it owns, the `[tuning]` declaration and the role words
+  (`Views::offering`).
 - **`view_edit::apply`** (`src/view_edit.rs`) makes one edit in place —
   set or remove a value, add or remove an entry of a list, declare a node,
   or one of an Application's own edits (`edit.rs`) on its section — keeping
@@ -305,8 +313,12 @@ through the runtime's `xmip_operate.h` section 10:
   `references`, which removes the entries those names belong to (where the
   name is what names that entry or a key it cannot be without), an array's
   element, or the key; `refer` points a name at another entry;
-  `rename-key` renames a key, its value and place kept. Parties are not
-  part of the configuration yet, so nothing names one.
+  `rename-key` renames a key, its value and place kept. A Receive
+  Location's `accept.party` names Parties of `[[parties]]`, a call's
+  `module` and `unit` its module and unit, and a Port's or Location's
+  `prepare`, `transform`, `promote` and `demote` the calls of its document,
+  offering only those whose unit serves its stage
+  (`src/references/calls.rs`).
 
 ## The test cluster
 

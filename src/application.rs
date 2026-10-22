@@ -40,7 +40,10 @@ use std::collections::BTreeSet;
 use route::{Subscriber, Subscription};
 use serde::{Deserialize, Serialize};
 
-use crate::port::{self, DesignedReceiveLocation, DesignedSendPort};
+use crate::StepEntry;
+use crate::port::{
+    self, DesignedReceiveLocation, DesignedReceivePort, DesignedSendPort, DesignedWorkProcess,
+};
 
 /// One Xmip Application, as its section of the cluster's TOML says it
 /// (ADR-0031). A key the section does not define is refused, so a
@@ -55,15 +58,15 @@ pub struct XmipApplication {
     /// The Receive Ports its Receive Locations belong to: each keeps
     /// Message creation and Publication (`runtime-model.md` section 6).
     #[serde(default)]
-    pub receive_ports: Vec<DesignedElement>,
+    pub receive_ports: Vec<DesignedReceivePort>,
     /// Where Messages enter, each at its Receive Port; the node's binding
     /// gives each its transport, address and node.
     #[serde(default)]
     pub receive_locations: Vec<DesignedReceiveLocation>,
-    /// The Work Processes a Subscription may route to. A name today; the
-    /// flow is the process designer's, after the vocabulary (ADR-0064 clause 1).
+    /// The Work Processes a Subscription may route to, each naming the
+    /// compiled unit that is its flow where it names one ([`crate::step`]).
     #[serde(default)]
-    pub work_processes: Vec<DesignedElement>,
+    pub work_processes: Vec<DesignedWorkProcess>,
     /// Where Messages leave, each with its policy; the binding gives each
     /// its Location.
     #[serde(default)]
@@ -74,14 +77,16 @@ pub struct XmipApplication {
     /// What each published Message is offered to, and where a match goes.
     #[serde(default)]
     pub subscriptions: Vec<Subscription>,
-}
-
-/// A Receive Port or a Work Process as designed: a name, and nothing an
-/// environment decides.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct DesignedElement {
-    pub name: String,
+    /// The calls to compiled units its Ports and Locations attach by name
+    /// ([`crate::step`], ADR-0066 amendment 2026-10-22).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub preparation_steps: Vec<StepEntry>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub promotions: Vec<StepEntry>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub demotions: Vec<StepEntry>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub transformations: Vec<StepEntry>,
 }
 
 /// Send Ports a Subscription reaches together: a Send Port Group.
@@ -120,11 +125,14 @@ impl XmipApplication {
             problems.push("an Xmip Application requires a name".to_string());
         }
 
-        let names = |elements: &[DesignedElement]| -> Vec<String> {
-            elements.iter().map(|e| e.name.clone()).collect()
-        };
         for (what, declared) in [
-            ("Receive Port", names(&self.receive_ports)),
+            (
+                "Receive Port",
+                self.receive_ports
+                    .iter()
+                    .map(|p| p.name.clone())
+                    .collect::<Vec<_>>(),
+            ),
             (
                 "Receive Location",
                 self.receive_locations
@@ -132,7 +140,10 @@ impl XmipApplication {
                     .map(|l| l.name.clone())
                     .collect(),
             ),
-            ("Work Process", names(&self.work_processes)),
+            (
+                "Work Process",
+                self.work_processes.iter().map(|p| p.name.clone()).collect(),
+            ),
             (
                 "Send Port",
                 self.send_ports.iter().map(|p| p.name.clone()).collect(),

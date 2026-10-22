@@ -14,13 +14,19 @@
 //!   Application section it binds, and each Receive Location and Send Port
 //!   it binds names one the Application declares, and the `node` that takes
 //!   it;
-//! - a node's own `[service] node_name` names the node.
+//! - a node's own `[service] node_name` names the node;
+//! - a Receive Location's `accept.party` names Parties of `[[parties]]`;
+//! - a call to a compiled unit names its module and unit, and a Port's or
+//!   Location's `prepare`, `transform`, `promote` and `demote` the calls of
+//!   its document ([`calls`]).
 //!
 //! [`references`] answers each with the entry holding it, the name written
 //! — or none, where the key may name one and is not written yet — what it
 //! names, where that is declared, and every name it may take. The
 //! Application's design reads these the same way ([`crate::application`],
 //! [`crate::binding`]); this says where each is in the file.
+
+mod calls;
 
 use route::Subscriber;
 use serde::{Deserialize, Serialize};
@@ -77,6 +83,10 @@ pub fn references(cluster: &str) -> Result<Vec<Reference>, String> {
 
     let mut holders = vec![(Vec::new(), &table)];
     holders.extend(nodes.iter().map(|(name, own)| (path(&[NODES, name]), *own)));
+    for (at, holder) in &holders {
+        accepting(at, holder, &table, &mut found);
+    }
+    calls::calls(&table, &mut found);
     for (at, holder) in holders {
         for (binding, entry) in named(Some(holder), "applications") {
             let section = [at.clone(), path(&["applications", &binding])].concat();
@@ -110,6 +120,66 @@ pub fn references(cluster: &str) -> Result<Vec<Reference>, String> {
         }
     }
     Ok(found)
+}
+
+/// The Parties each Receive Location `holder` holds at `at`, its own and
+/// each bound one, accepts: of the cluster's `[[parties]]` and the node's.
+fn accepting(at: &[String], holder: &Table, cluster: &Table, found: &mut Vec<Reference>) {
+    let mut parties: Vec<(Vec<String>, String)> = Vec::new();
+    for (scope, table) in [(Vec::new(), cluster), (at.to_vec(), holder)] {
+        for (name, _) in named(Some(table), "parties") {
+            if !parties.iter().any(|(_, known)| *known == name) {
+                parties.push(([scope.clone(), path(&["parties"])].concat(), name));
+            }
+        }
+    }
+    let names: Vec<String> = parties.iter().map(|(_, name)| name.clone()).collect();
+    let mut locations: Vec<(Vec<String>, &Table)> = named(Some(holder), "receive_locations")
+        .map(|(name, own)| {
+            (
+                [at.to_vec(), path(&["receive_locations", &name])].concat(),
+                own,
+            )
+        })
+        .collect();
+    for (binding, own) in named(Some(holder), "applications") {
+        for (name, bound) in named(Some(own), "receive_locations") {
+            let section = path(&["applications", &binding, "receive_locations", &name]);
+            locations.push(([at.to_vec(), section].concat(), bound));
+        }
+    }
+    for (section, location) in locations {
+        let accepted = location
+            .get("accept")
+            .and_then(|accept| accept.get("party"))
+            .and_then(Value::as_array);
+        let key = ["accept", "party"];
+        for (index, party) in accepted.into_iter().flatten().enumerate() {
+            let name = party.as_str();
+            let target = parties
+                .iter()
+                .find(|(_, known)| Some(known.as_str()) == name)
+                .map(|(list, known)| [list.clone(), vec![known.clone()]].concat());
+            found.push(Reference {
+                holder: section.clone(),
+                key: path(&key),
+                index: Some(index),
+                name: name.map(str::to_string),
+                names: "Party",
+                target,
+                choices: names.clone(),
+            });
+        }
+        found.push(Reference {
+            holder: section,
+            key: path(&key),
+            index: None,
+            name: None,
+            names: "Party",
+            target: None,
+            choices: names.clone(),
+        });
+    }
 }
 
 /// The references an Application's own design holds.
@@ -353,5 +423,48 @@ mod tests {
         assert_eq!(dangling.name.as_deref(), Some("Biling"));
         assert_eq!(dangling.target, None);
         assert_eq!(dangling.choices, ["Billing"]);
+    }
+
+    #[test]
+    fn an_accepted_party_and_a_calls_module_unit_and_attachments_name_their_declarations() {
+        let (text, first, _) = written();
+        let text = format!(
+            "[[parties]]\nid = \"0192f000-0000-7000-8000-000000000001\"\nname = \"partner\"\n\
+             identities = []\n\n\
+             [[modules]]\nname = \"orders\"\nstart = true\n[modules.manifest]\n\
+             capabilities = []\noffline = true\n[modules.manifest.identity]\nname = \"orders\"\n\
+             version = \"1\"\n[modules.manifest.entrypoint]\n\
+             [[modules.manifest.units]]\nname = \"Codec\"\ncapability = \"prepare\"\n\
+             stages = [\"receive\"]\noffline = true\n\
+             [[modules.manifest.units]]\nname = \"Out\"\ncapability = \"prepare\"\n\
+             stages = [\"send\"]\noffline = true\n\n\
+             [[preparation_steps]]\nname = \"Unzip\"\nmodule = \"orders\"\nunit = \"Codec\"\n\
+             [[preparation_steps]]\nname = \"Zip\"\nmodule = \"orders\"\nunit = \"Out\"\n\n\
+             {text}\n[[nodes.{first}.receive_locations]]\nname = \"in\"\ntransport = \"t\"\n\
+             address = \"a\"\nprepare = [\"Unzip\"]\n\
+             [nodes.{first}.receive_locations.accept]\nparty = [\"partner\"]\n"
+        );
+        let found = references(&text).expect("reads");
+        let location = ["nodes", &first, "receive_locations", "in"];
+
+        let party = found
+            .iter()
+            .find(|r| r.holder == location && r.key == ["accept", "party"] && r.index == Some(0))
+            .expect("the accepted Party");
+        assert_eq!(party.target, Some(path(&["parties", "partner"])));
+        let step = found
+            .iter()
+            .find(|r| r.holder == location && r.key == ["prepare"] && r.index == Some(0))
+            .expect("the attached step");
+        assert_eq!(step.target, Some(path(&["preparation_steps", "Unzip"])));
+        assert_eq!(step.choices, ["Unzip"], "Zip serves send alone");
+        let unit = at(&found, &["preparation_steps", "Unzip"], &["unit"]);
+        assert_eq!(unit.choices, ["Codec", "Out"]);
+        assert_eq!(
+            unit.target,
+            Some(path(&["modules", "orders", "manifest", "units", "Codec"]))
+        );
+        let module = at(&found, &["preparation_steps", "Zip"], &["module"]);
+        assert_eq!(module.target, Some(path(&["modules", "orders"])));
     }
 }

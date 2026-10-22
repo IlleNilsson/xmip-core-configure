@@ -33,8 +33,38 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::ExecutionStyle;
-use crate::application::DesignedElement;
+use crate::step::Attached;
+use crate::{ExecutionStyle, LocationSettings};
+
+/// A Receive Port as designed: its name, and what it attaches
+/// ([`crate::step`]).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DesignedReceivePort {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub prepare: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transform: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub promote: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub demote: Option<String>,
+}
+
+/// A Work Process as designed: its name, and the compiled unit that is its
+/// flow, where it names one ([`crate::step`]).
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct DesignedWorkProcess {
+    pub name: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub module: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub unit: Option<String>,
+    #[serde(default, skip_serializing_if = "LocationSettings::is_empty")]
+    pub settings: LocationSettings,
+}
 
 /// What the caller expects back (`runtime-model.md` section 7).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -94,6 +124,14 @@ pub struct DesignedReceiveLocation {
     pub interaction: Option<Interaction>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub depth: Option<Depth>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub prepare: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transform: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub promote: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub demote: Option<String>,
 }
 
 /// `retry`: how often the active Send Location is tried again, and how long
@@ -126,13 +164,45 @@ pub struct DesignedSendPort {
     pub order_key: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub on_failure: Option<OnFailure>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub prepare: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transform: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub promote: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub demote: Option<String>,
 }
+
+/// What a Port or Location as designed attaches.
+macro_rules! attaching {
+    ($($designed:ty),*) => {$(
+        impl $designed {
+            /// What it attaches ([`crate::step`]).
+            #[must_use]
+            pub fn attached(&self) -> Attached<'_> {
+                Attached {
+                    prepare: &self.prepare,
+                    transform: self.transform.as_deref(),
+                    promote: self.promote.as_deref(),
+                    demote: self.demote.as_deref(),
+                }
+            }
+        }
+    )*};
+}
+
+attaching!(
+    DesignedReceivePort,
+    DesignedReceiveLocation,
+    DesignedSendPort
+);
 
 /// What is wrong with the Receive Locations of `application` at its
 /// `receive_ports`, one sentence each.
 pub(crate) fn receive_problems(
     application: &str,
-    receive_ports: &[DesignedElement],
+    receive_ports: &[DesignedReceivePort],
     locations: &[DesignedReceiveLocation],
     problems: &mut Vec<String>,
 ) {
