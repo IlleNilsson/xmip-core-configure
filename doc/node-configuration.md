@@ -163,7 +163,7 @@ or SQLite.
 `[operate]` is the node's operate listener (ADR-0067; ADR-0014, amendments
 2026-10-12 and 2026-10-13): where a surface reads the node's publication,
 follows it and acts on it, over gRPC. `local` is its endpoint on this
-machine — `xmip-cli --local`, `-Local`, a GUI whose `Surface` is `local` — a
+machine — `xmip --local`, `-Local`, a GUI whose `Surface` is `local` — a
 named pipe on Windows and a Unix domain socket elsewhere, opened only by the
 node's account, the machine's administrators (the superuser on Unix) and each
 account or group `admit` names, every caller the account the operating system
@@ -182,7 +182,7 @@ unless the configuration names it* — at `\\.\pipe\<name>` on Windows,
 `/run/xmip/<name>.sock` on Linux and `/var/run/xmip/<name>.sock` on macOS,
 the folder the systemd unit or a launchd daemon makes for the node's
 account; a name may change, the folder may not, and a name that would leave
-it is refused. `listen` is its address for another machine — `xmip-cli
+it is refused. `listen` is its address for another machine — `xmip
 --remote`, `-Remote`, a GUI whose `Surface` is `remote` — inside Xmip's
 mutual TLS, and takes `certificate`, `key` and `anchors` with it; without
 it the node serves no network listener. With no `[operate]` at all the node
@@ -245,7 +245,7 @@ challenge_listen = "0.0.0.0:80"
 | --- | --- |
 | none: the operator's files | `certificate` and `key` required, PEM, relative to this file; `anchors` optional |
 | `xmip-core-provision-acme` | `directory` and `names` required; `challenge` `http-01` (default) or `dns-01`; `challenge_listen` (default `0.0.0.0:80`); `anchors`, the PEM the directory's TLS certificate must reach (absent, the operating system's trust store); `contact`; `agree_terms` (default false); `timeout` (default `10s`); `validation_wait` (default `2m`) |
-| `xmip-core-provision-internal-ca` | `names`, `lifetime` and `authority_lifetime` required; `serve`, host and port where the authority answers ACME for the cluster's other nodes; `challenge_port`, where it asks a node's http-01 answer (default 80) |
+| `xmip-core-provision-internal-ca` | `names`, `lifetime` and `authority_lifetime` required; `authority`, the folder it is kept in (default `authority`, beside this file); `serve`, host and port where it answers ACME for the premises; `publish`, host and port where it publishes its revocation list and certificate over plain HTTP; `published_at`, the `http://host:port` the premises reach that at, which every certificate it signs names; `challenge_port`, where it asks a node's http-01 answer (default 80); `dns_server`, host and port of the DNS server on the premises it checks dns-01 against |
 | `xmip-core-provision-self-signed` | `names` and `lifetime` required: a lone offline node, its certificate its own anchor |
 
 - **http-01** is asked on the name's port 80 by Let's Encrypt and on no
@@ -260,6 +260,20 @@ challenge_listen = "0.0.0.0:80"
   issues to its own node directly; with `serve`, every other node names its
   directory, `https://<its first name>:<port>/directory`, and its certificate
   as `anchors`, and obtains its own by ACME like any other.
+- **The premises' own ACME service** (ADR-0034, amendment 2026-10-22): with
+  `serve`, `xmip-service` answers ACME there for every client on the
+  premises — Xmip's nodes and any third party's, lego proved — with ACME
+  Renewal Information (RFC 9773) and revocation, until the node drains, and
+  with `publish` its revocation list (`/crl`) and certificate
+  (`/authority.cer`) over plain HTTP; `xmip-service --listening` says both
+  ports. Every surface sets it up, inspects, revokes from, exports and
+  backs up the folder `authority` names (`xmip certificate`,
+  `Get-XmipCertificate`).
+- **A node's certificate always comes from the cluster's authority**: a
+  `[provision.node]` whose source trusts the operating system's store — a
+  public authority — is refused, so `anchors` names the cluster
+  authority's anchor. Let's Encrypt serves `[provision.receive]`, the
+  public server side, alone (the owner, 2026-10-22).
 
 **A person's certificate** — purpose `operator`, client authentication
 alone, its subject the person — is never obtained by a node: the person's
@@ -273,7 +287,7 @@ authority = "authority"                  # holds authority.key and authority.pem
 lifetime = "720h"                        # thirty days unless said
 ```
 
-`xmip-cli certificate <request> --sign <this file>` and
+`xmip certificate <request> --sign <this file>` and
 `New-XmipCertificate -Request <request> -Configuration <this file>` sign by
 it; a request asking more than client authentication for a person is
 refused.
@@ -285,9 +299,12 @@ a required setting left out are each refused, naming the setting. Which
 sources a node can use is its program's. `xmip-service` reads
 `[provision.receive]` as it starts, from the operator's own files alone, and
 hands it to every transport as the TLS its receives terminate with; it
-starts no provisioner, so a table naming a `source` is refused, and it reads
-no other purpose's table: certificates still reach a node as files under
-`[operate]` and the Storage tables (open problem 27).
+starts no provisioner, so a table naming a `source` is refused. It reads
+`[provision.node]` only to serve the cluster's authority where it names
+`internal-ca` and `serve`: certificates still reach a node as files under
+`[operate]` and the Storage tables (open problem 27), carried across an air
+gap where no route reaches the authority (`xmip certificate --node`,
+`--import`).
 
 ### What a node runs by: `[tuning]`
 
@@ -712,7 +729,7 @@ compile is refused as it starts, not at its first Message (ADR-0066).
 
 `configure::parse_toml` reads the document, and it is the only reading of it:
 the runtime's `xmip_validate_v1` validates through it, and every surface — the
-desktop editor, the language server, `xmip-cli validate`,
+desktop editor, the language server, `xmip validate`,
 `Test-XmipNodeConfiguration` — asks the runtime rather than judging for
 itself. The desktop editor saves a half-built document so you can keep work in
 progress, and shows the runtime's verdict on it.
