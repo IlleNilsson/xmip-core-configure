@@ -227,9 +227,6 @@ mod tests {
             assert_eq!(shapes[&path(&["storage", key])].kind, "text", "{key}");
         }
         assert_eq!(shapes[&path(&["storage", "nodes"])].kind, "array");
-        let style = &shapes[&path(&["work_processes", "execution_style"])];
-        assert_eq!(style.kind, "choice");
-        assert!(style.choices.contains(&"concurrent"), "{style:?}");
     }
 
     #[test]

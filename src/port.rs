@@ -18,30 +18,32 @@
 //! send_locations  = ["ErpPrimary", "ErpBackup"]       # tried in order
 //! retry           = { attempts = 3, backoff = "5s" }  # on the active Location
 //! failover        = "next"          # next | none
-//! execution_style = "sequential"
-//! order_key       = "party"         # for example, per Party
-//! on_failure      = "block"         # block | skip
+//! correlation_set = "PerParty"      # one at a time per key, as the set says
 //! ```
 //!
 //! A Receive Location names its Receive Port and states its interaction and
 //! its processing depth (`runtime-model.md` sections 6 and 7); one that does
 //! not, or names a Port the Application does not declare, is a problem of
 //! the Application, refused at startup phase 3 with the rest of it. A Send
-//! Port states its policy (section 10), and a Sequential one without
-//! `on_failure` is refused (section 3: no silent default). A word a key does
-//! not have is refused as the Application is read.
+//! Port states its policy (section 10). Any of them may name a correlation
+//! set (`crate::correlation`): what passes it goes one at a time per key.
+//! A word a key does not have is refused as the Application is read.
 
 use serde::{Deserialize, Serialize};
 
 use crate::step::Attached;
-use crate::{ExecutionStyle, LocationSettings};
+use crate::LocationSettings;
 
-/// A Receive Port as designed: its name, and what it attaches
-/// ([`crate::step`]).
+/// A Receive Port as designed: its name, what it attaches
+/// ([`crate::step`]) and the correlation set it names.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DesignedReceivePort {
     pub name: String,
+    /// The correlation set what passes it goes one at a time per key by
+    /// (`crate::correlation`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub correlation_set: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub prepare: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -52,12 +54,17 @@ pub struct DesignedReceivePort {
     pub demote: Option<String>,
 }
 
-/// A Work Process as designed: its name, and the compiled unit that is its
-/// flow, where it names one ([`crate::step`]).
+/// A Work Process as designed: its name, the compiled unit that is its
+/// flow, where it names one ([`crate::step`]), and the correlation set it
+/// names.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DesignedWorkProcess {
     pub name: String,
+    /// The correlation set its Journeys go one at a time per key by
+    /// (`crate::correlation`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub correlation_set: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub module: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -132,6 +139,10 @@ pub struct DesignedReceiveLocation {
     pub promote: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub demote: Option<String>,
+    /// The correlation set its Streams are spread over; none, and they go
+    /// one at a time, keyed by its name (`crate::correlation`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub correlation_set: Option<String>,
 }
 
 /// `retry`: how often the active Send Location is tried again, and how long
@@ -157,13 +168,9 @@ pub struct DesignedSendPort {
     pub retry: Option<Retry>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failover: Option<Failover>,
+    /// The correlation set its Journeys pass it by, one at a time per key.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub execution_style: Option<ExecutionStyle>,
-    /// What a sequence is ordered by, for example `party`.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub order_key: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub on_failure: Option<OnFailure>,
+    pub correlation_set: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub prepare: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -243,12 +250,6 @@ pub(crate) fn send_problems(
 ) {
     for port in ports {
         let name = &port.name;
-        if port.execution_style == Some(ExecutionStyle::Sequential) && port.on_failure.is_none() {
-            problems.push(format!(
-                "the Sequential Send Port '{name}' of '{application}' states no on_failure \
-                 (block or skip)"
-            ));
-        }
         if let Some(retry) = &port.retry {
             if retry.attempts == 0 {
                 problems.push(format!(
@@ -261,15 +262,6 @@ pub(crate) fn send_problems(
                     "the retry backoff of the Send Port '{name}' of '{application}': {error}"
                 ));
             }
-        }
-        if port
-            .order_key
-            .as_deref()
-            .is_some_and(|key| key.trim().is_empty())
-        {
-            problems.push(format!(
-                "the Send Port '{name}' of '{application}' names an empty order_key"
-            ));
         }
         let mut seen = std::collections::BTreeSet::new();
         for location in &port.send_locations {
@@ -303,9 +295,7 @@ name = "ErpOut"
 send_locations = ["ErpPrimary", "ErpBackup"]
 retry = { attempts = 3, backoff = "5s" }
 failover = "next"
-execution_style = "sequential"
-order_key = "party"
-on_failure = "block"
+correlation_set = "PerParty"
 "#;
 
     #[test]
@@ -324,7 +314,7 @@ on_failure = "block"
         assert_eq!(port.send_locations, ["ErpPrimary", "ErpBackup"]);
         assert_eq!(port.retry.as_ref().map(|r| r.attempts), Some(3));
         assert_eq!(port.failover, Some(super::Failover::Next));
-        assert_eq!(port.on_failure, Some(super::OnFailure::Block));
+        assert_eq!(port.correlation_set.as_deref(), Some("PerParty"));
     }
 
     #[test]
@@ -352,17 +342,12 @@ on_failure = "block"
     }
 
     #[test]
-    fn a_sequential_send_port_without_on_failure_and_a_bad_backoff_are_refused() {
-        let problems = parse_application(
-            &INVOICES
-                .replace("on_failure = \"block\"\n", "")
-                .replace("\"5s\"", "\"soon\""),
-        )
-        .expect("reads")
-        .problems();
-        assert_eq!(problems.len(), 2, "{problems:?}");
-        assert!(problems[0].contains("states no on_failure"), "{problems:?}");
-        assert!(problems[1].contains("backoff"), "{problems:?}");
+    fn a_bad_backoff_is_refused() {
+        let problems = parse_application(&INVOICES.replace("\"5s\"", "\"soon\""))
+            .expect("reads")
+            .problems();
+        assert_eq!(problems.len(), 1, "{problems:?}");
+        assert!(problems[0].contains("backoff"), "{problems:?}");
     }
 
     #[test]
@@ -370,7 +355,7 @@ on_failure = "block"
         for (from, to) in [
             ("\"data-transfer\"", "\"streaming\""),
             ("\"next\"", "\"random\""),
-            ("\"block\"", "\"retry\""),
+            ("correlation_set", "order_key"),
         ] {
             assert!(
                 parse_application(&INVOICES.replace(from, to)).is_err(),
