@@ -10,11 +10,25 @@
 //! ```toml
 //! [storage]
 //! nodes = ["storage-1.example:7443", "storage-2.example:7443"]
+//! listen = "0.0.0.0:7443"             # where a Storage node serves; the node's address
+//! certificate = "tls/node.pem"        # this node's chain, leaf first
+//! key = "tls/node.key"                # its private key
+//! anchors = "tls/anchors.pem"         # the cluster's own authority
 //! ```
 //!
 //! Each address is `host:port`, a host name or an address, IPv6 in
 //! brackets; the list names each once. More than one is the safety: a node
-//! carries on through the next while one is stopped.
+//! carries on through the next while one is stopped. Every Storage node of
+//! the cluster lists the same nodes, itself among them, in the same order:
+//! the first listed is the first primary, and the others its standbys
+//! (ADR-0056, amendment 2026-10-22).
+//!
+//! The table is shaped as `[operate]` is (ADR-0067, amendment 2026-10-13):
+//! `listen` is where a node declaring the Storage role serves Xmip Storage,
+//! read by such a node alone, and `certificate`, `key` and `anchors`, all
+//! three or none, are what the node presents and trusts over Xmip's mutual
+//! TLS — to the Storage nodes it reaches, and as one to the nodes reaching
+//! it — paths relative to the configuration file.
 //!
 //! A Storage node in front of a database server IT runs names that server
 //! in `[storage.database]` ([`crate::database`]).
@@ -32,10 +46,35 @@ pub struct StorageConfiguration {
     /// The Storage nodes, in the order round robin starts from.
     #[serde(default)]
     pub nodes: Vec<StorageAddress>,
+    /// Where a node declaring the Storage role serves Xmip Storage:
+    /// `host:port`, the node's address and the Storage plane's port
+    /// (ADR-0067, amendment 2026-10-13). Read by such a node alone.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub listen: Option<String>,
+    /// This node's PEM certificate chain, leaf first: what it presents to
+    /// the Storage nodes it reaches and, serving, to the nodes reaching it.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub certificate: Option<String>,
+    /// Its PEM private key.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub key: Option<String>,
+    /// The PEM anchors the other end's certificate must reach: the
+    /// cluster's own authority.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub anchors: Option<String>,
     /// The database server this node is in front of, where it is a
     /// Storage node before one.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub database: Option<DatabaseConfiguration>,
+}
+
+/// What a node presents and trusts over Xmip's TLS to and as a Storage
+/// node, all three given; paths relative to the configuration file.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub struct Presented<'a> {
+    pub certificate: &'a str,
+    pub key: &'a str,
+    pub anchors: &'a str,
 }
 
 impl StorageConfiguration {
@@ -45,9 +84,42 @@ impl StorageConfiguration {
         self == &Self::default()
     }
 
-    /// What is wrong with the list as a whole, in words: a Storage node
-    /// named twice. What a connection to a database server may say is Xmip
-    /// Storage's to judge, and the runtime's validation asks it.
+    /// What the node presents and trusts, where the table names it.
+    ///
+    /// # Errors
+    ///
+    /// One of `certificate`, `key` and `anchors` named without the others,
+    /// in words naming what is missing.
+    pub fn presented(&self) -> Result<Option<Presented<'_>>, String> {
+        let files = [
+            ("certificate", self.certificate.as_deref()),
+            ("key", self.key.as_deref()),
+            ("anchors", self.anchors.as_deref()),
+        ];
+        match files.map(|(_, file)| file) {
+            [None, None, None] => Ok(None),
+            [Some(certificate), Some(key), Some(anchors)] => Ok(Some(Presented {
+                certificate,
+                key,
+                anchors,
+            })),
+            _ => {
+                let missing: Vec<&str> = files
+                    .iter()
+                    .filter_map(|(name, file)| file.is_none().then_some(*name))
+                    .collect();
+                Err(format!(
+                    "[storage] names certificate, key and anchors together, and misses {}",
+                    missing.join(" and ")
+                ))
+            }
+        }
+    }
+
+    /// What is wrong with the table as a whole, in words: a Storage node
+    /// named twice, a certificate without its key or anchors. What a
+    /// connection to a database server may say is Xmip Storage's to judge,
+    /// and the runtime's validation asks it.
     #[must_use]
     pub fn problems(&self) -> Vec<String> {
         let mut problems = Vec::new();
@@ -55,6 +127,9 @@ impl StorageConfiguration {
             if self.nodes[..index].contains(node) {
                 problems.push(format!("[storage] nodes names '{node}' twice"));
             }
+        }
+        if let Err(problem) = self.presented() {
+            problems.push(problem);
         }
         problems
     }
@@ -149,6 +224,30 @@ mod tests {
                 .expect_err("unknown")
                 .contains("color")
         );
+    }
+
+    #[test]
+    fn what_a_node_presents_is_named_whole_or_not_at_all() {
+        let named = read(
+            "listen = \"0.0.0.0:7443\"\ncertificate = \"tls/node.pem\"\n\
+             key = \"tls/node.key\"\nanchors = \"tls/anchors.pem\"\n",
+        )
+        .expect("reads");
+        assert_eq!(
+            named.presented(),
+            Ok(Some(Presented {
+                certificate: "tls/node.pem",
+                key: "tls/node.key",
+                anchors: "tls/anchors.pem",
+            }))
+        );
+        assert_eq!(named.listen.as_deref(), Some("0.0.0.0:7443"));
+        let half = read("certificate = \"tls/node.pem\"\n").expect("reads");
+        assert_eq!(
+            half.problems(),
+            ["[storage] names certificate, key and anchors together, and misses key and anchors"]
+        );
+        assert_eq!(read("").expect("reads").presented(), Ok(None));
     }
 
     #[test]

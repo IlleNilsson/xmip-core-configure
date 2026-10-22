@@ -52,8 +52,6 @@
 //! (ADR-0009, amendment 2026-10-06): a word that is no role grants
 //! Observer, which acts on nothing.
 
-use std::path::{Path, PathBuf};
-
 use serde::{Deserialize, Serialize};
 
 /// `[operate]`, as the document says it.
@@ -105,13 +103,6 @@ pub struct Network<'a> {
 }
 
 impl OperateConfiguration {
-    /// `path` resolved against the configuration file at `configuration`.
-    #[must_use]
-    pub fn resolve(configuration: &Path, path: &str) -> PathBuf {
-        let base = configuration.parent().unwrap_or_else(|| Path::new(""));
-        base.join(path)
-    }
-
     /// The network listener the table names, if it names one.
     ///
     /// # Errors
@@ -149,10 +140,6 @@ mod tests {
             "listen = \"x:1\"\ncertificate = \"c\"\nkey = \"k\"\nanchors = \"a\"\nport = 1\n",
         );
         assert!(wrong.is_err());
-        assert_eq!(
-            OperateConfiguration::resolve(Path::new("/opt/xmip/config/node.toml"), "tls/n.pem"),
-            Path::new("/opt/xmip/config/tls/n.pem")
-        );
     }
 
     #[test]

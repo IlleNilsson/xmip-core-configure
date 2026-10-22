@@ -71,7 +71,7 @@ pub use port::{
 };
 pub use section::{ApplicationSection, applications};
 pub use settings::{Declarations, LocationSettings, location_problems};
-pub use storage::StorageConfiguration;
+pub use storage::{Presented, StorageConfiguration};
 pub use store::StoreConfiguration;
 
 use std::collections::BTreeMap;
