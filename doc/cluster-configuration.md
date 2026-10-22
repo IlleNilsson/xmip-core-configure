@@ -234,7 +234,7 @@ document holding `[nodes]`, saying it is a cluster's to slice.
   each problem opening with its node's location,
   `xmip:///<cluster>/node/<name>` (ADR-0027 clause 4). Every surface that
   validates a text through it — the desktop editor, the language server,
-  `xmip-cli validate`, `Test-XmipNodeConfiguration` — is answered for a
+  `xmip validate`, `Test-XmipNodeConfiguration` — is answered for a
   cluster's file the same way.
 
 ## Saving is not delivering
