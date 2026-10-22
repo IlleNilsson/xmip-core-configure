@@ -384,9 +384,14 @@ local_timeout = "2s"                        # how long a call to the local endpo
   however many fail (`runtime-model.md` section 10, corrected 2026-10-16).
 - **`storage_timeout`** and **`storage_pass_over`**: what bounds each
   connect to and read from a Storage node, and how long one that did not
-  answer is asked only after the rest. Read and checked, and used by
-  nothing `xmip-service` runs: it reaches no Storage node of its own
-  ([built, not in the assembled service](../../../../doc/architecture/estate-map.md#storage-nodes)).
+  answer — or said it is a standby — is asked only after the rest
+  ([built, in the assembled service](../../../../doc/architecture/estate-map.md#storage-nodes)).
+- **`storage_beat`**, **`storage_silence`** and **`storage_kept`**: on a
+  Storage node one of several, how often a primary says it is there to an
+  idle standby (100 ms), how long a standby hears no primary before it is
+  promoted (1 s), and how many bytes of each database's writes a primary
+  keeps for a standby behind it (64 MiB); one further behind is copied whole
+  ([built, in the assembled service](../../../../doc/architecture/estate-map.md#storage-standby)).
 - **`local_timeout`**: how long a surface's call to the node's local
   endpoint waits — decided by the owner, 2026-10-13: *a local call waits at
   most a set time — `[tuning]`, default 2 s — then says the node did not
@@ -412,12 +417,31 @@ section 7; `src/storage.rs`):
 ```toml
 [storage]
 nodes = ["storage-1.example:7443", "storage-2.example:7443"]
+listen = "0.0.0.0:7443"
+certificate = "tls/node.pem"
+key = "tls/node.key"
+anchors = "tls/anchors.pem"
 ```
 
 - **`nodes`**: each `host:port`, a host name or an address, IPv6 in
   brackets, each once. More than one is the safety: a node carries on
   through the next while one is stopped. An address without its port is
-  refused in words, and so is a Storage node named twice.
+  refused in words, and so is a Storage node named twice. A node declaring
+  the Storage role that lists them is one of several, which every Storage
+  node of the cluster lists in the same order: the first listed is the first
+  primary, the others its standbys, and a standby is promoted once the
+  primary is gone (ADR-0056, amendment 2026-10-22).
+- **`listen`**: where a node declaring the Storage role serves Xmip Storage
+  to the nodes reaching it, the node's address and the Storage plane's port
+  (ADR-0067, amendment 2026-10-22); read by such a node alone, so one
+  cluster-wide `[storage]` serves every node. One of several that names none
+  is refused as it starts.
+- **`certificate`**, **`key`** and **`anchors`**: all three or none — what
+  the node presents over Xmip's mutual TLS to the Storage nodes it reaches,
+  and serving to the nodes reaching it, and the authority the other end's
+  certificate must reach, the cluster's own (`New-XmipCertificate -Node`).
+  Paths are relative to the configuration file. A node listing Storage
+  nodes and naming none of them is refused as it starts, in words.
 
 ### Where each data domain is kept: `[runtime]`, `[administration]`, `[audit]`
 
