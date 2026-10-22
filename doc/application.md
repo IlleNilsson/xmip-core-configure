@@ -33,18 +33,25 @@ From `module/platform/configure/src/application.rs` (`XmipApplication`) and
   decides when the sender is acknowledged; and its `depth`, `transfer`,
   `light` or `context`, which decides how far the receive gates read
   (`runtime-model.md` section 7). A Location without a Port, or without
-  either statement, is refused (ADR-0031, amendment 2026-10-01).
+  either statement, is refused (ADR-0031, amendment 2026-10-01). It may name
+  the `correlation_set` its Streams are spread over; one that names none goes
+  one Stream at a time, end to end, keyed by its own name (ADR-0024 and
+  ADR-0066, amendments 2026-10-22). A Receive Port may name one too.
 - **`[[xmip_applications.work_processes]]`**: the Work Processes a
-  Subscription may route to, by `name`. The flow is the process designer's,
-  after the Work Process vocabulary is settled (ADR-0064 clause 1).
+  Subscription may route to, by `name`, each naming the `correlation_set`
+  its Journeys pass it by where it names one. Its flow is a compiled Work
+  Process unit the node's `[[work_processes]]` names by `module` and `unit`
+  (ADR-0066, amendment 2026-10-22).
 - **`[[xmip_applications.send_ports]]`**: where Messages leave: a `name`,
   and its policy (`runtime-model.md` section 10, the same amendment):
   `send_locations`, its Send Locations by name, tried in order;
   `retry = { attempts, backoff }` on the active Location, the backoff a
-  duration such as `5s`; `failover`, `next` or `none`; `execution_style`,
-  `sequential`, `parallel` or `concurrent`; `order_key`, what a sequence is
-  ordered by; and `on_failure`, `block` or `skip`. A Sequential Send Port
-  without `on_failure` is refused: section 3 allows no silent default.
+  duration such as `5s`; `failover`, `next` or `none`; and `correlation_set`,
+  the cluster's set its Journeys pass it by, one at a time per key.
+- **`[[correlation_sets]]`**, once for the cluster, beside the Applications:
+  a `name`, the `keys` that make a key — `receive-location`, `receive-port`,
+  `work-process`, `send-port` or a Message Context value by the name a filter
+  reads it by — and `on_failure`, `block` where it says nothing, or `skip`.
 - **`[[xmip_applications.send_port_groups]]`**: Send Ports a Subscription
   reaches together: `name` and `send_ports`, the names of the Send Ports it
   holds.
@@ -95,9 +102,7 @@ name = "Approval"
 [[xmip_applications.send_ports]]
 name = "Billing"
 retry = { attempts = 3, backoff = "5s" }
-execution_style = "sequential"
-order_key = "party"
-on_failure = "block"
+correlation_set = "PerParty"
 
 [[xmip_applications.send_ports]]
 name = "Ledger"
@@ -132,8 +137,7 @@ it, at startup phase 3:
 - a name declared twice in one list, or a Subscription id used twice;
 - a Receive Location without its `receive_port`, naming one the Application
   does not declare, or without its `interaction` or `depth`;
-- a Sequential Send Port without `on_failure`, a retry of no attempts or
-  a backoff that is not a duration, an empty `order_key`, and a Send
+- a retry of no attempts or a backoff that is not a duration, and a Send
   Location named empty or twice;
 - a Send Port Group holding a Send Port the Application does not declare;
 - a Subscription routing to a Work Process, Send Port or Send Port Group

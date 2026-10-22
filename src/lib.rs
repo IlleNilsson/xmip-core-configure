@@ -33,6 +33,7 @@
 pub mod application;
 pub mod binding;
 pub mod cluster;
+pub mod correlation;
 pub mod database;
 pub mod edit;
 mod element;
@@ -68,6 +69,7 @@ pub use binding::{
     ApplicationBinding, Bound, BoundLocation, BoundReceivePort, bind, binding_problems,
 };
 pub use cluster::{is_cluster, slice, slice_named, slices};
+pub use correlation::CorrelationSet;
 pub use database::DomainConfiguration;
 pub use entry::subscription_entry;
 pub use modules::ModuleConfiguration;
@@ -82,7 +84,7 @@ pub use settings::{Declarations, LocationSettings, location_problems};
 pub use step::{Attached, StepEntry};
 pub use storage::{Presented, StorageConfiguration};
 pub use store::StoreConfiguration;
-pub use work_process::{ExecutionStyle, WorkProcessConfiguration};
+pub use work_process::WorkProcessConfiguration;
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
@@ -129,6 +131,10 @@ pub struct XmipConfigurationDocument {
     pub demotions: Vec<StepEntry>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub transformations: Vec<StepEntry>,
+    /// What work is spread over, declared once for the cluster
+    /// (`correlation`).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub correlation_sets: Vec<CorrelationSet>,
     /// Where Xmip starts working — runtime-model.md. Added 2026-09-05 so a
     /// node has all three stages of the message path, not only Process.
     #[serde(default)]
@@ -384,40 +390,10 @@ pub fn parse_toml(source: &str) -> Result<XmipConfigurationDocument, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{ExecutionStyle, parse_toml};
+    use super::parse_toml;
     use abi::ExtensionManifest;
 
     const HEAD: &str = "[service]\nname = \"n\"\ncluster_name = \"c\"\nnode_name = \"d\"\n";
-
-    #[test]
-    fn a_process_execution_style_parses_and_defaults_to_sequential() {
-        let source = format!(
-            "{HEAD}
-[[work_processes]]
-name = \"fast\"
-start = true
-execution_style = \"concurrent\"
-required_modules = []
-extensions = []
-
-[[work_processes]]
-name = \"ordered\"
-start = true
-required_modules = []
-extensions = []
-"
-        );
-        let document = parse_toml(&source).expect("parses");
-        assert_eq!(
-            document.work_processes[0].execution_style,
-            ExecutionStyle::Concurrent
-        );
-        assert_eq!(
-            document.work_processes[1].execution_style,
-            ExecutionStyle::Sequential,
-            "an omitted style defaults to Sequential"
-        );
-    }
 
     #[test]
     fn each_provision_table_is_kept_as_written_by_its_purpose() {

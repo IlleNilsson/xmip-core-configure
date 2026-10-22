@@ -27,23 +27,27 @@ two of them are built:
 
 Declaration and the validation and planning of materialization are
 [built, in the assembled service](../../../../doc/architecture/estate-map.md#process-declaration): a node
-publishes each Work Process as planned, not started. Compilation, starting
-one and execution are [decided, not built](../../../../doc/architecture/estate-map.md#process-execution): a
-Journey to a Work Process ends saying no runtime runs it yet.
+publishes each Work Process as planned, not started. Compilation at design
+time and execution are [built, in the assembled runtime](../../../../doc/architecture/estate-map.md#process-execution)
+(ADR-0066, amendment 2026-10-22): a Work Process naming its unit by `module`
+and `unit` is opened from that module's library as the node starts, and the
+node's Work Process step takes a turn of its Instance for each Journey bound
+for it.
 
 ### What a Work Process is made of
 
 From `module/platform/configure/src/lib.rs`:
 
-- **`WorkProcessConfiguration`** — `name`, `start`, `execution_style`,
-  `required_modules`, `extensions`, and `module`, `unit` and `settings`,
-  the compiled unit that is its flow (*Compiled units* below). The lists
-  default to empty when omitted, as the document's own lists do (ADR-0031,
-  amendment 2026-09-24); `name` and `start` have no default.
-- **`ExecutionStyle`** — `sequential` (the default), `parallel` or `concurrent`,
-  as `doc/architecture/runtime-model.md` section 3, *Execution style*, defines
-  them; this document does not redefine them. It is the lever an operator raises
-  when a node falls behind (the Playground's `daily` scenario).
+- **`WorkProcessConfiguration`** — `name`, `start`, `required_modules`,
+  `extensions`, and `module`, `unit` and `settings`, the compiled Work Process
+  unit that is its flow (*Compiled units* below; ADR-0066, amendment
+  2026-10-22). The lists default to empty when
+  omitted, as the document's own lists do (ADR-0031, amendment 2026-09-24);
+  `name` and `start` have no default. How many of its Journeys go at once is
+  the correlation set its Application names it by (`runtime-model.md`
+  section 3, *Sequences*).
+- **`CorrelationSet`** — `[[correlation_sets]]`: `name`, `keys` and `on_failure`,
+  declared once for the cluster (`correlation.rs`).
 - **`ConfiguredLocation`** — a Receive or a Send Location: a `name`, whether
   it will `start`, the `transport` module that moves it, and the `address` in
   that transport's own terms. `name`, `transport` and `address` have no
@@ -87,7 +91,8 @@ A node's flow is **Receive Location → Work Process → Send Location**, refere
    [[work_processes]]
    name = "invoices"
    start = true
-   execution_style = "sequential"      # or "parallel" / "concurrent"
+   module = "invoices"                  # the [[modules]] entry holding its unit
+   unit = "Invoices"                    # the unit, as its manifest names it
 
    [[receive_locations]]
    name = "drop"

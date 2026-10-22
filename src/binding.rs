@@ -69,6 +69,10 @@ pub struct BoundReceivePort {
     /// The Application that declares it.
     pub application: String,
     pub name: String,
+    /// The correlation set its Streams are spread over end to end, where
+    /// it names one (`crate::correlation`).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub correlation_set: Option<String>,
     pub receive_locations: Vec<DesignedReceiveLocation>,
 }
 
@@ -257,6 +261,7 @@ pub fn bind(
                 bound.receive_ports.push(BoundReceivePort {
                     application: name.clone(),
                     name: port.name.clone(),
+                    correlation_set: port.correlation_set.clone(),
                     receive_locations: at,
                 });
             }
