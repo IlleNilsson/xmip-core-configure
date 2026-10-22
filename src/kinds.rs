@@ -4,7 +4,8 @@
 //! Every kind is a list or table the configuration defines. Prepare,
 //! Promote, Demote and Transformation are calls to compiled units
 //! ([`crate::step`]), each listed where the file holds it; a Module is a
-//! `[[modules]]` entry, whose manifest declares the units the calls name.
+//! `[[modules]]` entry, whose manifest declares the units the calls name;
+//! a Correlation Set is a `[[correlation_sets]]` entry ([`crate::correlation`]).
 
 /// What a kind reads.
 pub(crate) enum Reads {
@@ -23,7 +24,7 @@ pub(crate) const ROUTE: &str = "Each Xmip Application held in this file, with it
                                 the bindings that run it.";
 
 /// Every kind: its word, its title and what it reads.
-pub(crate) const KINDS: [(&str, &str, Reads); 15] = [
+pub(crate) const KINDS: [(&str, &str, Reads); 16] = [
     ("cluster", "Cluster", Reads::Cluster),
     ("node", "Node", Reads::Nodes),
     ("party", "Party", Reads::List("parties")),
@@ -59,6 +60,11 @@ pub(crate) const KINDS: [(&str, &str, Reads); 15] = [
         "Work Process",
         Reads::List("work_processes"),
     ),
+    (
+        "correlation-set",
+        "Correlation Set",
+        Reads::List("correlation_sets"),
+    ),
 ];
 
 /// The tables that hold lists: a node's document, a binding, and an Xmip
@@ -89,6 +95,7 @@ pub(crate) fn holds(holder: Holder, list: &str) -> bool {
             "applications",
             "parties",
             "modules",
+            "correlation_sets",
         ],
         Holder::Binding => &["receive_locations", "send_ports"],
         Holder::Application => &[
