@@ -3,16 +3,17 @@
 //! cluster toml file*, every designer a view of its own sections of it).
 //!
 //! [`Views::of`] reads a cluster's file and answers one view per artifact
-//! kind, in the order the designer lists them — Cluster, Node, Party, Receive
-//! Port, Receive Location, Send Port, Send Location, Send Port Group, Prepare,
-//! Promote, Demote, Route, Transformation, Process — each with the entries
-//! the file holds of it: where each is ([`Entry::section`], the path an edit
-//! names it by, [`crate::view_edit`]), whose it is (the cluster's, a node's,
-//! a binding's or an Xmip Application's), and its values as the file writes
-//! them. A Route entry is an Xmip Application held as a section
-//! ([`crate::section`]) with its routes as a graph ([`Routes`]). A kind the
-//! configuration does not define yet is answered with `defined` false and a
-//! sentence saying so: the designer shows it and invents no key for it.
+//! kind, in the order the designer lists them ([`crate::kinds`]) — Cluster,
+//! Node, Party, Module, Receive Port, Receive Location, Send Port, Send
+//! Location, Send Port Group, Prepare, Promote, Demote, Route,
+//! Transformation, Work Process — each with the entries the file holds of
+//! it: where each is ([`Entry::section`], the path an edit names it by,
+//! [`crate::view_edit`]), whose it is (the cluster's, a node's, a binding's
+//! or an Xmip Application's), and its values as the file writes them. A
+//! Route entry is an Xmip Application held as a section ([`crate::section`])
+//! with its routes as a graph ([`Routes`]). Beside the views, every compiled
+//! unit the file's modules declare ([`Unit`]): what a call to one may name
+//! and give.
 //!
 //! Which lists a table holds is the documents' shape: a node's document
 //! ([`crate::XmipConfigurationDocument`]), its bindings
@@ -24,6 +25,7 @@ use toml::{Table, Value};
 
 use crate::cluster::NODES;
 use crate::field::{Field, entry_name, fields};
+use crate::kinds::{Holder, KINDS, ROUTE, Reads, holds};
 use crate::routes::Routes;
 use crate::section::{ApplicationSection, SECTIONS};
 
@@ -38,7 +40,37 @@ pub struct Views {
     pub written: Vec<crate::written::Written>,
     pub references: Vec<crate::references::Reference>,
     pub keys: &'static [crate::keys::Key],
+    /// Every compiled unit the file's `[[modules]]` declare.
+    pub units: Vec<Unit>,
 }
+
+/// One compiled unit a module of the file declares: what a call to it
+/// names, what it can be called as, the stages it serves and what a call
+/// gives, in the shape a technology's settings cross in.
+#[derive(Clone, Debug, PartialEq, Serialize)]
+pub struct Unit {
+    pub module: String,
+    pub name: String,
+    pub capability: &'static str,
+    pub stages: Vec<String>,
+    /// Absent where the declaration does not read; its problem is the
+    /// validation's.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub settings: Option<&'static xcore::settings::Settings>,
+}
+
+/// The tables of the cluster's own that a node's document reads.
+pub const CLUSTER_TABLES: [&str; 9] = [
+    "service",
+    "tuning",
+    "runtime",
+    "administration",
+    "audit",
+    "storage",
+    "store",
+    "operate",
+    "provision",
+];
 
 /// One artifact kind and the entries the file holds of it.
 #[derive(Clone, Debug, PartialEq, Serialize)]
@@ -47,8 +79,6 @@ pub struct View {
     pub kind: &'static str,
     /// As a person reads it: `Receive Port`.
     pub title: &'static str,
-    /// Whether the configuration defines this kind's sections.
-    pub defined: bool,
     /// What the designer says of the kind, where there is something to say.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub note: Option<&'static str>,
@@ -67,6 +97,10 @@ pub struct Entry {
     pub scope: String,
     /// Its values, a sub-table's by their dotted path.
     pub fields: Vec<Field>,
+    /// What may be set on it ([`crate::offered`]), once the runtime has
+    /// handed in what it owns ([`Views::offering`]).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub offered: Vec<crate::offered::Offered>,
     /// An Xmip Application's routes, on a Route entry that reads.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub routes: Option<Routes>,
@@ -82,80 +116,6 @@ pub struct Place {
     pub section: Vec<String>,
     pub scope: String,
 }
-
-/// The tables that hold lists: a node's document, a binding, and an Xmip
-/// Application.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum Holder {
-    Node,
-    Binding,
-    Application,
-}
-
-/// The tables of the cluster's own that a node's document reads.
-pub const CLUSTER_TABLES: [&str; 7] = [
-    "service",
-    "tuning",
-    "runtime",
-    "administration",
-    "audit",
-    "storage",
-    "store",
-];
-
-const UNDEFINED: &str = "The configuration does not define this yet: xmip-core-configure reads \
-                         no section for it, so there is nothing here to edit.";
-const PROCESS: &str = "A Work Process's flow is not defined by the configuration yet; what is \
-                       here is the [[work_processes]] entries a node runs and an Application \
-                       routes to.";
-const ROUTE: &str = "Each Xmip Application held in this file, with its routes, and the \
-                     bindings that run it.";
-
-/// What each kind reads.
-enum Reads {
-    Cluster,
-    Nodes,
-    List(&'static str),
-    Routes,
-    Undefined(&'static str),
-}
-
-const KINDS: [(&str, &str, Reads); 14] = [
-    ("cluster", "Cluster", Reads::Cluster),
-    ("node", "Node", Reads::Nodes),
-    ("party", "Party", Reads::List("parties")),
-    ("receive-port", "Receive Port", Reads::List("receive_ports")),
-    (
-        "receive-location",
-        "Receive Location",
-        Reads::List("receive_locations"),
-    ),
-    ("send-port", "Send Port", Reads::List("send_ports")),
-    (
-        "send-location",
-        "Send Location",
-        Reads::List("send_locations"),
-    ),
-    (
-        "send-port-group",
-        "Send Port Group",
-        Reads::List("send_port_groups"),
-    ),
-    ("prepare", "Prepare", Reads::Undefined(UNDEFINED)),
-    ("promote", "Promote", Reads::Undefined(UNDEFINED)),
-    ("demote", "Demote", Reads::Undefined(UNDEFINED)),
-    ("route", "Route", Reads::Routes),
-    (
-        "transformation",
-        "Transformation",
-        Reads::Undefined(UNDEFINED),
-    ),
-    (
-        "work-process",
-        "Work Process",
-        Reads::List("work_processes"),
-    ),
-];
 
 /// A table that holds lists: where it is, whose, and what it is.
 struct Container<'t> {
@@ -190,6 +150,7 @@ impl Views {
             written: crate::written::written(cluster)?,
             references: crate::references::references(cluster)?,
             keys: crate::keys::keys(),
+            units: units(&table),
         })
     }
 }
@@ -201,26 +162,23 @@ fn view(
     table: &Table,
     containers: &[Container<'_>],
 ) -> View {
-    let (defined, note, entries, places) = match reads {
-        Reads::Cluster => (true, None, cluster_entries(table), Vec::new()),
+    let (note, entries, places) = match reads {
+        Reads::Cluster => (None, cluster_entries(table), Vec::new()),
         Reads::Nodes => {
             let entries = nodes(table)
                 .map(|(name, own)| entry(vec![NODES.into(), name.clone()], name, name, own))
                 .collect();
-            (true, None, entries, Vec::new())
+            (None, entries, Vec::new())
         }
         Reads::List(list) => {
             let (entries, places) = listed(list, containers);
-            let note = (*list == "work_processes").then_some(PROCESS);
-            (true, note, entries, places)
+            (None, entries, places)
         }
         Reads::Routes => routes(containers),
-        Reads::Undefined(note) => (false, Some(*note), Vec::new(), Vec::new()),
     };
     View {
         kind,
         title,
-        defined,
         note,
         entries,
         places,
@@ -236,6 +194,30 @@ fn cluster_entries(table: &Table) -> Vec<Entry> {
             entry(vec![(*key).to_string()], key, "cluster", own)
         })
         .collect()
+}
+
+/// Every unit the modules of the cluster and of each node declare, once
+/// each by module and name; a module that does not read declares none here.
+fn units(table: &Table) -> Vec<Unit> {
+    let mut found: Vec<Unit> = Vec::new();
+    for (_, module) in crate::modules::declared_in(table) {
+        for unit in &module.manifest.units {
+            if found
+                .iter()
+                .any(|seen| seen.module == module.name && seen.name == unit.name)
+            {
+                continue;
+            }
+            found.push(Unit {
+                module: module.name.clone(),
+                name: unit.name.clone(),
+                capability: unit.capability.word(),
+                stages: unit.stages.clone(),
+                settings: crate::modules::declared(&module.name, unit).ok(),
+            });
+        }
+    }
+    found
 }
 
 fn nodes(table: &Table) -> impl Iterator<Item = (&String, &Table)> {
@@ -313,7 +295,7 @@ fn listed(list: &str, containers: &[Container<'_>]) -> (Vec<Entry>, Vec<Place>) 
     (entries, places)
 }
 
-type Answer = (bool, Option<&'static str>, Vec<Entry>, Vec<Place>);
+type Answer = (Option<&'static str>, Vec<Entry>, Vec<Place>);
 
 /// Every Xmip Application held as a section, its routes drawn, and every
 /// binding.
@@ -351,30 +333,7 @@ fn routes(containers: &[Container<'_>]) -> Answer {
             }),
         }
     }
-    (true, Some(ROUTE), entries, places)
-}
-
-/// Which lists each holder holds: the documents' shape.
-fn holds(holder: Holder, list: &str) -> bool {
-    let lists: &[&str] = match holder {
-        Holder::Node => &[
-            "receive_locations",
-            "send_locations",
-            "work_processes",
-            "applications",
-            "parties",
-        ],
-        Holder::Binding => &["receive_locations", "send_ports"],
-        Holder::Application => &[
-            "receive_ports",
-            "receive_locations",
-            "work_processes",
-            "send_ports",
-            "send_port_groups",
-            "subscriptions",
-        ],
-    };
-    lists.contains(&list)
+    (Some(ROUTE), entries, places)
 }
 
 /// The entries of the list `key` in `table`, by their names.
@@ -393,6 +352,7 @@ fn entry(section: Vec<String>, name: &str, scope: &str, own: &Table) -> Entry {
         name: name.to_string(),
         scope: scope.to_string(),
         fields: fields(own),
+        offered: Vec::new(),
         routes: None,
         problems: Vec::new(),
     }
@@ -480,7 +440,7 @@ receive_idle = "30s"
     }
 
     #[test]
-    fn every_kind_has_its_view_in_order_and_the_undefined_say_so() {
+    fn every_kind_has_its_view_in_order() {
         let (text, _, _) = written();
         let views = Views::of(&text).expect("reads");
 
@@ -491,6 +451,7 @@ receive_idle = "30s"
                 "Cluster",
                 "Node",
                 "Party",
+                "Module",
                 "Receive Port",
                 "Receive Location",
                 "Send Port",
@@ -504,27 +465,52 @@ receive_idle = "30s"
                 "Work Process",
             ]
         );
-        let undefined: Vec<_> = views
-            .views
-            .iter()
-            .filter(|v| !v.defined)
-            .map(|v| v.kind)
-            .collect();
-        assert_eq!(
-            undefined,
-            ["prepare", "promote", "demote", "transformation"]
-        );
-        assert!(
-            views
-                .views
-                .iter()
-                .filter(|v| !v.defined)
-                .all(|v| v.note.is_some())
-        );
-        assert!(view(&views, "work-process").note.is_some());
+        let cluster = view(&views, "cluster");
+        let tables: Vec<_> = cluster.entries.iter().map(|e| e.name.as_str()).collect();
+        assert_eq!(tables, CLUSTER_TABLES);
         assert_eq!(views.cluster, test_cluster().name);
     }
 
+    #[test]
+    fn a_call_to_a_unit_is_an_entry_and_each_unit_is_said_with_its_declaration() {
+        let (text, first, _) = written();
+        let text = format!(
+            "{text}\n[[nodes.{first}.modules]]\nname = \"orders\"\nstart = true\n\
+             [nodes.{first}.modules.manifest]\ncapabilities = []\noffline = true\n\
+             [nodes.{first}.modules.manifest.identity]\nname = \"orders\"\nversion = \"1\"\n\
+             [nodes.{first}.modules.manifest.entrypoint]\n\
+             [[nodes.{first}.modules.manifest.units]]\nname = \"Codec\"\n\
+             capability = \"prepare\"\nstages = [\"receive\", \"send\"]\noffline = true\n\
+             [[nodes.{first}.modules.manifest.units.settings]]\nname = \"format\"\n\
+             kind = \"text\"\npresence = \"optional\"\n\n\
+             [[xmip_applications.preparation_steps]]\nname = \"Unzip\"\nmodule = \"orders\"\n\
+             unit = \"Codec\"\n"
+        );
+        let views = Views::of(&text).expect("reads");
+
+        assert_eq!(
+            said(view(&views, "prepare")),
+            ["xmip_applications.Orders.preparation_steps.Unzip | Orders"]
+        );
+        let places: Vec<_> = view(&views, "transformation")
+            .places
+            .iter()
+            .map(|p| p.section.join("."))
+            .collect();
+        assert!(
+            places.contains(&"transformations".to_string()),
+            "{places:?}"
+        );
+        assert!(places.contains(&"xmip_applications.Orders.transformations".to_string()));
+        assert_eq!(said(view(&views, "module")).len(), 1);
+        let unit = &views.units[0];
+        assert_eq!(
+            (unit.module.as_str(), unit.name.as_str()),
+            ("orders", "Codec")
+        );
+        assert_eq!(unit.stages, ["receive", "send"]);
+        assert_eq!(unit.settings.expect("declared").settings[0].name, "format");
+    }
     #[test]
     fn the_cluster_and_each_node_are_entries_with_their_values() {
         let (text, first, second) = written();
@@ -638,7 +624,7 @@ receive_idle = "30s"
         let views = Views::of(&text).expect("reads");
         let ports = view(&views, "receive-port");
 
-        assert!(ports.defined && ports.note.is_none());
+        assert!(ports.note.is_none());
         assert_eq!(
             said(ports),
             ["xmip_applications.Orders.receive_ports.Orders | Orders"]

@@ -32,6 +32,9 @@ route = { package = "xmip-core-route", git = "https://github.com/IlleNilsson/xmi
 xcore = { package = "xmip-core", git = "https://github.com/IlleNilsson/xmip-core", branch = "main" }
 # A filter is one line of Xmip's expression language; the designer's rows
 # are a view of its compiled tree, never a second grammar (ADR-0066).
+# The stages a compiled unit serves are the message path's, read by node's
+# Stage and never listed again (ADR-0066, amendment 2026-10-22).
+node = { package = "xmip-core-node", git = "https://github.com/IlleNilsson/xmip-core-node", branch = "main" }
 path = { package = "xmip-core-path", git = "https://github.com/IlleNilsson/xmip-core-path", branch = "main" }
 
 [features]

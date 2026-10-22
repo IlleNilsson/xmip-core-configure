@@ -171,6 +171,10 @@ fn bound_own(location: &Shapes, table: &[String]) -> Vec<Key> {
             settings: LocationSettings::default(),
             contract_settings: LocationSettings::default(),
             accept: crate::Accept::default(),
+            prepare: Vec::new(),
+            transform: None,
+            promote: None,
+            demote: None,
         },
     };
     let Ok(toml::Value::Table(written)) = toml::Value::try_from(&one) else {

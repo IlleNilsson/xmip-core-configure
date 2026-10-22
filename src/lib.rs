@@ -35,12 +35,16 @@ pub mod binding;
 pub mod cluster;
 pub mod database;
 pub mod edit;
+mod element;
 pub mod entry;
 pub mod field;
 pub mod filter;
 #[cfg(any(test, feature = "test-support"))]
 pub mod fixture;
 pub mod keys;
+mod kinds;
+pub mod modules;
+pub mod offered;
 pub mod operate;
 pub mod party;
 pub mod port;
@@ -51,33 +55,38 @@ pub mod routes;
 pub mod section;
 pub mod settings;
 pub mod shape;
+pub mod step;
 pub mod storage;
 pub mod store;
 pub mod view_edit;
 pub mod views;
+pub mod work_process;
 pub mod written;
 
-pub use application::{DesignedElement, SendPortGroup, XmipApplication, parse_application};
+pub use application::{SendPortGroup, XmipApplication, parse_application};
 pub use binding::{
     ApplicationBinding, Bound, BoundLocation, BoundReceivePort, bind, binding_problems,
 };
 pub use cluster::{is_cluster, slice, slice_named, slices};
 pub use database::DomainConfiguration;
 pub use entry::subscription_entry;
+pub use modules::ModuleConfiguration;
 pub use operate::OperateConfiguration;
 pub use party::{PartyConfiguration, PartyIdentity};
 pub use port::{
-    Depth, DesignedReceiveLocation, DesignedSendPort, Failover, Interaction, OnFailure, Retry,
+    Depth, DesignedReceiveLocation, DesignedReceivePort, DesignedSendPort, DesignedWorkProcess,
+    Failover, Interaction, OnFailure, Retry,
 };
 pub use section::{ApplicationSection, applications};
 pub use settings::{Declarations, LocationSettings, location_problems};
+pub use step::{Attached, StepEntry};
 pub use storage::{Presented, StorageConfiguration};
 pub use store::StoreConfiguration;
+pub use work_process::{ExecutionStyle, WorkProcessConfiguration};
 
 use std::collections::BTreeMap;
 use std::path::{Path, PathBuf};
 
-use abi::{ExtensionManifest, ModuleManifest};
 use serde::{Deserialize, Serialize};
 
 /// The words every problem opens with that is the TOML reader's: a surface
@@ -110,6 +119,16 @@ pub struct XmipConfigurationDocument {
     pub modules: Vec<ModuleConfiguration>,
     #[serde(default)]
     pub work_processes: Vec<WorkProcessConfiguration>,
+    /// The calls to compiled units the node's own Locations attach by name
+    /// ([`step`], ADR-0066 amendment 2026-10-22).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub preparation_steps: Vec<StepEntry>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub promotions: Vec<StepEntry>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub demotions: Vec<StepEntry>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub transformations: Vec<StepEntry>,
     /// Where Xmip starts working — runtime-model.md. Added 2026-09-05 so a
     /// node has all three stages of the message path, not only Process.
     #[serde(default)]
@@ -266,49 +285,6 @@ impl ServiceConfiguration {
     }
 }
 
-/// `[[modules]]`: a module the node loads, its manifest, and whether it starts.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct ModuleConfiguration {
-    pub name: String,
-    pub start: bool,
-    pub manifest: ModuleManifest,
-}
-
-/// How a Work Process runs its work, once claimed — runtime-model.md's
-/// "execution style". `Sequential` is the safe default (one at a time, in order
-/// per key); `Parallel` and `Concurrent` trade ordering for throughput, and are
-/// the lever an operator raises when a node falls behind (the Playground's
-/// `daily` scenario). Serialized kebab-case on the wire.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum ExecutionStyle {
-    /// One at a time, in order per key.
-    #[default]
-    Sequential,
-    /// Many at once, no ordering guarantee.
-    Parallel,
-    /// Many in flight, interleaved, no ordering guarantee.
-    Concurrent,
-}
-
-/// `[[work_processes]]`: one Work Process and what it needs.
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub struct WorkProcessConfiguration {
-    pub name: String,
-    pub start: bool,
-    /// Defaults to `Sequential` when the document omits it, so an existing
-    /// configuration reads unchanged.
-    #[serde(default)]
-    pub execution_style: ExecutionStyle,
-    /// The two lists below default to empty, as the document's own lists
-    /// do: a Work Process that needs no module and no Extension says
-    /// nothing about them (ADR-0031, amendment 2026-09-24).
-    #[serde(default)]
-    pub required_modules: Vec<String>,
-    #[serde(default)]
-    pub extensions: Vec<ExtensionManifest>,
-}
-
 /// A Receive Location or a Send Location, as configured. One shape for both:
 /// a name, the transport module that moves it, the address in that
 /// transport's own terms, and whether it starts. The first three have no
@@ -340,6 +316,17 @@ pub struct ConfiguredLocation {
     pub contract_settings: LocationSettings,
     #[serde(default, skip_serializing_if = "Accept::is_empty")]
     pub accept: Accept,
+    /// Its Preparation Steps in order, its Transformation and, on receive,
+    /// its Promotion or, on send, its Demotion: each by its entry's name
+    /// ([`step`], ADR-0066 amendment 2026-10-22).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub prepare: Vec<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub transform: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub promote: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub demote: Option<String>,
 }
 
 /// `accept`: the closed set a Receive Location authenticates (ADR-0019
@@ -397,7 +384,8 @@ pub fn parse_toml(source: &str) -> Result<XmipConfigurationDocument, String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{ExecutionStyle, ExtensionManifest, parse_toml};
+    use super::{ExecutionStyle, parse_toml};
+    use abi::ExtensionManifest;
 
     const HEAD: &str = "[service]\nname = \"n\"\ncluster_name = \"c\"\nnode_name = \"d\"\n";
 
