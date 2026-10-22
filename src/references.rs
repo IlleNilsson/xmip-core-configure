@@ -18,7 +18,10 @@
 //! - a Receive Location's `accept.party` names Parties of `[[parties]]`;
 //! - a call to a compiled unit names its module and unit, and a Port's or
 //!   Location's `prepare`, `transform`, `promote` and `demote` the calls of
-//!   its document ([`calls`]).
+//!   its document ([`calls`]);
+//! - a Receive Location's, Receive Port's, Work Process's or Send Port's
+//!   `correlation_set` names a Correlation Set of the cluster's
+//!   `[[correlation_sets]]` ([`correlated`]).
 //!
 //! [`references`] answers each with the entry holding it, the name written
 //! — or none, where the key may name one and is not written yet — what it
@@ -27,6 +30,7 @@
 //! [`crate::binding`]); this says where each is in the file.
 
 mod calls;
+mod correlated;
 
 use route::Subscriber;
 use serde::{Deserialize, Serialize};
@@ -87,6 +91,7 @@ pub fn references(cluster: &str) -> Result<Vec<Reference>, String> {
         accepting(at, holder, &table, &mut found);
     }
     calls::calls(&table, &mut found);
+    correlated::correlated(&table, &mut found);
     for (at, holder) in holders {
         for (binding, entry) in named(Some(holder), "applications") {
             let section = [at.clone(), path(&["applications", &binding])].concat();
