@@ -26,9 +26,12 @@
 //! design names the sets its steps take Messages by. A Receive Location
 //! that names none goes one Stream at a time, keyed by its own name.
 
+mod crossing;
+
 use serde::{Deserialize, Serialize};
 
 use crate::OnFailure;
+pub use crossing::crossing;
 
 /// One correlation set.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -191,7 +194,8 @@ pub fn problems(sets: &[CorrelationSet], named: &[(&str, &str, &str)]) -> Vec<St
 
 /// What is wrong with the correlation sets `sets` and the points naming
 /// them in `bound` and among `work_processes` (each a Work Process's name
-/// and the set it names), as [`problems`] says it.
+/// and the set it names), as [`problems`] says it, and sets taken in
+/// crossing order ([`crossing`]).
 #[must_use]
 pub fn bound_problems(
     sets: &[CorrelationSet],
@@ -203,7 +207,9 @@ pub fn bound_problems(
         .iter()
         .map(|(kind, name, set)| (*kind, name.as_str(), set.as_str()))
         .collect();
-    problems(sets, &named)
+    let mut problems = problems(sets, &named);
+    problems.extend(crossing(bound, work_processes));
+    problems
 }
 
 /// Every point of `bound` naming a correlation set, and each Work Process
