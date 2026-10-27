@@ -19,7 +19,8 @@
 //! one `xmip.toml`, `[[xmip_applications]]` ([`section`]), read by
 //! [`parse_application`]. A node's configuration *binds* the sections it
 //! runs (`[[applications]]`, [`binding`]) and [`bind`] joins the two into
-//! what one node runs. The designer's view of an Application — its
+//! what one node runs; where an environment writes no binding by hand,
+//! [`placed`] places each Location on its nodes. The designer's view of an Application — its
 //! [`routes`], a filter's structure ([`filter`]) and the edits it makes
 //! ([`edit`]) — is here too, and so is the designer's view of the cluster's
 //! one `xmip.toml`, artifact by artifact ([`views`]), and the edits it makes
@@ -48,6 +49,7 @@ pub mod modules;
 pub mod offered;
 pub mod operate;
 pub mod party;
+pub mod placed;
 pub mod port;
 mod probe;
 mod reference_edit;
