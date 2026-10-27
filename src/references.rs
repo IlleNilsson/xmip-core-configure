@@ -20,8 +20,8 @@
 //!   Location's `prepare`, `transform`, `promote` and `demote` the calls of
 //!   its document ([`calls`]);
 //! - a Receive Location's, Receive Port's, Work Process's or Send Port's
-//!   `correlation_set` names a Correlation Set of the cluster's
-//!   `[[correlation_sets]]` ([`correlated`]).
+//!   `correlation` names a Correlation of the cluster's
+//!   `[[correlations]]` ([`correlated`]).
 //!
 //! [`references`] answers each with the entry holding it, the name written
 //! — or none, where the key may name one and is not written yet — what it

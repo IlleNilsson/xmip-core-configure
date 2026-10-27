@@ -6,7 +6,7 @@
 //! kind, in the order the designer lists them ([`crate::kinds`]) — Cluster,
 //! Node, Party, Module, Receive Port, Receive Location, Send Port, Send
 //! Location, Send Port Group, Prepare, Promote, Demote, Route,
-//! Transformation, Work Process, Correlation Set — each with the entries the file holds of
+//! Transformation, Work Process, Correlation — each with the entries the file holds of
 //! it: where each is ([`Entry::section`], the path an edit names it by,
 //! [`crate::view_edit`]), whose it is (the cluster's, a node's, a binding's
 //! or an Xmip Application's), and its values as the file writes them. A
@@ -464,7 +464,7 @@ receive_idle = "30s"
                 "Transformation",
                 "Debatch",
                 "Work Process",
-                "Correlation Set",
+                "Correlation",
             ]
         );
         let cluster = view(&views, "cluster");

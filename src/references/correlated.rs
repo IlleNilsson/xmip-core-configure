@@ -1,14 +1,14 @@
-//! A point's `correlation_set`: a Receive Location, Receive Port, Work
+//! A point's `correlation`: a Receive Location, Receive Port, Work
 //! Process or Send Port of an Xmip Application, or a Send Location — the
-//! cluster's own or a binding's — names a Correlation Set of the cluster's
-//! `[[correlation_sets]]` (`crate::correlation`).
+//! cluster's own or a binding's — names a Correlation of the cluster's
+//! `[[correlations]]` (`crate::correlation`).
 
 use toml::{Table, Value};
 
 use super::{Reference, named, slot};
 use crate::section::SECTIONS;
 
-/// The lists of an Application whose entries may name a correlation set.
+/// The lists of an Application whose entries may name a Correlation.
 const POINTS: [&str; 4] = [
     "receive_locations",
     "receive_ports",
@@ -16,21 +16,21 @@ const POINTS: [&str; 4] = [
     "send_ports",
 ];
 
-/// Where the cluster's correlation sets are declared.
-const SETS: &str = "correlation_sets";
+/// Where the cluster's Correlations are declared.
+const SETS: &str = "correlations";
 
-/// Each point's `correlation_set` in the cluster's file `cluster`, written
+/// Each point's `correlation` in the cluster's file `cluster`, written
 /// or not.
 pub(super) fn correlated(cluster: &Table, found: &mut Vec<Reference>) {
     let sets: Vec<String> = named(Some(cluster), SETS).map(|(name, _)| name).collect();
     let mut point = |holder: Vec<String>, entry: &Table| {
-        let written = entry.get("correlation_set").and_then(Value::as_str);
+        let written = entry.get("correlation").and_then(Value::as_str);
         found.push(slot(
             holder,
-            &["correlation_set"],
+            &["correlation"],
             None,
             written,
-            "Correlation Set",
+            "Correlation",
             &[SETS],
             &sets,
         ));
@@ -62,29 +62,26 @@ mod tests {
     use super::super::references;
 
     #[test]
-    fn a_points_correlation_set_names_the_clusters_declaration() {
+    fn a_points_correlation_names_the_clusters_declaration() {
         let found = references(
-            "[[correlation_sets]]\nname = \"PerClient\"\nkeys = [\"context:Client\"]\n\
+            "[[correlations]]\nname = \"PerClient\"\nkeys = [\"context:Client\"]\n\
              [[xmip_applications]]\nname = \"Orders\"\n\
              [[xmip_applications.receive_locations]]\nname = \"In\"\n\
-             correlation_set = \"PerClient\"\n\
+             correlation = \"PerClient\"\n\
              [[xmip_applications.send_ports]]\nname = \"Out\"\n",
         )
         .expect("reads");
         let named = |entry: &[&str]| {
             found
                 .iter()
-                .find(|r| r.holder == entry && r.key == ["correlation_set"])
-                .expect("the point's correlation set")
+                .find(|r| r.holder == entry && r.key == ["correlation"])
+                .expect("the point's Correlation")
         };
         let location = named(&["xmip_applications", "Orders", "receive_locations", "In"]);
         assert_eq!(location.name.as_deref(), Some("PerClient"));
         assert_eq!(
             location.target,
-            Some(vec![
-                "correlation_sets".to_string(),
-                "PerClient".to_string()
-            ])
+            Some(vec!["correlations".to_string(), "PerClient".to_string()])
         );
         let port = named(&["xmip_applications", "Orders", "send_ports", "Out"]);
         assert_eq!(port.name, None);
@@ -92,11 +89,11 @@ mod tests {
     }
 
     #[test]
-    fn a_send_location_names_a_correlation_set_its_own_or_bound() {
+    fn a_send_location_names_a_correlation_its_own_or_bound() {
         let found = references(
-            "[[correlation_sets]]\nname = \"OneAtATime\"\nkeys = [\"send-port\"]\n\
+            "[[correlations]]\nname = \"OneAtATime\"\nkeys = [\"send-port\"]\n\
              [[send_locations]]\nname = \"Ftp\"\ntransport = \"t\"\naddress = \"a\"\n\
-             correlation_set = \"OneAtATime\"\n\
+             correlation = \"OneAtATime\"\n\
              [[applications]]\nname = \"Orders\"\n\
              [[applications.send_ports]]\nname = \"Out\"\nnode = \"n\"\n\
              transport = \"t\"\naddress = \"a\"\n",
@@ -105,8 +102,8 @@ mod tests {
         let named = |entry: &[&str]| {
             found
                 .iter()
-                .find(|r| r.holder == entry && r.key == ["correlation_set"])
-                .expect("the Location's correlation set")
+                .find(|r| r.holder == entry && r.key == ["correlation"])
+                .expect("the Location's Correlation")
         };
         assert_eq!(
             named(&["send_locations", "Ftp"]).name.as_deref(),

@@ -34,11 +34,11 @@ From `module/platform/configure/src/application.rs` (`XmipApplication`) and
   `light` or `context`, which decides how far the receive gates read
   (`runtime-model.md` section 7). A Location without a Port, or without
   either statement, is refused (ADR-0031, amendment 2026-10-01). It may name
-  the `correlation_set` its Streams are spread over; one that names none goes
+  the `correlation` its Streams are spread over; one that names none goes
   one Stream at a time, end to end, keyed by its own name (ADR-0024 and
   ADR-0066, amendments 2026-10-22). A Receive Port may name one too.
 - **`[[xmip_applications.work_processes]]`**: the Work Processes a
-  Subscription may route to, by `name`, each naming the `correlation_set`
+  Subscription may route to, by `name`, each naming the `correlation`
   its Journeys pass it by where it names one. Its flow is a compiled Work
   Process unit the node's `[[work_processes]]` names by `module` and `unit`
   (ADR-0066, amendment 2026-10-22).
@@ -46,9 +46,9 @@ From `module/platform/configure/src/application.rs` (`XmipApplication`) and
   and its policy (`runtime-model.md` section 10, the same amendment):
   `send_locations`, its Send Locations by name, tried in order;
   `retry = { attempts, backoff }` on the active Location, the backoff a
-  duration such as `5s`; `failover`, `next` or `none`; and `correlation_set`,
+  duration such as `5s`; `failover`, `next` or `none`; and `correlation`,
   the cluster's set its Journeys pass it by, one at a time per key.
-- **`[[correlation_sets]]`**, once for the cluster, beside the Applications:
+- **`[[correlations]]`**, once for the cluster, beside the Applications:
   a `name`, the `keys` that make a key — `receive-location`, `receive-port`,
   `work-process`, `send-port` or a Message Context value by the name a filter
   reads it by — and `on_failure`, `block` where it says nothing, or `skip`.
@@ -102,7 +102,7 @@ name = "Approval"
 [[xmip_applications.send_ports]]
 name = "Billing"
 retry = { attempts = 3, backoff = "5s" }
-correlation_set = "PerParty"
+correlation = "PerParty"
 
 [[xmip_applications.send_ports]]
 name = "Ledger"

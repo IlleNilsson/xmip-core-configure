@@ -29,7 +29,7 @@ fn paths(bound: &Bound, work_processes: &[(String, String)]) -> Vec<Path> {
     let mut receives: Vec<(String, Vec<String>)> = Vec::new();
     for port in &bound.receive_ports {
         for location in &port.receive_locations {
-            let sets = [&location.correlation_set, &port.correlation_set]
+            let sets = [&location.correlation, &port.correlation]
                 .into_iter()
                 .flatten()
                 .cloned()
@@ -44,7 +44,7 @@ fn paths(bound: &Bound, work_processes: &[(String, String)]) -> Vec<Path> {
         } else {
             port.send_locations.iter().map(String::as_str).collect()
         };
-        let mut sets: Vec<String> = port.correlation_set.iter().cloned().collect();
+        let mut sets: Vec<String> = port.correlation.iter().cloned().collect();
         for name in locations {
             sets.extend(
                 bound
@@ -125,7 +125,7 @@ pub fn crossing(bound: &Bound, work_processes: &[(String, String)]) -> Vec<Strin
         for second in &sets[at + 1..] {
             if reach.contains_key(&(*first, *second)) && reach.contains_key(&(*second, *first)) {
                 problems.push(format!(
-                    "the correlation sets '{first}' and '{second}' are taken in crossing order: \
+                    "the Correlations '{first}' and '{second}' are taken in crossing order: \
                      {}, and {}, so Journeys of equal keys could each wait for the other for \
                      ever; take '{first}' before '{second}' on both paths",
                     said(first, second),
@@ -147,14 +147,13 @@ mod tests {
     fn path(bound: &mut Bound, (location, receive): (&str, &str), (port, send): (&str, &str)) {
         let receiving: BoundReceivePort = toml::from_str(&format!(
             "application = \"Orders\"\nname = \"In{location}\"\n\
-             [[receive_locations]]\nname = \"{location}\"\ncorrelation_set = \"{receive}\"\n"
+             [[receive_locations]]\nname = \"{location}\"\ncorrelation = \"{receive}\"\n"
         ))
         .expect("a Receive Port");
         bound.receive_ports.push(receiving);
-        let sending: DesignedSendPort = toml::from_str(&format!(
-            "name = \"{port}\"\ncorrelation_set = \"{send}\"\n"
-        ))
-        .expect("a Send Port");
+        let sending: DesignedSendPort =
+            toml::from_str(&format!("name = \"{port}\"\ncorrelation = \"{send}\"\n"))
+                .expect("a Send Port");
         bound.designed_send_ports.push(sending);
     }
 

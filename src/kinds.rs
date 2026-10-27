@@ -5,7 +5,7 @@
 //! Promote, Demote, Transformation and Debatch are calls to compiled units
 //! ([`crate::step`]), each listed where the file holds it; a Module is a
 //! `[[modules]]` entry, whose manifest declares the units the calls name;
-//! a Correlation Set is a `[[correlation_sets]]` entry ([`crate::correlation`]).
+//! a Correlation is a `[[correlations]]` entry ([`crate::correlation`]).
 
 /// What a kind reads.
 pub(crate) enum Reads {
@@ -61,11 +61,7 @@ pub(crate) const KINDS: [(&str, &str, Reads); 17] = [
         "Work Process",
         Reads::List("work_processes"),
     ),
-    (
-        "correlation-set",
-        "Correlation Set",
-        Reads::List("correlation_sets"),
-    ),
+    ("correlation", "Correlation", Reads::List("correlations")),
 ];
 
 /// The tables that hold lists: a node's document, a binding, and an Xmip
@@ -97,7 +93,7 @@ pub(crate) fn holds(holder: Holder, list: &str) -> bool {
             "applications",
             "parties",
             "modules",
-            "correlation_sets",
+            "correlations",
         ],
         Holder::Binding => &["receive_locations", "send_ports"],
         Holder::Application => &[
