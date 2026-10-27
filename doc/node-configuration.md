@@ -340,6 +340,7 @@ send_lease = "30s"                          # how long a claim on a Journey hold
 send_scan = "1s"                            # how often the send queues are read
 failed_window = 100                         # oldest failed Journeys kept per Send Port, 1 to 10000
 send_chunks_per_thread = 16                 # 1 to 65536
+stream_stall = "100ms"                      # how long a send taking nothing holds its Stream's others back
 storage_timeout = "5s"                      # each connect and read to a Storage node
 storage_pass_over = "5s"                    # how long one that did not answer waits its turn
 local_timeout = "2s"                        # how long a call to the local endpoint waits
@@ -396,6 +397,11 @@ local_timeout = "2s"                        # how long a call to the local endpo
   chunks, what reading it holds, measured at a little over five; one
   whose transport gathers the whole Message holds all of it, and waits for
   room where others hold the rest (`runtime-model.md` section 10).
+- **`stream_stall`**: how long a send of a fan-out that takes no chunk of
+  its Stream holds the sends of the same Stream ahead of it back before
+  they leave it behind, to read what it missed from Xmip Storage once it
+  takes again. While it keeps taking it is waited for, however slowly
+  (ADR-0018, amendment 2026-10-27). The 100 ms is a draft for the owner.
 - **`send_lease`** and **`send_scan`**: how long a claim on a Journey holds
   before it lapses unless renewed, and how often the queues of the Send
   Ports this node sends are read for unclaimed Journeys (`runtime-model.md`
