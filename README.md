@@ -105,10 +105,11 @@ Prepare, Promote, Demote and Transformation are calls to compiled units
 (ADR-0066, amendment 2026-10-22; `step.rs`, `modules.rs`): a Module's
 manifest declares its units (`abi::ModuleUnit`: a name, a capability, the
 stages it serves in `xmip-core-node`'s stage words, `offline = true`, and
-its settings), `[[preparation_steps]]`, `[[promotions]]`, `[[demotions]]`
-and `[[transformations]]` — in a node's document and in an Application —
-call one each with settings, and a Port or Location attaches calls by name,
-`prepare`, `transform`, `promote` on receive and `demote` on send.
+its settings), `[[preparation_steps]]`, `[[promotions]]`, `[[demotions]]`,
+`[[transformations]]` and `[[debatches]]` — in a node's document and in an
+Application — call one each with settings, and a Port or Location attaches
+calls by name, `prepare`, `transform`, `promote` and `debatch` on receive
+and `demote` on send (ADR-0066, amendment 2026-10-27).
 `step::problems` refuses, in words, a module or unit not declared offline,
 a module or unit nobody declares, a unit of another capability, settings
 its unit's declaration refuses, an attachment naming nothing, and a unit

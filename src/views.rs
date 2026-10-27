@@ -462,6 +462,7 @@ receive_idle = "30s"
                 "Demote",
                 "Route",
                 "Transformation",
+                "Debatch",
                 "Work Process",
                 "Correlation Set",
             ]

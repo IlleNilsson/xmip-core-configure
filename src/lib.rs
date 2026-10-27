@@ -133,6 +133,8 @@ pub struct XmipConfigurationDocument {
     pub demotions: Vec<StepEntry>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub transformations: Vec<StepEntry>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub debatches: Vec<StepEntry>,
     /// What work is spread over, declared once for the cluster
     /// (`correlation`).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -325,8 +327,9 @@ pub struct ConfiguredLocation {
     #[serde(default, skip_serializing_if = "Accept::is_empty")]
     pub accept: Accept,
     /// Its Preparation Steps in order, its Transformation and, on receive,
-    /// its Promotion or, on send, its Demotion: each by its entry's name
-    /// ([`step`], ADR-0066 amendment 2026-10-22).
+    /// its Promotion and Debatch or, on send, its Demotion: each by its
+    /// entry's name ([`step`], ADR-0066 amendments 2026-10-22 and
+    /// 2026-10-27).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub prepare: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -335,6 +338,8 @@ pub struct ConfiguredLocation {
     pub promote: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub demote: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub debatch: Option<String>,
 }
 
 /// `accept`: the closed set a Receive Location authenticates (ADR-0019

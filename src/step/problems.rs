@@ -238,6 +238,12 @@ fn attached_problems(
             "{what} attaches a Promotion, which only a Receive Port or Location runs"
         ));
     }
+    if side == Stage::Send && attached.debatch.is_some() {
+        problems.push(format!(
+            "{what} attaches a Debatch, which only a Receive Port or Location runs, or a \
+             Work Process"
+        ));
+    }
     if side == Stage::Receive && attached.demote.is_some() {
         problems.push(format!(
             "{what} attaches a Demotion, which only a Send Port or Location runs"
@@ -377,6 +383,41 @@ mod tests {
                 .iter()
                 .any(|p| p.contains("'Nope', which [[preparation_steps]]")),
             "{found:?}"
+        );
+    }
+
+    /// A splitting unit, its entry and `attach` on a Location of `side`.
+    fn debatching(side: &str, attach: &str) -> Vec<String> {
+        node(&format!(
+            "\n[[modules.manifest.units]]\nname = \"Lines\"\ncapability = \"debatch\"\n\
+             stages = [\"receive\", \"process\"]\noffline = true\n\n\
+             [[debatches]]\nname = \"PerLine\"\nmodule = \"orders\"\nunit = \"Lines\"\n\
+             [[debatches]]\nname = \"NotOne\"\nmodule = \"orders\"\nunit = \"Enrich\"\n\n\
+             [[{side}_locations]]\nname = \"split\"\ntransport = \"t\"\naddress = \"a\"\n\
+             debatch = \"{attach}\"\n"
+        ))
+    }
+
+    #[test]
+    fn a_debatch_is_a_debatch_unit_attached_on_receive_alone() {
+        let found = debatching("receive", "PerLine");
+        assert_eq!(found.len(), 1, "{found:?}");
+        assert!(
+            found[0].contains("'NotOne'") && found[0].contains("a transform unit, where a debatch"),
+            "{found:?}"
+        );
+        let sent = debatching("send", "PerLine");
+        assert!(
+            sent.iter()
+                .any(|p| p.contains("attaches a Debatch, which only a Receive")),
+            "{sent:?}"
+        );
+        let unknown = debatching("receive", "Nothing");
+        assert!(
+            unknown
+                .iter()
+                .any(|p| p.contains("'Nothing', which [[debatches]] does not declare")),
+            "{unknown:?}"
         );
     }
 

@@ -87,6 +87,8 @@ pub struct XmipApplication {
     pub demotions: Vec<StepEntry>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub transformations: Vec<StepEntry>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub debatches: Vec<StepEntry>,
 }
 
 /// Send Ports a Subscription reaches together: a Send Port Group.

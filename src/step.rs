@@ -23,9 +23,10 @@
 //! promote = "OrderNumbers"           # receive alone; demote, send alone
 //! ```
 //!
-//! A node's document and an Xmip Application section each hold the four
-//! lists — `[[preparation_steps]]`, `[[promotions]]`, `[[demotions]]` and
-//! `[[transformations]]` — and a Receive Port, Receive Location, Send Port
+//! A node's document and an Xmip Application section each hold the five
+//! lists — `[[preparation_steps]]`, `[[promotions]]`, `[[demotions]]`,
+//! `[[transformations]]` and `[[debatches]]` (the owner, 2026-10-27) — and
+//! a Receive Port, Receive Location, Send Port
 //! or Send Location attaches entries of its own document's lists by name:
 //! on receive the Location's run, then the Port's; on send the Port's, then
 //! the Location's (`runtime-model.md` section 20). A unit lists the stages
@@ -40,8 +41,10 @@
 //! ([`problems`]): a module no `[[modules]]` entry declares, a unit its
 //! manifest does not declare or declares as another capability, a call's
 //! settings its unit's declaration refuses, an attachment naming no entry,
-//! a unit attached where its stage does not fit, and a Promotion on send or
-//! a Demotion on receive. Running a unit is decided, not built: a node
+//! a unit attached where its stage does not fit, and a Promotion or a
+//! Debatch on send or a Demotion on receive. A Debatch, `debatch =
+//! "<entry>"`, splits a received Message after Prepare and Message
+//! creation, before the Contract. Running a unit is decided, not built: a node
 //! refuses to start what attaches one (`xmip-core-runtime`).
 
 mod problems;
@@ -70,9 +73,9 @@ pub struct StepEntry {
     pub settings: LocationSettings,
 }
 
-/// The four lists, each with the capability its units must have and how a
+/// The five lists, each with the capability its units must have and how a
 /// person names one of it.
-pub const LISTS: [(&str, UnitCapability, &str); 4] = [
+pub const LISTS: [(&str, UnitCapability, &str); 5] = [
     (
         "preparation_steps",
         UnitCapability::Prepare,
@@ -85,7 +88,12 @@ pub const LISTS: [(&str, UnitCapability, &str); 4] = [
         UnitCapability::Transform,
         "Transformation",
     ),
+    ("debatches", UnitCapability::Debatch, "Debatch"),
 ];
+
+/// The key an artifact attaches an entry of each of [`LISTS`] by, in its
+/// order.
+pub const ATTACHMENTS: [&str; 5] = ["prepare", "promote", "demote", "transform", "debatch"];
 
 /// What an artifact attaches, by name.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -94,6 +102,7 @@ pub struct Attached<'a> {
     pub transform: Option<&'a str>,
     pub promote: Option<&'a str>,
     pub demote: Option<&'a str>,
+    pub debatch: Option<&'a str>,
 }
 
 impl Attached<'_> {
@@ -104,6 +113,7 @@ impl Attached<'_> {
             && self.transform.is_none()
             && self.promote.is_none()
             && self.demote.is_none()
+            && self.debatch.is_none()
     }
 
     /// Each attachment: the list it names an entry of, and the name.
@@ -118,6 +128,7 @@ impl Attached<'_> {
             (LISTS[1].0, self.promote),
             (LISTS[2].0, self.demote),
             (LISTS[3].0, self.transform),
+            (LISTS[4].0, self.debatch),
         ] {
             named.extend(name.map(|name| (list, name)));
         }
@@ -134,14 +145,15 @@ impl ConfiguredLocation {
             transform: self.transform.as_deref(),
             promote: self.promote.as_deref(),
             demote: self.demote.as_deref(),
+            debatch: self.debatch.as_deref(),
         }
     }
 }
 
-/// A document's four lists.
+/// A document's five lists.
 #[derive(Clone, Copy)]
 pub struct Steps<'a> {
-    pub lists: [&'a [StepEntry]; 4],
+    pub lists: [&'a [StepEntry]; 5],
 }
 
 impl<'a> Steps<'a> {
@@ -154,6 +166,7 @@ impl<'a> Steps<'a> {
                 &document.promotions,
                 &document.demotions,
                 &document.transformations,
+                &document.debatches,
             ],
         }
     }
@@ -167,6 +180,7 @@ impl<'a> Steps<'a> {
                 &application.promotions,
                 &application.demotions,
                 &application.transformations,
+                &application.debatches,
             ],
         }
     }
@@ -242,8 +256,8 @@ pub fn unrun(
         .into_iter()
         .map(|what| {
             format!(
-                "{what} attaches a Preparation Step, Promotion, Demotion or Transformation, and \
-                 this runtime runs no compiled unit yet"
+                "{what} attaches a Preparation Step, Promotion, Demotion, Transformation or \
+                 Debatch, and this runtime runs no compiled unit yet"
             )
         })
         .collect()

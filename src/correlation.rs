@@ -148,6 +148,51 @@ pub fn problems(sets: &[CorrelationSet], named: &[(&str, &str, &str)]) -> Vec<St
     problems
 }
 
+/// What is wrong with the correlation sets `sets` and the points naming
+/// them in `bound` and among `work_processes` (each a Work Process's name
+/// and the set it names), as [`problems`] says it.
+#[must_use]
+pub fn bound_problems(
+    sets: &[CorrelationSet],
+    bound: &crate::Bound,
+    work_processes: &[(String, String)],
+) -> Vec<String> {
+    let named = named_points(bound, work_processes);
+    let named: Vec<(&str, &str, &str)> = named
+        .iter()
+        .map(|(kind, name, set)| (*kind, name.as_str(), set.as_str()))
+        .collect();
+    problems(sets, &named)
+}
+
+/// Every point of `bound` naming a correlation set, and each Work Process
+/// of `work_processes`: the point's kind, its name and the set.
+fn named_points(
+    bound: &crate::Bound,
+    work_processes: &[(String, String)],
+) -> Vec<(&'static str, String, String)> {
+    let mut named = Vec::new();
+    for port in &bound.receive_ports {
+        if let Some(set) = &port.correlation_set {
+            named.push(("Receive Port", port.name.clone(), set.clone()));
+        }
+        for location in &port.receive_locations {
+            if let Some(set) = &location.correlation_set {
+                named.push(("Receive Location", location.name.clone(), set.clone()));
+            }
+        }
+    }
+    for port in &bound.send_ports {
+        if let Some(set) = &port.correlation_set {
+            named.push(("Send Port", port.name.clone(), set.clone()));
+        }
+    }
+    for (name, set) in work_processes {
+        named.push(("Work Process", name.clone(), set.clone()));
+    }
+    named
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

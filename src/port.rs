@@ -31,8 +31,8 @@
 
 use serde::{Deserialize, Serialize};
 
-use crate::step::Attached;
 use crate::LocationSettings;
+use crate::step::Attached;
 
 /// A Receive Port as designed: its name, what it attaches
 /// ([`crate::step`]) and the correlation set it names.
@@ -52,6 +52,8 @@ pub struct DesignedReceivePort {
     pub promote: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub demote: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub debatch: Option<String>,
 }
 
 /// A Work Process as designed: its name, the compiled unit that is its
@@ -139,6 +141,8 @@ pub struct DesignedReceiveLocation {
     pub promote: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub demote: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub debatch: Option<String>,
     /// The correlation set its Streams are spread over; none, and they go
     /// one at a time, keyed by its name (`crate::correlation`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -179,6 +183,8 @@ pub struct DesignedSendPort {
     pub promote: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub demote: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub debatch: Option<String>,
 }
 
 /// What a Port or Location as designed attaches.
@@ -193,6 +199,7 @@ macro_rules! attaching {
                     transform: self.transform.as_deref(),
                     promote: self.promote.as_deref(),
                     demote: self.demote.as_deref(),
+                    debatch: self.debatch.as_deref(),
                 }
             }
         }
