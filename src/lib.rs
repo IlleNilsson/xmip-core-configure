@@ -71,7 +71,7 @@ pub use binding::{
     ApplicationBinding, Bound, BoundLocation, BoundReceivePort, bind, binding_problems,
 };
 pub use cluster::{is_cluster, slice, slice_named, slices};
-pub use correlation::CorrelationSet;
+pub use correlation::Correlation;
 pub use database::DomainConfiguration;
 pub use entry::subscription_entry;
 pub use modules::ModuleConfiguration;
@@ -138,7 +138,7 @@ pub struct XmipConfigurationDocument {
     /// What work is spread over, declared once for the cluster
     /// (`correlation`).
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
-    pub correlation_sets: Vec<CorrelationSet>,
+    pub correlations: Vec<Correlation>,
     /// Where Xmip starts working — runtime-model.md. Added 2026-09-05 so a
     /// node has all three stages of the message path, not only Process.
     #[serde(default)]
@@ -340,9 +340,9 @@ pub struct ConfiguredLocation {
     pub demote: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub debatch: Option<String>,
-    /// A Send Location's correlation set ([`correlation`]).
+    /// A Send Location's Correlation ([`correlation`]).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub correlation_set: Option<String>,
+    pub correlation: Option<String>,
 }
 
 /// `accept`: the closed set a Receive Location authenticates (ADR-0019

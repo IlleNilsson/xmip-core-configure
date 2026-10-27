@@ -18,7 +18,7 @@
 //! send_locations  = ["ErpPrimary", "ErpBackup"]       # tried in order
 //! retry           = { attempts = 3, backoff = "5s" }  # on the active Location
 //! failover        = "next"          # next | none
-//! correlation_set = "PerParty"      # one at a time per key, as the set says
+//! correlation = "PerParty"      # one at a time per key, as the set says
 //! ```
 //!
 //! A Receive Location names its Receive Port and states its interaction and
@@ -35,15 +35,15 @@ use crate::LocationSettings;
 use crate::step::Attached;
 
 /// A Receive Port as designed: its name, what it attaches
-/// ([`crate::step`]) and the correlation set it names.
+/// ([`crate::step`]) and the Correlation it names.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DesignedReceivePort {
     pub name: String,
-    /// The correlation set what passes it goes one at a time per key by
+    /// The Correlation what passes it goes one at a time per key by
     /// (`crate::correlation`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub correlation_set: Option<String>,
+    pub correlation: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub prepare: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -57,16 +57,16 @@ pub struct DesignedReceivePort {
 }
 
 /// A Work Process as designed: its name, the compiled unit that is its
-/// flow, where it names one ([`crate::step`]), and the correlation set it
+/// flow, where it names one ([`crate::step`]), and the Correlation it
 /// names.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DesignedWorkProcess {
     pub name: String,
-    /// The correlation set its Journeys go one at a time per key by
+    /// The Correlation its Journeys go one at a time per key by
     /// (`crate::correlation`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub correlation_set: Option<String>,
+    pub correlation: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub module: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -143,10 +143,10 @@ pub struct DesignedReceiveLocation {
     pub demote: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub debatch: Option<String>,
-    /// The correlation set its Streams are spread over; none, and they go
+    /// The Correlation its Streams are spread over; none, and they go
     /// one at a time, keyed by its name (`crate::correlation`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub correlation_set: Option<String>,
+    pub correlation: Option<String>,
 }
 
 /// `retry`: how often the active Send Location is tried again, and how long
@@ -172,9 +172,9 @@ pub struct DesignedSendPort {
     pub retry: Option<Retry>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failover: Option<Failover>,
-    /// The correlation set its Journeys pass it by, one at a time per key.
+    /// The Correlation its Journeys pass it by, one at a time per key.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub correlation_set: Option<String>,
+    pub correlation: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub prepare: Vec<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -302,7 +302,7 @@ name = "ErpOut"
 send_locations = ["ErpPrimary", "ErpBackup"]
 retry = { attempts = 3, backoff = "5s" }
 failover = "next"
-correlation_set = "PerParty"
+correlation = "PerParty"
 "#;
 
     #[test]
@@ -321,7 +321,7 @@ correlation_set = "PerParty"
         assert_eq!(port.send_locations, ["ErpPrimary", "ErpBackup"]);
         assert_eq!(port.retry.as_ref().map(|r| r.attempts), Some(3));
         assert_eq!(port.failover, Some(super::Failover::Next));
-        assert_eq!(port.correlation_set.as_deref(), Some("PerParty"));
+        assert_eq!(port.correlation.as_deref(), Some("PerParty"));
     }
 
     #[test]
@@ -362,7 +362,7 @@ correlation_set = "PerParty"
         for (from, to) in [
             ("\"data-transfer\"", "\"streaming\""),
             ("\"next\"", "\"random\""),
-            ("correlation_set", "order_key"),
+            ("correlation", "order_key"),
         ] {
             assert!(
                 parse_application(&INVOICES.replace(from, to)).is_err(),

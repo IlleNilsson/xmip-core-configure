@@ -19,9 +19,9 @@ Location names its `receive_port`, refused without one, and states its
 `interaction` (`composite`, `data-transfer`, `batch-load`) and its `depth`
 (`transfer`, `light`, `context`); a Send Port states its policy —
 `send_locations` tried in order, `retry = { attempts, backoff }`,
-`failover` (`next`, `none`) and the `correlation_set` its Journeys pass it by —
+`failover` (`next`, `none`) and the `correlation` its Journeys pass it by —
 and a Receive Location, a Receive Port and a Work Process may name a
-`correlation_set` too, declared once for the cluster in `[[correlation_sets]]`
+`correlation` too, declared once for the cluster in `[[correlations]]`
 (`correlation.rs`, its keys and `on_failure`, `block` or `skip`; `port.rs`;
 ADR-0031, amendment 2026-10-01; ADR-0024 and ADR-0066, amendments
 2026-10-22). A Work Process names its compiled flow by `module` and `unit`. Each is a problem

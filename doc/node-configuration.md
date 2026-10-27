@@ -44,9 +44,9 @@ From `module/platform/configure/src/lib.rs`:
   2026-10-22). The lists default to empty when
   omitted, as the document's own lists do (ADR-0031, amendment 2026-09-24);
   `name` and `start` have no default. How many of its Journeys go at once is
-  the correlation set its Application names it by (`runtime-model.md`
+  the Correlation its Application names it by (`runtime-model.md`
   section 3, *Sequences*).
-- **`CorrelationSet`** — `[[correlation_sets]]`: `name`, `keys` and `on_failure`,
+- **`Correlation`** — `[[correlations]]`: `name`, `keys` and `on_failure`,
   declared once for the cluster (`correlation.rs`).
 - **`ConfiguredLocation`** — a Receive or a Send Location: a `name`, whether
   it will `start`, the `transport` module that moves it, and the `address` in

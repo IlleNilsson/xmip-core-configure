@@ -1,4 +1,4 @@
-//! `[[correlation_sets]]`: what work is spread over, declared once for the
+//! `[[correlations]]`: what work is spread over, declared once for the
 //! whole cluster (ADR-0024 and ADR-0066, amendments 2026-10-22).
 //!
 //! The owner, 2026-10-22: *Correlations should be definable, like in
@@ -11,18 +11,18 @@
 //! go parallel depending on the value in the correlation set.*
 //!
 //! ```toml
-//! [[correlation_sets]]
+//! [[correlations]]
 //! name = "PerClient"
 //! keys = ["context:Client"]     # the values work is spread over, in order
 //! on_failure = "block"          # or "skip"; block where it says nothing
 //!
 //! [[xmip_applications.receive_locations]]
 //! name = "OrdersIn"
-//! correlation_set = "PerClient" # each client's orders in order, clients side by side
+//! correlation = "PerClient" # each client's orders in order, clients side by side
 //! ```
 //!
 //! A set is named at a point — a Receive Location, a Receive Port, a Work
-//! Process or a Send Port — by `correlation_set`, and a Work Process's
+//! Process or a Send Port — by `correlation`, and a Work Process's
 //! design names the sets its steps take Messages by. A Receive Location
 //! that names none goes one Stream at a time, keyed by its own name.
 
@@ -33,10 +33,10 @@ use serde::{Deserialize, Serialize};
 use crate::OnFailure;
 pub use crossing::crossing;
 
-/// One correlation set.
+/// One Correlation.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct CorrelationSet {
+pub struct Correlation {
     pub name: String,
     /// What makes a key, in order: [`KeyWord`]s.
     pub keys: Vec<String>,
@@ -46,7 +46,7 @@ pub struct CorrelationSet {
     pub on_failure: Option<OnFailure>,
 }
 
-/// What one key of a correlation set reads.
+/// What one key of a Correlation reads.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum KeyWord {
     /// The Receive Location the Journey's Stream came through.
@@ -109,7 +109,7 @@ impl KeyWord {
     /// It is empty, or names a Journey Context value there is none of.
     pub fn read(text: &str) -> Result<Self, String> {
         Ok(match text.trim() {
-            "" => return Err("a correlation set's key is empty".to_string()),
+            "" => return Err("a Correlation's key is empty".to_string()),
             "receive-location" => Self::ReceiveLocation,
             "receive-port" => Self::ReceivePort,
             "work-process" => Self::WorkProcess,
@@ -156,35 +156,32 @@ impl KeyWord {
     }
 }
 
-/// What is wrong with the correlation sets `sets` and the points naming
+/// What is wrong with the Correlations `sets` and the points naming
 /// them, `named`, each a point's kind and name and the set it names: one
 /// sentence each.
 #[must_use]
-pub fn problems(sets: &[CorrelationSet], named: &[(&str, &str, &str)]) -> Vec<String> {
+pub fn problems(sets: &[Correlation], named: &[(&str, &str, &str)]) -> Vec<String> {
     let mut problems = Vec::new();
     for (place, set) in sets.iter().enumerate() {
         if set.name.trim().is_empty() {
-            problems.push("a correlation set requires a name".to_string());
+            problems.push("a Correlation requires a name".to_string());
         }
         if sets[..place].iter().any(|earlier| earlier.name == set.name) {
-            problems.push(format!(
-                "the correlation set '{}' is declared twice",
-                set.name
-            ));
+            problems.push(format!("the Correlation '{}' is declared twice", set.name));
         }
         if set.keys.is_empty() {
-            problems.push(format!("the correlation set '{}' names no key", set.name));
+            problems.push(format!("the Correlation '{}' names no key", set.name));
         }
         for key in &set.keys {
             if let Err(why) = KeyWord::read(key) {
-                problems.push(format!("the correlation set '{}': {why}", set.name));
+                problems.push(format!("the Correlation '{}': {why}", set.name));
             }
         }
     }
     for (kind, name, set) in named {
         if !sets.iter().any(|declared| declared.name == *set) {
             problems.push(format!(
-                "the {kind} '{name}' names the correlation set '{set}', which the cluster \
+                "the {kind} '{name}' names the Correlation '{set}', which the cluster \
                  does not declare"
             ));
         }
@@ -192,13 +189,13 @@ pub fn problems(sets: &[CorrelationSet], named: &[(&str, &str, &str)]) -> Vec<St
     problems
 }
 
-/// What is wrong with the correlation sets `sets` and the points naming
+/// What is wrong with the Correlations `sets` and the points naming
 /// them in `bound` and among `work_processes` (each a Work Process's name
 /// and the set it names), as [`problems`] says it, and sets taken in
 /// crossing order ([`crossing`]).
 #[must_use]
 pub fn bound_problems(
-    sets: &[CorrelationSet],
+    sets: &[Correlation],
     bound: &crate::Bound,
     work_processes: &[(String, String)],
 ) -> Vec<String> {
@@ -212,7 +209,7 @@ pub fn bound_problems(
     problems
 }
 
-/// Every point of `bound` naming a correlation set, and each Work Process
+/// Every point of `bound` naming a Correlation, and each Work Process
 /// of `work_processes`: the point's kind, its name and the set.
 fn named_points(
     bound: &crate::Bound,
@@ -220,17 +217,17 @@ fn named_points(
 ) -> Vec<(&'static str, String, String)> {
     let mut named = Vec::new();
     for port in &bound.receive_ports {
-        if let Some(set) = &port.correlation_set {
+        if let Some(set) = &port.correlation {
             named.push(("Receive Port", port.name.clone(), set.clone()));
         }
         for location in &port.receive_locations {
-            if let Some(set) = &location.correlation_set {
+            if let Some(set) = &location.correlation {
                 named.push(("Receive Location", location.name.clone(), set.clone()));
             }
         }
     }
     for port in &bound.designed_send_ports {
-        if let Some(set) = &port.correlation_set {
+        if let Some(set) = &port.correlation {
             named.push(("Send Port", port.name.clone(), set.clone()));
         }
     }
@@ -243,7 +240,7 @@ fn named_points(
     named
 }
 
-/// Every Send Location of `document` naming a correlation set, its own and
+/// Every Send Location of `document` naming a Correlation, its own and
 /// every binding's whichever node takes it: its name and the set.
 #[must_use]
 pub fn send_location_sets(document: &crate::XmipConfigurationDocument) -> Vec<(String, String)> {
@@ -256,14 +253,14 @@ pub fn send_location_sets(document: &crate::XmipConfigurationDocument) -> Vec<(S
         .iter()
         .chain(bound)
         .filter_map(|location| {
-            let set = location.correlation_set.clone()?;
+            let set = location.correlation.clone()?;
             Some((location.name.clone(), set))
         })
         .collect()
 }
 
 /// Every Receive Location of `document`, its own and every binding's, that
-/// names a correlation set: by its name. A Receive Location names its set
+/// names a Correlation: by its name. A Receive Location names its set
 /// in its Application's design, never here.
 #[must_use]
 pub fn receive_location_sets(document: &crate::XmipConfigurationDocument) -> Vec<String> {
@@ -277,7 +274,7 @@ pub fn receive_location_sets(document: &crate::XmipConfigurationDocument) -> Vec
         .receive_locations
         .iter()
         .chain(bound)
-        .filter(|location| location.correlation_set.is_some())
+        .filter(|location| location.correlation.is_some())
         .map(|location| location.name.clone())
         .collect()
 }
@@ -288,28 +285,28 @@ mod tests {
 
     #[derive(Deserialize)]
     struct Sets {
-        correlation_sets: Vec<CorrelationSet>,
+        correlations: Vec<Correlation>,
     }
 
     #[test]
     fn a_set_reads_its_keys_and_an_undeclared_or_broken_one_is_refused_in_words() {
         let read: Sets = toml::from_str(
-            "[[correlation_sets]]\nname = \"PerClient\"\nkeys = [\"context:Client\"]\n\
-             [[correlation_sets]]\nname = \"PerClient\"\nkeys = []\n\
-             [[correlation_sets]]\nname = \"Steps\"\nkeys = [\"journey:Step\"]\n\
+            "[[correlations]]\nname = \"PerClient\"\nkeys = [\"context:Client\"]\n\
+             [[correlations]]\nname = \"PerClient\"\nkeys = []\n\
+             [[correlations]]\nname = \"Steps\"\nkeys = [\"journey:Step\"]\n\
              on_failure = \"skip\"\n",
         )
         .expect("reads");
-        assert_eq!(read.correlation_sets[2].on_failure, Some(OnFailure::Skip));
+        assert_eq!(read.correlations[2].on_failure, Some(OnFailure::Skip));
         let problems = problems(
-            &read.correlation_sets,
+            &read.correlations,
             &[("Receive Location", "OrdersIn", "PerOrder")],
         );
         for words in [
             "declared twice",
             "'PerClient' names no key",
             "Journey Context value",
-            "'OrdersIn' names the correlation set 'PerOrder'",
+            "'OrdersIn' names the Correlation 'PerOrder'",
         ] {
             assert!(
                 problems.iter().any(|p| p.contains(words)),
