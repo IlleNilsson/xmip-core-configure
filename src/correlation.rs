@@ -57,6 +57,36 @@ pub enum KeyWord {
     /// A Message Context value, promoted properties among them, by the
     /// name a filter reads it by.
     Context(String),
+    /// A Journey Context value: what the Journey itself carries.
+    Journey(JourneyValue),
+}
+
+/// A Journey Context value a key may read, `journey:<name>` (the owner,
+/// 2026-10-27).
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum JourneyValue {
+    /// The Message its Stream was received as, which every Journey born of
+    /// one inbound Stream shares: `journey:origin`.
+    Origin,
+    /// The Subscription that opened it: `journey:subscription`.
+    Subscription,
+    /// The Journey it came from: `journey:previous`.
+    Previous,
+}
+
+impl JourneyValue {
+    /// Every one, in the order a person reads them.
+    pub const ALL: [Self; 3] = [Self::Origin, Self::Subscription, Self::Previous];
+
+    /// Its name after `journey:`.
+    #[must_use]
+    pub const fn word(self) -> &'static str {
+        match self {
+            Self::Origin => "origin",
+            Self::Subscription => "subscription",
+            Self::Previous => "previous",
+        }
+    }
 }
 
 /// The key words that name an artifact, in the order a person reads them.
@@ -68,12 +98,12 @@ pub const ARTIFACT_WORDS: [&str; 4] = [
 ];
 
 impl KeyWord {
-    /// The key word `text` is: a word of [`ARTIFACT_WORDS`], or
-    /// `context:<name>` — or any name — a Message Context value.
+    /// The key word `text` is: a word of [`ARTIFACT_WORDS`],
+    /// `journey:<name>` — a [`JourneyValue`] — or `context:<name>` — or
+    /// any name — a Message Context value.
     ///
     /// # Errors
-    /// It is empty, or names a Journey Context value, which nothing sets
-    /// yet.
+    /// It is empty, or names a Journey Context value there is none of.
     pub fn read(text: &str) -> Result<Self, String> {
         Ok(match text.trim() {
             "" => return Err("a correlation set's key is empty".to_string()),
@@ -82,9 +112,19 @@ impl KeyWord {
             "work-process" => Self::WorkProcess,
             "send-port" => Self::SendPort,
             journey if journey.starts_with("journey:") => {
-                return Err(format!(
-                    "'{journey}' names a Journey Context value, which nothing sets yet"
-                ));
+                let name = &journey["journey:".len()..];
+                let value = JourneyValue::ALL.into_iter().find(|one| one.word() == name);
+                let Some(value) = value else {
+                    let known: Vec<String> = JourneyValue::ALL
+                        .iter()
+                        .map(|one| format!("journey:{}", one.word()))
+                        .collect();
+                    return Err(format!(
+                        "'{journey}' names no Journey Context value; there are {}",
+                        known.join(", ")
+                    ));
+                };
+                Self::Journey(value)
             }
             name => Self::Context(name.strip_prefix("context:").unwrap_or(name).to_string()),
         })
@@ -108,6 +148,7 @@ impl KeyWord {
             Self::WorkProcess => "Work Process".to_string(),
             Self::SendPort => "Send Port".to_string(),
             Self::Context(name) => name.clone(),
+            Self::Journey(value) => format!("journey:{}", value.word()),
         }
     }
 }
@@ -235,5 +276,19 @@ mod tests {
             Ok(KeyWord::Context("Client".into()))
         );
         assert_eq!(KeyWord::read("send-port"), Ok(KeyWord::SendPort));
+    }
+
+    #[test]
+    fn a_journey_context_value_is_origin_subscription_or_previous() {
+        for value in JourneyValue::ALL {
+            let word = format!("journey:{}", value.word());
+            assert_eq!(KeyWord::read(&word), Ok(KeyWord::Journey(value)));
+            assert_eq!(KeyWord::Journey(value).shown(), word);
+        }
+        let refused = KeyWord::read("journey:depth").expect_err("no such value");
+        assert!(
+            refused.contains("journey:origin, journey:subscription, journey:previous"),
+            "{refused}"
+        );
     }
 }
