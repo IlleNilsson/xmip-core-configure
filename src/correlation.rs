@@ -22,7 +22,8 @@
 //! ```
 //!
 //! A set is named at a point — a Receive Location, a Receive Port, a Work
-//! Process or a Send Port — by `correlation`, and a Work Process's
+//! Process, a Send Port Group, a Send Port or a Send Location — by
+//! `correlation`, and a Work Process's
 //! design names the sets its steps take Messages by. A Receive Location
 //! that names none goes one Stream at a time, keyed by its own name.
 
@@ -55,6 +56,8 @@ pub enum KeyWord {
     ReceivePort,
     /// The Work Process it is bound for or in.
     WorkProcess,
+    /// The Send Port Group it was spread by.
+    SendPortGroup,
     /// The Send Port it is bound for.
     SendPort,
     /// A Message Context value, promoted properties among them, by the
@@ -93,10 +96,11 @@ impl JourneyValue {
 }
 
 /// The key words that name an artifact, in the order a person reads them.
-pub const ARTIFACT_WORDS: [&str; 4] = [
+pub const ARTIFACT_WORDS: [&str; 5] = [
     "receive-location",
     "receive-port",
     "work-process",
+    "send-port-group",
     "send-port",
 ];
 
@@ -113,6 +117,7 @@ impl KeyWord {
             "receive-location" => Self::ReceiveLocation,
             "receive-port" => Self::ReceivePort,
             "work-process" => Self::WorkProcess,
+            "send-port-group" => Self::SendPortGroup,
             "send-port" => Self::SendPort,
             journey if journey.starts_with("journey:") => {
                 let name = &journey["journey:".len()..];
@@ -149,6 +154,7 @@ impl KeyWord {
             Self::ReceiveLocation => "Receive Location".to_string(),
             Self::ReceivePort => "Receive Port".to_string(),
             Self::WorkProcess => "Work Process".to_string(),
+            Self::SendPortGroup => "Send Port Group".to_string(),
             Self::SendPort => "Send Port".to_string(),
             Self::Context(name) => name.clone(),
             Self::Journey(value) => format!("journey:{}", value.word()),
@@ -224,6 +230,11 @@ fn named_points(
             if let Some(set) = &location.correlation {
                 named.push(("Receive Location", location.name.clone(), set.clone()));
             }
+        }
+    }
+    for group in &bound.send_port_groups {
+        if let Some(set) = &group.correlation {
+            named.push(("Send Port Group", group.name.clone(), set.clone()));
         }
     }
     for port in &bound.designed_send_ports {
@@ -318,6 +329,7 @@ mod tests {
             Ok(KeyWord::Context("Client".into()))
         );
         assert_eq!(KeyWord::read("send-port"), Ok(KeyWord::SendPort));
+        assert_eq!(KeyWord::read("send-port-group"), Ok(KeyWord::SendPortGroup));
     }
 
     #[test]
