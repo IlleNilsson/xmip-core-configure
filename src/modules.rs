@@ -102,20 +102,23 @@ pub fn serves(unit: &ModuleUnit, stage: Stage) -> bool {
     unit.stages.iter().any(|word| word == stage.name())
 }
 
-/// The one stage a unit of `capability` serves, where it is one by
-/// definition: Promote on receive, Demote on send (the owner, 2026-10-22).
+/// The stages a unit of `capability` may serve, where they are fixed by
+/// definition: Promote on receive and Demote on send (the owner,
+/// 2026-10-22), Debatch on receive and in a Work Process (the owner,
+/// 2026-10-27).
 #[must_use]
-pub const fn only_stage(capability: UnitCapability) -> Option<Stage> {
+pub const fn fixed_stages(capability: UnitCapability) -> Option<&'static [Stage]> {
     match capability {
-        UnitCapability::Promote => Some(Stage::Receive),
-        UnitCapability::Demote => Some(Stage::Send),
+        UnitCapability::Promote => Some(&[Stage::Receive]),
+        UnitCapability::Demote => Some(&[Stage::Send]),
+        UnitCapability::Debatch => Some(&[Stage::Receive, Stage::Process]),
         _ => None,
     }
 }
 
 /// What is wrong with the stages `unit` of `module` lists: none, a word no
-/// stage is called, one listed twice, and a Promote or Demote unit listing
-/// another than its own.
+/// stage is called, one listed twice, and a unit whose stages are fixed
+/// listing another.
 fn stage_problems(module: &str, unit: &ModuleUnit) -> Vec<String> {
     let what = format!(
         "the module '{module}' declares the {} unit '{}'",
@@ -136,13 +139,17 @@ fn stage_problems(module: &str, unit: &ModuleUnit) -> Vec<String> {
                 problems.push(format!("{what} with the stage '{word}' twice"));
             }
             Some(stage) => {
-                if let Some(only) = only_stage(unit.capability)
-                    && stage != only
+                if let Some(fixed) = fixed_stages(unit.capability)
+                    && !fixed.contains(&stage)
                 {
+                    let words: Vec<String> = fixed
+                        .iter()
+                        .map(|one| format!("'{}'", one.name()))
+                        .collect();
                     problems.push(format!(
-                        "{what} for the stage '{word}': a {} unit serves '{}' alone",
+                        "{what} for the stage '{word}': a {} unit serves {} alone",
                         unit.capability.word(),
-                        only.name()
+                        words.join(" and ")
                     ));
                 }
             }
@@ -293,9 +300,14 @@ mod tests {
             stage_problems("m", &of(UnitCapability::Demote, &["send", "receive"])).len(),
             1
         );
-        let debatch = of(UnitCapability::WorkProcess, &["receive", "process"]);
+        let debatch = of(UnitCapability::Debatch, &["receive", "process"]);
         assert!(stage_problems("m", &debatch).is_empty());
         assert!(serves(&debatch, Stage::Receive) && !serves(&debatch, Stage::Send));
+        let sending = stage_problems("m", &of(UnitCapability::Debatch, &["send"]));
+        assert!(
+            sending[0].contains("serves 'receive' and 'process' alone"),
+            "{sending:?}"
+        );
         assert!(stage_problems("m", &of(UnitCapability::Validate, &[]))[0].contains("no stage"));
         let unknown = stage_problems("m", &of(UnitCapability::Prepare, &["arrive"]));
         assert!(

@@ -273,9 +273,10 @@ through the runtime's `xmip_operate.h` section 10:
   values as TOML writes them (`src/field.rs`), and says where a new one may
   be added. A Route entry is an Application section with its routes as a
   graph (`routes.rs`), or the reason it does not read; the bindings are
-  Route entries too. Prepare, Promote, Demote and Transformation list the
-  calls to compiled units, `[[preparation_steps]]`, `[[promotions]]`,
-  `[[demotions]]` and `[[transformations]]`, and Module the `[[modules]]`
+  Route entries too. Prepare, Promote, Demote, Transformation and Debatch
+  list the calls to compiled units, `[[preparation_steps]]`,
+  `[[promotions]]`, `[[demotions]]`, `[[transformations]]` and
+  `[[debatches]]`, and Module the `[[modules]]`
   whose manifests declare the units (ADR-0066, amendment 2026-10-22;
   [`node-configuration.md`](node-configuration.md)); the answer also says
   every unit the file's modules declare, its stages and its settings.
@@ -316,7 +317,8 @@ through the runtime's `xmip_operate.h` section 10:
   `rename-key` renames a key, its value and place kept. A Receive
   Location's `accept.party` names Parties of `[[parties]]`, a call's
   `module` and `unit` its module and unit, and a Port's or Location's
-  `prepare`, `transform`, `promote` and `demote` the calls of its document,
+  `prepare`, `transform`, `promote`, `demote` and `debatch` the calls of
+  its document,
   offering only those whose unit serves its stage
   (`src/references/calls.rs`).
 

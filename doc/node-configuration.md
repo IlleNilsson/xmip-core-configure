@@ -28,7 +28,7 @@ two of them are built:
 Declaration and the validation and planning of materialization are
 [built, in the assembled service](../../../../doc/architecture/estate-map.md#process-declaration): a node
 publishes each Work Process as planned, not started. Compilation at design
-time and execution are [built, in the assembled runtime](../../../../doc/architecture/estate-map.md#process-execution)
+time and execution are [built, not in the assembled service](../../../../doc/architecture/estate-map.md#process-execution)
 (ADR-0066, amendment 2026-10-22): a Work Process naming its unit by `module`
 and `unit` is opened from that module's library as the node starts, and the
 node's Work Process step takes a turn of its Instance for each Journey bound
@@ -609,7 +609,7 @@ version = "1.0.0"                     # the version the configuration pins
 library_path = "codecs.dll"
 [[modules.manifest.units]]
 name = "Codec"
-capability = "prepare"                # prepare, promote, demote, transform, work-process, validate
+capability = "prepare"                # prepare, promote, demote, transform, work-process, validate, debatch
 stages = ["receive", "send"]          # handed the one it is called at
 offline = true
 [[modules.manifest.units.settings]]
@@ -641,27 +641,31 @@ mechanism = ["circumstance"]
   `process` and `send` in the message path's own words, that it works
   offline, and what a call may give, each setting with its kind, presence,
   default, words and meaning, as a technology declares a Location's
-  settings. Promote serves `receive` alone and Demote `send` alone. A
+  settings. Promote serves `receive` alone, Demote `send` alone, and
+  Debatch `receive` and `process` alone (ADR-0066, amendment 2026-10-27). A
   prepare unit at a stage is a Receive, Process or Send Preparation; a
   Transformation is never a Preparation.
 - **A call** is an entry of `[[preparation_steps]]`, `[[promotions]]`,
-  `[[demotions]]` or `[[transformations]]`, here or in an Xmip
+  `[[demotions]]`, `[[transformations]]` or `[[debatches]]`, here or in an Xmip
   Application's section: `name`, `module`, `unit` — of the list's
   capability — and `settings`, read through the unit's declaration. A Work
   Process names its flow with `module`, `unit` and `settings`, a
   `work-process` unit serving `process`.
 - **An attachment** names calls of its own document: `prepare = [...]`, in
-  order, `transform`, `promote` on a Receive Port or Location and `demote`
-  on a Send Port or Location; receive runs the Location's, then the Port's,
-  send the Port's, then the Location's. A unit is attached only at a stage
-  it serves.
+  order, `transform`, `promote` and `debatch` on a Receive Port or Location
+  and `demote` on a Send Port or Location; receive runs the Location's, then
+  the Port's, send the Port's, then the Location's. A unit is attached only
+  at a stage it serves. A Debatch splits the received Message after Prepare
+  and Message creation, before the Contract, all or nothing, its records
+  routed in their inbound order once every one is split and validated
+  (ADR-0031, amendment 2026-10-27).
 - **Refused in words** by `xmip_validate_v1` and as a node starts
   (`step::problems`): a module or unit that does not say `offline = true`,
   a module no `[[modules]]` declares, a unit its manifest does not declare
   or declares as another capability, a stage that is none or listed twice,
   settings the unit's declaration refuses, an attachment naming no call, a
-  unit attached at a stage it does not serve, a Promotion on send and a
-  Demotion on receive. Running a unit is [decided, not built](../../../../doc/architecture/estate-map.md#process-execution):
+  unit attached at a stage it does not serve, a Promotion or a Debatch on
+  send and a Demotion on receive. Running a unit is [decided, not built](../../../../doc/architecture/estate-map.md#artifact-steps):
   a node refuses to start a Port or Location that attaches one.
 - **Assignment is not configured**: a Work Process's compiled code assigns
   (the owner, 2026-10-22).

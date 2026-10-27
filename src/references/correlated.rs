@@ -64,7 +64,10 @@ mod tests {
         assert_eq!(location.name.as_deref(), Some("PerClient"));
         assert_eq!(
             location.target,
-            Some(vec!["correlation_sets".to_string(), "PerClient".to_string()])
+            Some(vec![
+                "correlation_sets".to_string(),
+                "PerClient".to_string()
+            ])
         );
         let port = named(&["xmip_applications", "Orders", "send_ports", "Out"]);
         assert_eq!(port.name, None);

@@ -1,7 +1,7 @@
 //! What names what among the calls to compiled units (ADR-0066, amendment
 //! 2026-10-22): a step entry's or a Work Process's `module` names a
 //! `[[modules]]` entry and its `unit` one of that module's units; a Port's
-//! or Location's `prepare`, `transform`, `promote` and `demote` name the
+//! or Location's `prepare`, `transform`, `promote`, `demote` and `debatch` name the
 //! entries of its own document's lists. A unit is offered only where it
 //! fits: a call's `unit` the units of the list's capability, an attachment
 //! the entries whose unit serves the stage it is attached at.
@@ -14,7 +14,7 @@ use super::{Reference, named, path};
 use crate::ModuleConfiguration;
 use crate::cluster::NODES;
 use crate::section::SECTIONS;
-use crate::step::LISTS;
+use crate::step::{ATTACHMENTS, LISTS};
 
 /// The modules the file declares, with the list each is in.
 type Modules = Vec<(Vec<String>, ModuleConfiguration)>;
@@ -138,10 +138,7 @@ fn attached(
     modules: &Modules,
     found: &mut Vec<Reference>,
 ) {
-    for (key, (list, _, person)) in ["prepare", "promote", "demote", "transform"]
-        .into_iter()
-        .zip(LISTS)
-    {
+    for (key, (list, _, person)) in ATTACHMENTS.into_iter().zip(LISTS) {
         let declared: Vec<(Vec<String>, String, bool)> = scope
             .iter()
             .flat_map(|(at, holder)| {

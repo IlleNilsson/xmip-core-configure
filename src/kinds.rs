@@ -2,7 +2,7 @@
 //! of the cluster's file (ADR-0064, amendments 2026-10-03 and 2026-10-22).
 //!
 //! Every kind is a list or table the configuration defines. Prepare,
-//! Promote, Demote and Transformation are calls to compiled units
+//! Promote, Demote, Transformation and Debatch are calls to compiled units
 //! ([`crate::step`]), each listed where the file holds it; a Module is a
 //! `[[modules]]` entry, whose manifest declares the units the calls name;
 //! a Correlation Set is a `[[correlation_sets]]` entry ([`crate::correlation`]).
@@ -24,7 +24,7 @@ pub(crate) const ROUTE: &str = "Each Xmip Application held in this file, with it
                                 the bindings that run it.";
 
 /// Every kind: its word, its title and what it reads.
-pub(crate) const KINDS: [(&str, &str, Reads); 16] = [
+pub(crate) const KINDS: [(&str, &str, Reads); 17] = [
     ("cluster", "Cluster", Reads::Cluster),
     ("node", "Node", Reads::Nodes),
     ("party", "Party", Reads::List("parties")),
@@ -55,6 +55,7 @@ pub(crate) const KINDS: [(&str, &str, Reads); 16] = [
         "Transformation",
         Reads::List("transformations"),
     ),
+    ("debatch", "Debatch", Reads::List("debatches")),
     (
         "work-process",
         "Work Process",
@@ -78,11 +79,12 @@ pub(crate) enum Holder {
 
 /// The calls to compiled units, which a node's document and an Application
 /// both hold.
-const STEPS: [&str; 4] = [
+const STEPS: [&str; 5] = [
     "preparation_steps",
     "promotions",
     "demotions",
     "transformations",
+    "debatches",
 ];
 
 /// Which lists each holder holds: the documents' shape.
