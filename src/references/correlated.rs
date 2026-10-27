@@ -1,6 +1,7 @@
 //! A point's `correlation_set`: a Receive Location, Receive Port, Work
-//! Process or Send Port of an Xmip Application names a Correlation Set of
-//! the cluster's `[[correlation_sets]]` (`crate::correlation`).
+//! Process or Send Port of an Xmip Application, or a Send Location — the
+//! cluster's own or a binding's — names a Correlation Set of the cluster's
+//! `[[correlation_sets]]` (`crate::correlation`).
 
 use toml::{Table, Value};
 
@@ -22,20 +23,36 @@ const SETS: &str = "correlation_sets";
 /// or not.
 pub(super) fn correlated(cluster: &Table, found: &mut Vec<Reference>) {
     let sets: Vec<String> = named(Some(cluster), SETS).map(|(name, _)| name).collect();
+    let mut point = |holder: Vec<String>, entry: &Table| {
+        let written = entry.get("correlation_set").and_then(Value::as_str);
+        found.push(slot(
+            holder,
+            &["correlation_set"],
+            None,
+            written,
+            "Correlation Set",
+            &[SETS],
+            &sets,
+        ));
+    };
     for (application, own) in named(Some(cluster), SECTIONS) {
         for list in POINTS {
             for (name, entry) in named(Some(own), list) {
-                let written = entry.get("correlation_set").and_then(Value::as_str);
-                found.push(slot(
-                    super::path(&[SECTIONS, &application, list, &name]),
-                    &["correlation_set"],
-                    None,
-                    written,
-                    "Correlation Set",
-                    &[SETS],
-                    &sets,
-                ));
+                point(super::path(&[SECTIONS, &application, list, &name]), entry);
             }
+        }
+    }
+    // A Send Location names one too: the cluster's own and each binding's
+    // (the owner, 2026-10-22: *at any configurable point*).
+    for (name, entry) in named(Some(cluster), "send_locations") {
+        point(super::path(&["send_locations", &name]), entry);
+    }
+    for (application, binding) in named(Some(cluster), "applications") {
+        for (name, entry) in named(Some(binding), "send_ports") {
+            point(
+                super::path(&["applications", &application, "send_ports", &name]),
+                entry,
+            );
         }
     }
 }
@@ -72,5 +89,31 @@ mod tests {
         let port = named(&["xmip_applications", "Orders", "send_ports", "Out"]);
         assert_eq!(port.name, None);
         assert_eq!(port.choices, ["PerClient"]);
+    }
+
+    #[test]
+    fn a_send_location_names_a_correlation_set_its_own_or_bound() {
+        let found = references(
+            "[[correlation_sets]]\nname = \"OneAtATime\"\nkeys = [\"send-port\"]\n\
+             [[send_locations]]\nname = \"Ftp\"\ntransport = \"t\"\naddress = \"a\"\n\
+             correlation_set = \"OneAtATime\"\n\
+             [[applications]]\nname = \"Orders\"\n\
+             [[applications.send_ports]]\nname = \"Out\"\nnode = \"n\"\n\
+             transport = \"t\"\naddress = \"a\"\n",
+        )
+        .expect("reads");
+        let named = |entry: &[&str]| {
+            found
+                .iter()
+                .find(|r| r.holder == entry && r.key == ["correlation_set"])
+                .expect("the Location's correlation set")
+        };
+        assert_eq!(
+            named(&["send_locations", "Ftp"]).name.as_deref(),
+            Some("OneAtATime")
+        );
+        let bound = named(&["applications", "Orders", "send_ports", "Out"]);
+        assert_eq!(bound.name, None);
+        assert_eq!(bound.choices, ["OneAtATime"]);
     }
 }
