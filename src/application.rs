@@ -98,6 +98,11 @@ pub struct SendPortGroup {
     pub name: String,
     #[serde(default)]
     pub send_ports: Vec<String>,
+    /// The Correlation the Group's deliveries go one at a time per key
+    /// by: a delivery holds its key until every member Send Port has
+    /// succeeded or failed (`crate::correlation`; the owner, 2026-10-27).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub correlation: Option<String>,
 }
 
 impl XmipApplication {

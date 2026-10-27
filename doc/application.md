@@ -50,11 +50,15 @@ From `module/platform/configure/src/application.rs` (`XmipApplication`) and
   the cluster's set its Journeys pass it by, one at a time per key.
 - **`[[correlations]]`**, once for the cluster, beside the Applications:
   a `name`, the `keys` that make a key — `receive-location`, `receive-port`,
-  `work-process`, `send-port` or a Message Context value by the name a filter
-  reads it by — and `on_failure`, `block` where it says nothing, or `skip`.
+  `work-process`, `send-port-group`, `send-port`, `journey:origin`,
+  `journey:subscription`, `journey:previous` or a Message Context value by
+  the name a filter reads it by — and `on_failure`, `block` where it says nothing, or `skip`.
 - **`[[xmip_applications.send_port_groups]]`**: Send Ports a Subscription
   reaches together: `name` and `send_ports`, the names of the Send Ports it
-  holds.
+  holds; and `correlation`, the cluster's set its deliveries pass it by:
+  one delivery per key at a time, its key held until every member Send
+  Port has succeeded or failed, then let go, or held behind a failure
+  where the set blocks (ADR-0024, amendment 2026-10-27).
 - **`[[xmip_applications.subscriptions]]`**: what each published Message is
   offered to. Each is `route`'s own Subscription, not a copy of it: an `id`;
   a `destination`, one of `{ work-process = "…" }`, `{ send-port = "…" }` or

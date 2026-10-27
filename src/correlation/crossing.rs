@@ -3,14 +3,15 @@
 //! take correlation sets in crossing order. Sets are taken in path order*).
 //!
 //! A Journey takes its places in path order — Receive Location, Receive
-//! Port, Work Process, Send Port, Send Location — and holds its Stream's
-//! end to end while it waits for the ones after. Where one path takes set
-//! `A` before set `B` and another takes `B` before `A`, Journeys of equal
-//! keys could each hold what the other waits for. A Subscription's filter
-//! may match any Message, so every receive point is taken to reach every
-//! destination: each path is a receive point's sets, then a Work Process's,
-//! then a Send Port's and its Send Locations'. Every pair of sets one path
-//! takes in order is an edge; a cycle among them is refused in words,
+//! Port, Work Process, Send Port Group, Send Port, Send Location — and
+//! holds its Stream's end to end while it waits for the ones after. Where
+//! one path takes set `A` before set `B` and another takes `B` before `A`,
+//! Journeys of equal keys could each hold what the other waits for. A
+//! Subscription's filter may match any Message, so every receive point is
+//! taken to reach every destination: each path is a receive point's sets,
+//! then a Work Process's, then the set of a Send Port Group that reaches a
+//! Send Port, the Port's and its Send Locations'. Every pair of sets one
+//! path takes in order is an edge; a cycle among them is refused in words,
 //! naming the sets, the paths and the fix.
 
 use std::collections::BTreeMap;
@@ -53,6 +54,21 @@ fn paths(bound: &Bound, work_processes: &[(String, String)]) -> Vec<Path> {
                     .filter(|(location, _)| location == name)
                     .map(|(_, set)| set.clone()),
             );
+        }
+        // Reached by a Group naming a set, the Group's comes first.
+        for group in &bound.send_port_groups {
+            let Some(set) = &group.correlation else {
+                continue;
+            };
+            if group.send_ports.contains(&port.name) {
+                sends.push((
+                    format!(
+                        "the Send Port '{}' by the Send Port Group '{}'",
+                        port.name, group.name
+                    ),
+                    [vec![set.clone()], sets.clone()].concat(),
+                ));
+            }
         }
         sends.push((format!("the Send Port '{}'", port.name), sets));
     }
@@ -180,6 +196,26 @@ mod tests {
         path(&mut bound, ("FromA", "PerClient"), ("ToA", "PerOrder"));
         path(&mut bound, ("FromB", "PerClient"), ("ToB", "PerOrder"));
         assert_eq!(crossing(&bound, &[]), [] as [String; 0]);
+    }
+
+    #[test]
+    fn a_send_port_groups_set_is_taken_before_its_member_ports() {
+        let mut bound = Bound::default();
+        path(&mut bound, ("FromA", "A"), ("ToA", "B"));
+        let group: crate::SendPortGroup =
+            toml::from_str("name = \"Both\"\nsend_ports = [\"ToA\"]\ncorrelation = \"G\"\n")
+                .expect("a Send Port Group");
+        bound.send_port_groups.push(group);
+        // A, then G by the Group, then B at its member: in one order.
+        assert_eq!(crossing(&bound, &[]), [] as [String; 0]);
+        path(&mut bound, ("FromB", "B"), ("ToB", "G"));
+        let refused = crossing(&bound, &[]);
+        assert!(
+            refused
+                .iter()
+                .any(|said| said.contains("by the Send Port Group 'Both' takes 'G' before 'B'")),
+            "{refused:?}"
+        );
     }
 
     #[test]

@@ -1,5 +1,5 @@
 //! A point's `correlation`: a Receive Location, Receive Port, Work
-//! Process or Send Port of an Xmip Application, or a Send Location — the
+//! Process, Send Port Group or Send Port of an Xmip Application, or a Send Location — the
 //! cluster's own or a binding's — names a Correlation of the cluster's
 //! `[[correlations]]` (`crate::correlation`).
 
@@ -9,10 +9,11 @@ use super::{Reference, named, slot};
 use crate::section::SECTIONS;
 
 /// The lists of an Application whose entries may name a Correlation.
-const POINTS: [&str; 4] = [
+const POINTS: [&str; 5] = [
     "receive_locations",
     "receive_ports",
     "work_processes",
+    "send_port_groups",
     "send_ports",
 ];
 
