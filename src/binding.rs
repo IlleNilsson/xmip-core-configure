@@ -285,8 +285,8 @@ pub fn bind(
             .designed_send_ports
             .extend(application.send_ports.iter().cloned());
     }
-    bound.send_location_sets = send_location_sets(document);
-    for location in receive_location_sets(document) {
+    bound.send_location_sets = crate::correlation::send_location_sets(document);
+    for location in crate::correlation::receive_location_sets(document) {
         problems.push(format!(
             "the Receive Location '{location}' names a correlation set where it is bound; a \
              Receive Location names its set in its Application's design"
@@ -300,45 +300,6 @@ pub fn bind(
     } else {
         Err(problems)
     }
-}
-
-/// Every Send Location of `document` naming a correlation set, its own and
-/// every binding's whichever node takes it: its name and the set.
-#[must_use]
-pub fn send_location_sets(document: &XmipConfigurationDocument) -> Vec<(String, String)> {
-    let bound = document
-        .applications
-        .iter()
-        .flat_map(|binding| binding.send_ports.iter().map(|bound| &bound.location));
-    document
-        .send_locations
-        .iter()
-        .chain(bound)
-        .filter_map(|location| {
-            let set = location.correlation_set.clone()?;
-            Some((location.name.clone(), set))
-        })
-        .collect()
-}
-
-/// Every Receive Location of `document`, its own and every binding's, that
-/// names a correlation set: by its name. A Receive Location names its set
-/// in its Application's design, never here.
-#[must_use]
-pub fn receive_location_sets(document: &XmipConfigurationDocument) -> Vec<String> {
-    let bound = document.applications.iter().flat_map(|binding| {
-        binding
-            .receive_locations
-            .iter()
-            .map(|bound| &bound.location)
-    });
-    document
-        .receive_locations
-        .iter()
-        .chain(bound)
-        .filter(|location| location.correlation_set.is_some())
-        .map(|location| location.name.clone())
-        .collect()
 }
 
 /// What a node takes of the bound Locations of one kind.
