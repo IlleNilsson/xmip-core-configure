@@ -92,6 +92,14 @@ pub struct Bound {
     /// Every Send Port Group of every bound Application: the Send Ports a
     /// Subscription routed to the group reaches together.
     pub send_port_groups: Vec<SendPortGroup>,
+    /// Every Send Port of every bound Application, taken here or not: a
+    /// Journey published on this node takes its place in the sequence of
+    /// the Port it is bound for, whichever node sends it.
+    pub designed_send_ports: Vec<DesignedSendPort>,
+    /// Every Send Location this document holds that names a correlation
+    /// set — its own and every binding's, taken here or not — by its name,
+    /// with the set.
+    pub send_location_sets: Vec<(String, String)>,
 }
 
 /// What the bindings in `document` say wrong: a name, the section of that
@@ -273,6 +281,16 @@ pub fn bind(
         bound
             .send_port_groups
             .extend(application.send_port_groups.iter().cloned());
+        bound
+            .designed_send_ports
+            .extend(application.send_ports.iter().cloned());
+    }
+    bound.send_location_sets = send_location_sets(document);
+    for location in receive_location_sets(document) {
+        problems.push(format!(
+            "the Receive Location '{location}' names a correlation set where it is bound; a \
+             Receive Location names its set in its Application's design"
+        ));
     }
 
     once_on_the_node(document, &bound, &mut problems);
@@ -282,6 +300,45 @@ pub fn bind(
     } else {
         Err(problems)
     }
+}
+
+/// Every Send Location of `document` naming a correlation set, its own and
+/// every binding's whichever node takes it: its name and the set.
+#[must_use]
+pub fn send_location_sets(document: &XmipConfigurationDocument) -> Vec<(String, String)> {
+    let bound = document
+        .applications
+        .iter()
+        .flat_map(|binding| binding.send_ports.iter().map(|bound| &bound.location));
+    document
+        .send_locations
+        .iter()
+        .chain(bound)
+        .filter_map(|location| {
+            let set = location.correlation_set.clone()?;
+            Some((location.name.clone(), set))
+        })
+        .collect()
+}
+
+/// Every Receive Location of `document`, its own and every binding's, that
+/// names a correlation set: by its name. A Receive Location names its set
+/// in its Application's design, never here.
+#[must_use]
+pub fn receive_location_sets(document: &XmipConfigurationDocument) -> Vec<String> {
+    let bound = document.applications.iter().flat_map(|binding| {
+        binding
+            .receive_locations
+            .iter()
+            .map(|bound| &bound.location)
+    });
+    document
+        .receive_locations
+        .iter()
+        .chain(bound)
+        .filter(|location| location.correlation_set.is_some())
+        .map(|location| location.name.clone())
+        .collect()
 }
 
 /// What a node takes of the bound Locations of one kind.

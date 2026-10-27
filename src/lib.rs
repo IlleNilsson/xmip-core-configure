@@ -340,6 +340,12 @@ pub struct ConfiguredLocation {
     pub demote: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub debatch: Option<String>,
+    /// A Send Location's correlation set: what passes through it goes one
+    /// at a time per key (`correlation`; the owner, 2026-10-22: *I can
+    /// widen and strangle parallelism at any configurable point*). A
+    /// Receive Location names its set in its Application's design.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub correlation_set: Option<String>,
 }
 
 /// `accept`: the closed set a Receive Location authenticates (ADR-0019

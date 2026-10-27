@@ -182,10 +182,13 @@ fn named_points(
             }
         }
     }
-    for port in &bound.send_ports {
+    for port in &bound.designed_send_ports {
         if let Some(set) = &port.correlation_set {
             named.push(("Send Port", port.name.clone(), set.clone()));
         }
+    }
+    for (name, set) in &bound.send_location_sets {
+        named.push(("Send Location", name.clone(), set.clone()));
     }
     for (name, set) in work_processes {
         named.push(("Work Process", name.clone(), set.clone()));

@@ -176,6 +176,7 @@ fn bound_own(location: &Shapes, table: &[String]) -> Vec<Key> {
             promote: None,
             demote: None,
             debatch: None,
+            correlation_set: None,
         },
     };
     let Ok(toml::Value::Table(written)) = toml::Value::try_from(&one) else {
