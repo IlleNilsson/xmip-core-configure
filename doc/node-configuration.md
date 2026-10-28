@@ -88,6 +88,23 @@ A node's flow is **Receive Location → Work Process → Send Location**, refere
    cluster_name = "<cluster>"
    node_name = "<node>"
 
+   [[modules]]                          # the compiled Work Process, built from its design
+   name = "invoices"
+   start = true
+   [modules.manifest]
+   capabilities = []
+   offline = true
+   [modules.manifest.identity]
+   name = "invoices"
+   version = "1.0.0"
+   [modules.manifest.entrypoint]
+   library_path = "invoices.dll"
+   [[modules.manifest.units]]
+   name = "Invoices"
+   capability = "work-process"
+   stages = ["process"]
+   offline = true
+
    [[work_processes]]
    name = "invoices"
    start = true
