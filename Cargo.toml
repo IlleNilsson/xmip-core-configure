@@ -36,6 +36,15 @@ xcore = { package = "xmip-core", git = "https://github.com/IlleNilsson/xmip-core
 # Stage and never listed again (ADR-0066, amendment 2026-10-22).
 node = { package = "xmip-core-node", git = "https://github.com/IlleNilsson/xmip-core-node", branch = "main" }
 path = { package = "xmip-core-path", git = "https://github.com/IlleNilsson/xmip-core-path", branch = "main" }
+# The standard module, built in (configure::standard): each capability's
+# units' declarations, read without their code, which stays behind each
+# crate's default feature `units`.
+prepare = { package = "xmip-core-prepare", git = "https://github.com/IlleNilsson/xmip-core-prepare", branch = "main", default-features = false }
+transform = { package = "xmip-core-transform", git = "https://github.com/IlleNilsson/xmip-core-transform", branch = "main", default-features = false }
+promote = { package = "xmip-core-promote", git = "https://github.com/IlleNilsson/xmip-core-promote", branch = "main", default-features = false }
+demote = { package = "xmip-core-demote", git = "https://github.com/IlleNilsson/xmip-core-demote", branch = "main", default-features = false }
+contract = { package = "xmip-core-contract", git = "https://github.com/IlleNilsson/xmip-core-contract", branch = "main" }
+process = { package = "xmip-core-process", git = "https://github.com/IlleNilsson/xmip-core-process", branch = "main" }
 
 [features]
 # The test cluster every Rust test takes its cluster's and nodes' names from

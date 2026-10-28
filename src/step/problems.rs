@@ -16,11 +16,14 @@ use crate::{LocationSettings, XmipApplication, XmipConfigurationDocument};
 /// modules.
 #[must_use]
 pub fn problems(document: &XmipConfigurationDocument) -> Vec<String> {
-    let modules = &document.modules;
+    // The standard module is built in: every call resolves against it too.
+    let (modules, shadowing) = crate::standard::with_declared(&document.modules);
+    let modules = &modules;
     let mut problems: Vec<String> = modules
         .iter()
         .flat_map(ModuleConfiguration::problems)
         .collect();
+    problems.extend(shadowing);
 
     let node = Steps::of_node(document);
     entries_problems("", node, modules, &mut problems);
@@ -178,6 +181,11 @@ fn call_problems(
         && let Err(refused) = declaration.read(Applies::Both, &settings.given())
     {
         for refusal in refused.0 {
+            problems.push(format!("{what}: {refusal}"));
+        }
+    }
+    if module == crate::standard::MODULE {
+        for refusal in crate::standard::refusals(unit, &settings.given()) {
             problems.push(format!("{what}: {refusal}"));
         }
     }
