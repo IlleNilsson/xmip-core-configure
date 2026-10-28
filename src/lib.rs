@@ -58,6 +58,7 @@ pub mod routes;
 pub mod section;
 pub mod settings;
 pub mod shape;
+pub mod standard;
 pub mod step;
 pub mod storage;
 pub mod store;

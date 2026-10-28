@@ -25,7 +25,9 @@ pub struct ModuleConfiguration {
 }
 
 /// Every `[[modules]]` entry a cluster's file declares that reads — the
-/// cluster's and each node's — with the path of the list holding it.
+/// cluster's and each node's — with the path of the list holding it, and
+/// the standard module, built in, once, with no path: nothing in the file
+/// declares it (`crate::standard`).
 #[must_use]
 pub fn declared_in(table: &toml::Table) -> Vec<(Vec<String>, ModuleConfiguration)> {
     let nodes = table
@@ -46,6 +48,11 @@ pub fn declared_in(table: &toml::Table) -> Vec<(Vec<String>, ModuleConfiguration
                 Some(([at.clone(), vec!["modules".to_string()]].concat(), module))
             })
         })
+        .filter(|(_, module)| module.name != crate::standard::MODULE)
+        .chain(std::iter::once((
+            Vec::new(),
+            crate::standard::configuration(),
+        )))
         .collect()
 }
 
