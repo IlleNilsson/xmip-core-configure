@@ -256,8 +256,10 @@ pub fn document_kind(source: &str) -> DocumentKind {
 /// two have no default; the address's scheme chooses the transport that
 /// moves it ([`ConfiguredLocation::scheme`]), and it starts unless `start`
 /// says `false`, when it is known and not started, [`NOT_STARTED`] (ADR-0064,
-/// amendment 2026-10-28). `credentials` names the secret the Location presents or checks —
-/// a reference, never the secret — and is absent where it needs none.
+/// amendment 2026-10-28). `secret` names the secret the Location presents to
+/// the party it connects to — by name, never the secret, which the
+/// Administration Database keeps (ADR-0019, amendment 2026-10-29) — and is
+/// absent where it presents none.
 /// `settings` is what the transport takes beyond the address, `contract` the
 /// contract module a Stream is held to and `contract_settings` what that
 /// takes: each table read through its technology's own declaration
@@ -272,7 +274,7 @@ pub struct ConfiguredLocation {
     pub start: bool,
     pub address: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub credentials: Option<String>,
+    pub secret: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub contract: Option<String>,
     #[serde(default, skip_serializing_if = "LocationSettings::is_empty")]

@@ -183,7 +183,7 @@ mod tests {
         let drop = entry("receive-location", "drop");
         let keys: Vec<_> = drop.offered.iter().map(|o| o.key.as_str()).collect();
         assert!(
-            keys.contains(&"credentials") && !keys.contains(&"address"),
+            keys.contains(&"secret") && !keys.contains(&"address"),
             "{keys:?}"
         );
         let node = entry("node", &first);
