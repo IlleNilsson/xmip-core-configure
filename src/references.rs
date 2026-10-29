@@ -445,7 +445,7 @@ mod tests {
              stages = [\"send\"]\noffline = true\n\n\
              [[preparation_steps]]\nname = \"Unzip\"\nmodule = \"orders\"\nunit = \"Codec\"\n\
              [[preparation_steps]]\nname = \"Zip\"\nmodule = \"orders\"\nunit = \"Out\"\n\n\
-             {text}\n[[nodes.{first}.receive_locations]]\nname = \"in\"\ntransport = \"t\"\n\
+             {text}\n[[nodes.{first}.receive_locations]]\nname = \"in\"\n\
              address = \"a\"\nprepare = [\"Unzip\"]\n\
              [nodes.{first}.receive_locations.accept]\nparty = [\"partner\"]\n"
         );

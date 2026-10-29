@@ -65,12 +65,12 @@ impl Placement {
     }
 }
 
-/// How one placement is bound: the technology, the address, the settings
-/// beyond it, and whether it accepts what the circumstance of its drop
-/// identifies — a Receive Location's, where nothing else is presented.
+/// How one placement is bound: the address, whose scheme chooses the
+/// technology, the settings beyond it, and whether it accepts what the
+/// circumstance of its drop identifies — a Receive Location's, where
+/// nothing else is presented.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Binding {
-    pub transport: String,
     pub address: String,
     pub settings: Vec<(String, String)>,
     pub accepting: bool,
@@ -170,10 +170,9 @@ pub fn written(placements: &[Placement], bound: impl Fn(&Placement) -> Binding) 
         let list = placement.placed.list();
         text.push_str(&format!(
             "\n[[applications.{list}]]\nname = {}\nnode = {}\nstart = true\n\
-             transport = {}\naddress = {}\n",
+             address = {}\n",
             quoted(&placement.name),
             quoted(&placement.node),
-            quoted(&binding.transport),
             quoted(&binding.address),
         ));
         if !binding.settings.is_empty() {
@@ -197,12 +196,8 @@ pub fn written(placements: &[Placement], bound: impl Fn(&Placement) -> Binding) 
 /// the circumstance of what it fetches, as a drop folder's.
 pub fn far_end(host: &str) -> impl Fn(&Placement) -> Binding + '_ {
     move |placement| Binding {
-        transport: "xmip-core-transport-sftp".to_string(),
-        address: format!("sftp://{}", with_port(host)),
-        settings: vec![
-            ("user".to_string(), placement.folded()),
-            ("timeout".to_string(), "10s".to_string()),
-        ],
+        address: format!("sftp://{}@{}", placement.folded(), with_port(host)),
+        settings: vec![("timeout".to_string(), "10s".to_string())],
         accepting: placement.placed == Placed::Receive,
     }
 }
@@ -302,18 +297,21 @@ mod tests {
         let parsed: toml::Table = whole.parse().expect("TOML");
         let bound = &parsed["applications"][0];
         let first = &bound["receive_locations"][0];
-        assert_eq!(first["address"].as_str(), Some("sftp://10.77.0.1:7422"));
         assert_eq!(
-            first["transport"].as_str(),
-            Some("xmip-core-transport-sftp")
+            first["address"].as_str(),
+            Some("sftp://from-a@10.77.0.1:7422")
         );
-        assert_eq!(first["settings"]["user"].as_str(), Some("from-a"));
+        assert!(first.get("transport").is_none(), "the scheme chooses it");
+        assert!(
+            first["settings"].get("user").is_none(),
+            "the address names the user"
+        );
         assert_eq!(
             first["accept"]["mechanism"][0].as_str(),
             Some("circumstance")
         );
         let port = &bound["send_ports"][0];
-        assert_eq!(port["settings"]["user"].as_str(), Some("to-a"));
+        assert_eq!(port["address"].as_str(), Some("sftp://to-a@10.77.0.1:7422"));
         assert!(port.get("accept").is_none(), "a Send Port accepts nothing");
         for node in &names {
             crate::slice_named(&whole, node, "placed").expect("slices");

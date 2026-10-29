@@ -381,7 +381,6 @@ segments = 44
 [[receive_locations]]
 name = "drop"
 start = true
-transport = "xmip-core-transport-file"
 address = "/var/xmip/in" # the shared drop
 
 [[xmip_applications]]
@@ -411,7 +410,6 @@ name = "Orders"
 name = "OrdersIn"
 node = "{first}"
 start = true
-transport = "xmip-core-transport-file"
 address = "/var/xmip/in/orders"
 
 [nodes.{first}.tuning]

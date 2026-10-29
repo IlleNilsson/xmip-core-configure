@@ -209,7 +209,8 @@ mod tests {
         assert_eq!(root.required, ["service"]);
         let location = &shapes[&path(&["receive_locations"])];
         assert_eq!(location.kind, "list");
-        for required in ["name", "transport", "address"] {
+        assert!(!location.fields.contains(&"transport"), "{location:?}");
+        for required in ["name", "address"] {
             assert!(location.required.contains(&required), "{location:?}");
         }
         for optional in ["start", "contract"] {

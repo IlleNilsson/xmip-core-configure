@@ -45,12 +45,15 @@ The runtime builds its execution tree from the node's document and what
 cluster's file through the runtime's `xmip_validate_v1`, which reads it
 here and tells the two apart by the `[nodes]` table (`document_kind`); the
 desktop editor is a view
-over the same document and keeps no model of its own. A location's
-`transport` has no default: a document without it is refused. A Receive
-Location, Send Port or Send Location starts only where its `start` says
-`true`; nothing or `false` is known and not started, which every surface
-shows as `NOT_STARTED`, "not started: the configuration does not say true"
-(the owner, 2026-10-13). A
+over the same document and keeps no model of its own. A Location is
+entered by its address alone: `address` has no default, so a document
+without it is refused, and the scheme it is entered with chooses the
+transport — a path or `file://`, `ftp://` or `ftps://`, `sftp://user@host`,
+`http://` or `https://` — read once by `ConfiguredLocation::scheme`
+(ADR-0064, amendment 2026-10-28). A Receive Location, Send Port or Send
+Location starts unless its `start` says `false`, when it is known and not
+started, which every surface shows as `NOT_STARTED`, "not started: the
+configuration says false". A
 Work Process's `required_modules` and `extensions` default to empty (ADR-0031, amendment 2026-09-24).
 
 A Location's `settings` and `contract_settings` tables are held to the

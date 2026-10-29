@@ -17,8 +17,6 @@ segments = 44
 
 [[receive_locations]]
 name = "drop"
-start = true
-transport = "xmip-core-transport-file"
 address = "/var/xmip/in"
 
 [nodes.<node>.service]
@@ -98,8 +96,6 @@ name = "Orders"
 [[nodes.<node>.applications.receive_locations]]
 name = "OrdersIn"
 node = "<node>"
-start = true
-transport = "xmip-core-transport-file"
 address = "/var/xmip/in/orders"
 ```
 
@@ -146,8 +142,6 @@ name = "FileCopy"
 [[nodes.<node>.applications.receive_locations]]
 name = "Drop"
 node = "<node>"
-start = true
-transport = "xmip-core-transport-file"
 address = "/var/xmip/in"
 [nodes.<node>.applications.receive_locations.accept]
 mechanism = ["circumstance"]
@@ -155,8 +149,6 @@ mechanism = ["circumstance"]
 [[nodes.<node>.applications.send_ports]]
 name = "Out"
 node = "<node>"
-start = true
-transport = "xmip-core-transport-file"
 address = "/var/xmip/out"
 ```
 

@@ -18,7 +18,6 @@
 //! name = "OrdersIn"
 //! node = "<node>"
 //! start = true
-//! transport = "xmip-core-transport-file"
 //! address = "/var/xmip/in/orders"
 //! ```
 //!
@@ -138,9 +137,9 @@ pub fn binding_problems(document: &XmipConfigurationDocument) -> Vec<String> {
                         "the {what} '{name}' of '{application}' requires the node that takes it"
                     ));
                 }
-                if bound.location.transport.trim().is_empty() {
+                if bound.location.address.trim().is_empty() {
                     problems.push(format!(
-                        "the {what} '{name}' of '{application}' requires a transport"
+                        "the {what} '{name}' of '{application}' requires an address"
                     ));
                 }
             }
@@ -407,10 +406,10 @@ filter = "MessageType = 'Order'"
             "[service]\nname = \"xmip\"\ncluster_name = \"{}\"\nnode_name = \"{}\"\n\n\
              [[applications]]\nname = \"Orders\"\n\n\
              [[applications.receive_locations]]\nname = \"OrdersIn\"\nnode = \"{first}\"\n\
-             start = true\ntransport = \"xmip-core-transport-file\"\n\
+             start = true\n\
              address = \"/var/xmip/in/orders\"\ncredentials = \"orders-in\"\n\n\
              [[applications.send_ports]]\nname = \"Billing\"\nnode = \"{second}\"\n\
-             start = true\ntransport = \"xmip-core-transport-http\"\n\
+             start = true\n\
              address = \"https://billing.example/orders\"\n{ORDERS}",
             cluster.name,
             cluster.node(place).name

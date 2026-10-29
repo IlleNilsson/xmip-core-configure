@@ -320,7 +320,7 @@ mod tests {
              settings = {{ format = \"gzip\" }}\n\n\
              [[promotions]]\nname = \"OrderNumbers\"\nmodule = \"orders\"\nunit = \"Numbers\"\n\n\
              [[transformations]]\nname = \"Enriched\"\nmodule = \"orders\"\nunit = \"Enrich\"\n\n\
-             [[receive_locations]]\nname = \"drop\"\ntransport = \"t\"\naddress = \"a\"\n\
+             [[receive_locations]]\nname = \"drop\"\naddress = \"a\"\n\
              prepare = [\"Unzip\"]\npromote = \"OrderNumbers\"\n{more}"
         );
         let document = parse_toml(&text).expect("reads");
@@ -371,7 +371,7 @@ mod tests {
     #[test]
     fn a_unit_is_attached_only_at_a_stage_it_serves() {
         let found = node(
-            "\n[[send_locations]]\nname = \"out\"\ntransport = \"t\"\naddress = \"a\"\n\
+            "\n[[send_locations]]\nname = \"out\"\naddress = \"a\"\n\
              transform = \"Enriched\"\npromote = \"OrderNumbers\"\nprepare = [\"Nope\"]\n",
         );
         assert!(
@@ -401,7 +401,7 @@ mod tests {
              stages = [\"receive\", \"process\"]\noffline = true\n\n\
              [[debatches]]\nname = \"PerLine\"\nmodule = \"orders\"\nunit = \"Lines\"\n\
              [[debatches]]\nname = \"NotOne\"\nmodule = \"orders\"\nunit = \"Enrich\"\n\n\
-             [[{side}_locations]]\nname = \"split\"\ntransport = \"t\"\naddress = \"a\"\n\
+             [[{side}_locations]]\nname = \"split\"\naddress = \"a\"\n\
              debatch = \"{attach}\"\n"
         ))
     }

@@ -93,11 +93,11 @@ mod tests {
     fn a_send_location_names_a_correlation_its_own_or_bound() {
         let found = references(
             "[[correlations]]\nname = \"OneAtATime\"\nkeys = [\"send-port\"]\n\
-             [[send_locations]]\nname = \"Ftp\"\ntransport = \"t\"\naddress = \"a\"\n\
+             [[send_locations]]\nname = \"Ftp\"\naddress = \"a\"\n\
              correlation = \"OneAtATime\"\n\
              [[applications]]\nname = \"Orders\"\n\
              [[applications.send_ports]]\nname = \"Out\"\nnode = \"n\"\n\
-             transport = \"t\"\naddress = \"a\"\n",
+             address = \"a\"\n",
         )
         .expect("reads");
         let named = |entry: &[&str]| {

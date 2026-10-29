@@ -48,16 +48,21 @@ From `module/platform/configure/src/lib.rs`:
   section 3, *Sequences*).
 - **`Correlation`** — `[[correlations]]`: `name`, `keys` and `on_failure`,
   declared once for the cluster (`correlation.rs`).
-- **`ConfiguredLocation`** — a Receive or a Send Location: a `name`, whether
-  it will `start`, the `transport` module that moves it, and the `address` in
-  that transport's own terms. `name`, `transport` and `address` have no
-  default; a document that leaves out `transport` is refused, not completed.
-  A Location starts only when its `start` says `true`; nothing or `false`
-  means not started — the node knows it, opens nothing for it, and every
-  surface shows it as "not started: the configuration does not say true"
-  (`configure::NOT_STARTED`; the owner, 2026-10-13). A bound Send Port is
-  held to the same rule, and the designer writes `start = true` on every
-  Receive Location, Send Port and Send Location it creates. `credentials`,
+- **`ConfiguredLocation`** — a Receive or a Send Location: a `name`, the
+  `address` it is entered by, and whether it will `start`. `name` and
+  `address` have no default; a document that leaves out `address` is
+  refused, not completed. **The address alone says how**: the scheme it is
+  entered with chooses the transport that moves it, as each transport
+  declares its schemes — a path or `file://` is a file's, `ftp://` and
+  `ftps://` FTP's, `sftp://` SFTP's, `http://` and `https://` HTTP's — and
+  the rest of it says where and as whom: `sftp://party-x@host/in` logs in
+  as `party-x`, `ftps://` and `https://` ask for TLS (ADR-0064, amendment
+  2026-10-28; `ConfiguredLocation::scheme`). A scheme no transport the node
+  carries declares is refused as it starts, naming the schemes it carries.
+  A Location starts unless its `start` says `false`, when the node knows
+  it, opens nothing for it, and every surface shows it as "not started:
+  the configuration says false" (`configure::NOT_STARTED`). A bound
+  Send Port is held to the same rule. `credentials`,
   optional, names the secret the Location presents or checks — a reference,
   never the secret. A Receive Location runs the identity pipeline (identify →
   authenticate → authorize, ADR-0019); a Send Location presents identity
@@ -68,7 +73,7 @@ From `module/platform/configure/src/lib.rs`:
 - **`ApplicationBinding`** — `[[applications]]`, an Xmip Application the node
   runs and the environment's side of it; *Binding an Xmip Application* below.
 
-A node's flow is **Receive Location → Work Process → Send Location**, referencing transport and contract *modules* by name.
+A node's flow is **Receive Location → Work Process → Send Location**, each Location's transport chosen by its address and its contract *module* named.
 
 ### Two ways to author it
 
@@ -113,16 +118,12 @@ A node's flow is **Receive Location → Work Process → Send Location**, refere
 
    [[receive_locations]]
    name = "drop"
-   start = true
-   transport = "xmip-core-transport-file"
-   address = "/var/xmip/in/invoices"
+   address = "/var/xmip/in/invoices"   # a path: the file transport's
    [receive_locations.accept]
    mechanism = ["circumstance"]        # a drop folder's implied identity
 
    [[send_locations]]
    name = "forward"
-   start = true
-   transport = "xmip-core-transport-file"
    address = "/var/xmip/out/invoices"  # a directory: each file under its received name
    ```
    `# a complete node file` marks it as a whole document:
@@ -557,9 +558,7 @@ the Location:
 ```toml
 [[receive_locations]]
 name = "orders"
-start = true
-transport = "xmip-core-transport-kafka"
-address = "broker.example:9092"
+address = "kafka://broker.example:9092"                # the scheme chooses kafka
 contract = "xmip-core-contract-json-schema"     # optional
 
 [receive_locations.settings]                     # the transport's
@@ -588,7 +587,7 @@ naming the Location, the technology and the setting — and
 `contract_settings` given with no `contract`. A technology is held to its
 declaration where the runtime carries it — a node carries each technology
 it loads, as it loads it — and a node that starts refuses a Location whose
-technology it was not built with; the runtime's library answers which it
+address's scheme no technology it was built with declares; the runtime's library answers which it
 carries, and what each declares, through
 `xmip_technology_catalogue_v1` (`xmip_operate.h` section 12), which the
 VS Code extension's completion and hover read.
@@ -651,8 +650,6 @@ settings = { format = "gzip" }
 
 [[receive_locations]]
 name = "drop"
-start = true
-transport = "xmip-core-transport-file"
 address = "/var/xmip/in"
 prepare = ["Unzip"]                   # Preparation Steps, in order
 [receive_locations.accept]
@@ -770,7 +767,7 @@ A node runs the integrations developers design as Xmip Applications
 ([`application.md`](application.md), ADR-0064). The Application holds the
 design and nothing of an environment; the node's configuration **binds**
 it: which Application it runs, and the environment's side of what it
-declares — each Receive Location's and Send Port's transport, address,
+declares — each Receive Location's and Send Port's address,
 reference to its credentials and the node that takes it, as BizTalk's
 bindings do. The same route is never written again per node.
 
@@ -786,30 +783,22 @@ name = "Orders"                       # its [[xmip_applications]] section's name
 [[applications.receive_locations]]
 name = "OrdersDrop"                   # declared by the Application
 node = "<node>"                       # the node that takes it
-start = true
-transport = "xmip-core-transport-file"
 address = "/var/xmip/in/orders"
 
 [[applications.receive_locations]]
 name = "OrdersApi"
 node = "<node>"
-start = true
-transport = "xmip-core-transport-http"
-address = "https://xmip.example/orders"
+address = "http://xmip.example:8080/orders"  # http://: a receive does not terminate TLS yet
 credentials = "orders-api"            # a secret's name, never the secret
 
 [[applications.send_ports]]
 name = "Billing"
 node = "<another>"
-start = true
-transport = "xmip-core-transport-http"
 address = "https://billing.example/orders"
 
 [[applications.send_ports]]
 name = "Ledger"
 node = "<another>"
-start = true
-transport = "xmip-core-transport-file"
 address = "/var/xmip/out/ledger"
 ```
 
@@ -821,13 +810,13 @@ writes it, and the slice gives it to the nodes that bind it
 chooses.
 
 A bound Location has a Location's own shape (`ConfiguredLocation`: `name`,
-`start`, `transport`, `address` and the optional `credentials`, `contract`,
+`start`, `address` and the optional `credentials`, `contract`,
 `settings`, `contract_settings` and `accept`) and one more key, `node`. The binding is the same on every node of the cluster; each node
 takes what names it. From `module/platform/configure/src/binding.rs`:
 
 - **`binding_problems`** checks what a binding says: a name, the section of
   its name held and its design sound, and every bound Location's name, node
-  and transport, none bound twice. `xmip_validate_v1` reports these for the
+  and address, none bound twice. `xmip_validate_v1` reports these for the
   text an editor holds.
 - **`bind`** joins the bindings to the Applications they name and takes
   what this node runs: the bound Receive Locations and Send Ports whose
