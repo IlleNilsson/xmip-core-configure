@@ -6,7 +6,7 @@
 //! each node's configuration names the Applications it runs in
 //! `[[applications]]`, each binding the section of its name, and gives every
 //! Receive Location and Send Port it binds a transport, an address, a
-//! reference to its credentials and the node that takes it, as the bindings
+//! the secret it names and the node that takes it, as the bindings
 //! of the platforms Xmip replaces do. The same route is never written again
 //! per node.
 //!
@@ -52,7 +52,7 @@ pub struct ApplicationBinding {
 
 /// A Receive Location or a Send Port an Application declares, given its
 /// environment: the node that takes it, and the Location's transport,
-/// address, start and credentials reference, in the node's own shape.
+/// address, start and the secret it names, in the node's own shape.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BoundLocation {
     /// The node that takes it, a `service.node_name`.
@@ -407,7 +407,7 @@ filter = "MessageType = 'Order'"
              [[applications]]\nname = \"Orders\"\n\n\
              [[applications.receive_locations]]\nname = \"OrdersIn\"\nnode = \"{first}\"\n\
              start = true\n\
-             address = \"/var/xmip/in/orders\"\ncredentials = \"orders-in\"\n\n\
+             address = \"/var/xmip/in/orders\"\nsecret = \"orders-in\"\n\n\
              [[applications.send_ports]]\nname = \"Billing\"\nnode = \"{second}\"\n\
              start = true\n\
              address = \"https://billing.example/orders\"\n{ORDERS}",
@@ -442,7 +442,7 @@ filter = "MessageType = 'Order'"
         assert_eq!(bound.receive_locations[0].name, "OrdersIn");
         assert_eq!(bound.receive_locations[0].address, "/var/xmip/in/orders");
         assert_eq!(
-            bound.receive_locations[0].credentials.as_deref(),
+            bound.receive_locations[0].secret.as_deref(),
             Some("orders-in")
         );
         assert_eq!(bound.receive_ports.len(), 1);

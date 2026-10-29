@@ -14,7 +14,7 @@ ADR-0031, amendments 2026-10-03;
 to the nodes that bind it, and `parse_application` is its one reading.
 
 The Application holds the design and nothing of an environment. Addresses,
-credentials and which node takes what are the node's, in its **binding**
+secrets and which node takes what are the node's, in its **binding**
 (`node-configuration.md`, *Binding an Xmip Application*).
 
 ## The shape

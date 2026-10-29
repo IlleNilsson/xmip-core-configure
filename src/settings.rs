@@ -88,6 +88,19 @@ impl ConfiguredLocation {
     pub fn scheme(&self) -> String {
         net::scheme_of(&self.address)
     }
+
+    /// The secret its `secret` names, where it names one: the name read
+    /// as a secret's name is (`xcore::SecretName`), or why it is none.
+    ///
+    /// # Errors
+    ///
+    /// In words naming the Location, where the name is not one.
+    pub fn secret_name(&self) -> Option<Result<xcore::SecretName, String>> {
+        self.secret.as_ref().map(|name| {
+            xcore::SecretName::new(name.clone())
+                .map_err(|why| format!("the Location '{}': its secret {why}", self.name))
+        })
+    }
 }
 
 /// What is wrong with `location`'s settings on `side`, one sentence each
@@ -106,6 +119,9 @@ pub fn location_problems(
     let mut problems = Vec::new();
     let name = &location.name;
 
+    if let Some(Err(refused)) = location.secret_name() {
+        problems.push(refused);
+    }
     if let Some(settings) = declared.get(location.scheme().as_str())
         && let Err(refused) = settings.read(side, &location.settings.given())
     {
@@ -179,6 +195,22 @@ mod tests {
              {settings}"
         );
         parse_toml(&source).expect("parses").send_locations[0].clone()
+    }
+
+    #[test]
+    fn a_secret_is_named_as_a_secret_name_is_and_said_where_it_is_not() {
+        let topic = "[send_locations.settings]\ntopic = \"orders\"\n";
+        let named = location(&format!("secret = \"partner-x.out\"\n{topic}"));
+        let read = named.secret_name().expect("named").expect("a name");
+        assert_eq!(read.as_str(), "partner-x.out");
+        let wrong = location(&format!("secret = \"partner x\"\n{topic}"));
+        let said = location_problems(&wrong, Applies::Send, &declared());
+        assert_eq!(said.len(), 1, "{said:?}");
+        assert!(
+            said[0].starts_with("the Location 'out': its secret"),
+            "{said:?}"
+        );
+        assert!(location("").secret_name().is_none());
     }
 
     #[test]

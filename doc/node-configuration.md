@@ -62,9 +62,12 @@ From `module/platform/configure/src/lib.rs`:
   A Location starts unless its `start` says `false`, when the node knows
   it, opens nothing for it, and every surface shows it as "not started:
   the configuration says false" (`configure::NOT_STARTED`). A bound
-  Send Port is held to the same rule. `credentials`,
-  optional, names the secret the Location presents or checks — a reference,
-  never the secret. A Receive Location runs the identity pipeline (identify →
+  Send Port is held to the same rule. `secret`, optional, names the
+  secret a Location presents to the party it connects to — a password, an
+  SSH key or a certificate with its key — by name, never the secret: the
+  value is kept in the Xmip Administration Database, set with
+  `Set-XmipSecret`, and read as the Location connects (ADR-0019, amendment
+  2026-10-29). A Receive Location runs the identity pipeline (identify →
   authenticate → authorize, ADR-0019); a Send Location presents identity
   (ADR-0033). `settings`, `contract` and `contract_settings`, optional, are
   what the Location gives its technologies: *A Location's settings* below.
@@ -768,7 +771,7 @@ A node runs the integrations developers design as Xmip Applications
 design and nothing of an environment; the node's configuration **binds**
 it: which Application it runs, and the environment's side of what it
 declares — each Receive Location's and Send Port's address,
-reference to its credentials and the node that takes it, as BizTalk's
+the secret it names and the node that takes it, as BizTalk's
 bindings do. The same route is never written again per node.
 
 ```toml
@@ -789,12 +792,12 @@ address = "/var/xmip/in/orders"
 name = "OrdersApi"
 node = "<node>"
 address = "http://xmip.example:8080/orders"  # http://: a receive does not terminate TLS yet
-credentials = "orders-api"            # a secret's name, never the secret
 
 [[applications.send_ports]]
 name = "Billing"
 node = "<another>"
-address = "https://billing.example/orders"
+address = "https://orders@billing.example/orders"
+secret = "billing-api"                # a secret's name, never the secret
 
 [[applications.send_ports]]
 name = "Ledger"
@@ -810,7 +813,7 @@ writes it, and the slice gives it to the nodes that bind it
 chooses.
 
 A bound Location has a Location's own shape (`ConfiguredLocation`: `name`,
-`start`, `address` and the optional `credentials`, `contract`,
+`start`, `address` and the optional `secret`, `contract`,
 `settings`, `contract_settings` and `accept`) and one more key, `node`. The binding is the same on every node of the cluster; each node
 takes what names it. From `module/platform/configure/src/binding.rs`:
 

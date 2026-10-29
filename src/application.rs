@@ -10,7 +10,7 @@
 //! Port Groups that gather Send Ports, and its Subscriptions — each
 //! `route`'s own [`Subscription`], a filter — one line of Xmip's expression
 //! language, compiled as the Application is read (ADR-0066) — and the
-//! destination it routes to. Addresses, credentials and which node takes
+//! destination it routes to. Addresses, secrets and which node takes
 //! what are the node's, in its binding ([`crate::binding`]).
 //!
 //! ```toml

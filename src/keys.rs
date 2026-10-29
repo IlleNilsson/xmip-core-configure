@@ -165,7 +165,7 @@ fn bound_own(location: &Shapes, table: &[String]) -> Vec<Key> {
             name: String::new(),
             start: false,
             address: String::new(),
-            credentials: None,
+            secret: None,
             contract: None,
             settings: LocationSettings::default(),
             contract_settings: LocationSettings::default(),
