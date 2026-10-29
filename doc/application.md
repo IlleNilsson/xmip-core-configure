@@ -29,11 +29,11 @@ From `module/platform/configure/src/application.rs` (`XmipApplication`) and
   (`runtime-model.md` section 6).
 - **`[[xmip_applications.receive_locations]]`**: where Messages enter: a
   `name`; the `receive_port` it belongs to, which the Application declares;
-  its `interaction`, `composite`, `data-transfer` or `batch-load`, which
-  decides when the sender is acknowledged; and its `depth`, `transfer`,
-  `light` or `context`, which decides how far the receive gates read
-  (`runtime-model.md` section 7). A Location without a Port, or without
-  either statement, is refused (ADR-0031, amendment 2026-10-01). It may name
+  and its `depth`, `transfer`, `light` or `context`, which decides how far
+  the receive gates read (`runtime-model.md` section 7). A Location without
+  a Port, or without its depth, is refused (ADR-0031, amendment
+  2026-10-01). Every Receive Location answers its caller: a result code, or
+  a response Message where a Work Process composes one. It may name
   the `correlation` its Streams are spread over; one that names none goes
   one Stream at a time, end to end, keyed by its own name (ADR-0024 and
   ADR-0066, amendments 2026-10-22). A Receive Port may name one too.
@@ -91,13 +91,11 @@ name = "Orders"
 [[xmip_applications.receive_locations]]
 name = "OrdersDrop"
 receive_port = "Orders"
-interaction = "batch-load"
 depth = "context"
 
 [[xmip_applications.receive_locations]]
 name = "OrdersApi"
 receive_port = "Orders"
-interaction = "data-transfer"
 depth = "context"
 
 [[xmip_applications.work_processes]]
@@ -140,7 +138,7 @@ it, at startup phase 3:
 - an Application, or any part of it, without a name;
 - a name declared twice in one list, or a Subscription id used twice;
 - a Receive Location without its `receive_port`, naming one the Application
-  does not declare, or without its `interaction` or `depth`;
+  does not declare, or without its `depth`;
 - a retry of no attempts or a backoff that is not a duration, and a Send
   Location named empty or twice;
 - a Send Port Group holding a Send Port the Application does not declare;
@@ -151,7 +149,7 @@ it, at startup phase 3:
 
 The execution tree a node builds as it starts holds what its bindings give
 it: the Receive Ports its bound Receive Locations are at, each Location
-with its interaction and depth, and the Send Ports it takes with their
+with its depth, and the Send Ports it takes with their
 policy (`configure::Bound`, the runtime's `ExecutionTree`; ADR-0031,
 amendment 2026-10-01).
 

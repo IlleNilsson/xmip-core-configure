@@ -16,8 +16,7 @@ Subscription of every bound Application.
 
 An Application's Receive Ports are `[[receive_ports]]`, and each Receive
 Location names its `receive_port`, refused without one, and states its
-`interaction` (`composite`, `data-transfer`, `batch-load`) and its `depth`
-(`transfer`, `light`, `context`); a Send Port states its policy —
+`depth` (`transfer`, `light`, `context`); a Send Port states its policy —
 `send_locations` tried in order, `retry = { attempts, backoff }`,
 `failover` (`next`, `none`) and the `correlation` its Journeys pass it by —
 and a Receive Location, a Receive Port and a Work Process may name a

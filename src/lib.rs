@@ -82,7 +82,7 @@ pub use operate::OperateConfiguration;
 pub use party::{PartyConfiguration, PartyIdentity};
 pub use port::{
     Depth, DesignedReceiveLocation, DesignedReceivePort, DesignedSendPort, DesignedWorkProcess,
-    Failover, Interaction, OnFailure, Retry,
+    Failover, OnFailure, Retry,
 };
 pub use section::{ApplicationSection, applications};
 pub use service::{DEFAULT_DATA, ServiceConfiguration};

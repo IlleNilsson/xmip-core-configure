@@ -251,11 +251,11 @@ mod tests {
              [[xmip_applications]]\nname = \"Orders\"\n\
              [[xmip_applications.receive_ports]]\nname = \"In\"\n\
              [[xmip_applications.receive_locations]]\nname = \"From A\"\nreceive_port = \"In\"\n\
-             interaction = \"data-transfer\"\ndepth = \"light\"\n\
+             depth = \"light\"\n\
              [[xmip_applications.receive_locations]]\nname = \"From B\"\nreceive_port = \"In\"\n\
-             interaction = \"data-transfer\"\ndepth = \"light\"\n\
+             depth = \"light\"\n\
              [[xmip_applications.receive_locations]]\nname = \"From C\"\nreceive_port = \"In\"\n\
-             interaction = \"data-transfer\"\ndepth = \"light\"\n\
+             depth = \"light\"\n\
              [[xmip_applications.send_ports]]\nname = \"To A\"\n\
              [[xmip_applications.send_ports]]\nname = \"To B\"\n"
         );

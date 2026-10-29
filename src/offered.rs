@@ -194,7 +194,7 @@ mod tests {
             .expect("roles");
         assert_eq!(roles.choices, ["executing"]);
         let location = entry("receive-location", "OrdersIn");
-        let interaction = location.offered.iter().find(|o| o.key == "interaction");
-        assert!(interaction.is_none(), "written");
+        let depth = location.offered.iter().find(|o| o.key == "depth");
+        assert!(depth.is_none(), "written");
     }
 }

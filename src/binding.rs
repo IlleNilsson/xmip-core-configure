@@ -62,7 +62,7 @@ pub struct BoundLocation {
 }
 
 /// A Receive Port of a bound Application, with the Receive Locations at it
-/// this node takes, as designed: their interaction and depth.
+/// this node takes, as designed: their depth.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct BoundReceivePort {
     /// The Application that declares it.
@@ -385,7 +385,6 @@ name = "Orders"
 [[xmip_applications.receive_locations]]
 name = "OrdersIn"
 receive_port = "Orders"
-interaction = "data-transfer"
 depth = "light"
 
 [[xmip_applications.send_ports]]

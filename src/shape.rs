@@ -234,11 +234,8 @@ mod tests {
     fn an_application_says_its_lists_and_a_destinations_cases() {
         let shapes = shapes::<XmipApplication>();
 
-        let interaction = &shapes[&path(&["receive_locations", "interaction"])];
-        assert!(
-            interaction.choices.contains(&"data-transfer"),
-            "{interaction:?}"
-        );
+        let depth = &shapes[&path(&["receive_locations", "depth"])];
+        assert!(depth.choices.contains(&"light"), "{depth:?}");
         let destination = &shapes[&path(&["subscriptions", "destination"])];
         assert_eq!(destination.kind, "variant");
         assert!(
