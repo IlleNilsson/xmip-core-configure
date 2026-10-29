@@ -5,9 +5,7 @@
 //! ```toml
 //! [[receive_locations]]
 //! name = "orders"
-//! start = true
-//! transport = "xmip-core-transport-kafka"
-//! address = "broker.example:9092"
+//! address = "kafka://broker.example:9092"
 //! contract = "xmip-core-contract-json-schema"
 //!
 //! [receive_locations.settings]
@@ -74,9 +72,23 @@ fn given(value: &toml::Value) -> Given {
     }
 }
 
-/// The declarations a caller carries, by technology: what the runtime's
-/// catalogue holds.
+/// The declarations a caller carries, each by what a Location names its
+/// technology with: a transport by every scheme it declares, a contract by
+/// its module name. What the runtime's catalogue holds.
 pub type Declarations = BTreeMap<&'static str, &'static Settings>;
+
+pub use net::PATH_SCHEME;
+
+impl ConfiguredLocation {
+    /// The scheme its address is entered with, lowercase — `sftp`, `https`
+    /// — or [`PATH_SCHEME`] for a path: what chooses the transport that
+    /// moves it, as that transport declares its schemes (ADR-0010 and
+    /// ADR-0064, amendments 2026-10-28), read by `net::scheme_of`.
+    #[must_use]
+    pub fn scheme(&self) -> String {
+        net::scheme_of(&self.address)
+    }
+}
 
 /// What is wrong with `location`'s settings on `side`, one sentence each
 /// naming the Location, its technology and the setting: every setting its
@@ -94,7 +106,7 @@ pub fn location_problems(
     let mut problems = Vec::new();
     let name = &location.name;
 
-    if let Some(settings) = declared.get(location.transport.as_str())
+    if let Some(settings) = declared.get(location.scheme().as_str())
         && let Err(refused) = settings.read(side, &location.settings.given())
     {
         for refusal in refused.0 {
@@ -156,14 +168,14 @@ mod tests {
     };
 
     fn declared() -> Declarations {
-        BTreeMap::from([(KAFKA.technology, KAFKA)])
+        BTreeMap::from([("kafka", KAFKA)])
     }
 
     fn location(settings: &str) -> ConfiguredLocation {
         let source = format!(
             "[service]\nname = \"n\"\ncluster_name = \"c\"\nnode_name = \"d\"\n\
              [[send_locations]]\nname = \"out\"\nstart = true\n\
-             transport = \"xmip-core-transport-kafka\"\naddress = \"broker:9092\"\n\
+             address = \"kafka://broker:9092\"\n\
              {settings}"
         );
         parse_toml(&source).expect("parses").send_locations[0].clone()
@@ -220,7 +232,7 @@ mod tests {
         );
 
         let source = "[service]\nname = \"n\"\ncluster_name = \"c\"\nnode_name = \"d\"\n\
-             [[receive_locations]]\nname = \"in\"\nstart = true\ntransport = \"t\"\n\
+             [[receive_locations]]\nname = \"in\"\nstart = true\n\
              address = \"a\"\n[receive_locations.accept]\nparty = [\"party-x\"]\n";
         let read = parse_toml(source).expect("a Party list is read");
         assert_eq!(read.receive_locations[0].accept.party, ["party-x"]);
@@ -238,10 +250,32 @@ mod tests {
     }
 
     #[test]
+    fn the_scheme_an_address_is_entered_with_chooses_and_a_path_is_a_files() {
+        for (address, scheme) in [
+            ("SFTP://party-x@host:22/in", "sftp"),
+            ("https://party-x.example/orders", "https"),
+            ("ftps://host/out", "ftps"),
+            ("file:///var/xmip/in", "file"),
+            ("/var/xmip/in", "file"),
+            ("C:\\xmip\\in", "file"),
+        ] {
+            let mut entered = location("");
+            entered.address = address.to_string();
+            assert_eq!(entered.scheme(), scheme, "{address}");
+        }
+        let unsound = location("[send_locations.settings]\ncolor = \"lime\"\n");
+        let problems = location_problems(&unsound, Applies::Send, &declared());
+        assert!(
+            problems.iter().any(|p| p.contains("kafka")),
+            "by scheme: {problems:?}"
+        );
+    }
+
+    #[test]
     fn settings_round_trip_through_the_document() {
         let source = "[service]\nname = \"n\"\ncluster_name = \"c\"\nnode_name = \"d\"\n\
              [[receive_locations]]\nname = \"in\"\nstart = true\n\
-             transport = \"xmip-core-transport-kafka\"\naddress = \"b:1\"\n\
+             address = \"kafka://b:1\"\n\
              contract = \"xmip-core-contract-json-schema\"\n\
              [receive_locations.settings]\ntopic = \"orders\"\n";
         let document = parse_toml(source).expect("parses");

@@ -30,6 +30,9 @@ route = { package = "xmip-core-route", git = "https://github.com/IlleNilsson/xmi
 # makes of them (xcore::settings, ADR-0064 amendment 2026-09-26): the shape is
 # xmip-core's, the declarations the caller's.
 xcore = { package = "xmip-core", git = "https://github.com/IlleNilsson/xmip-core", branch = "main" }
+# A Location's address as a URI writes it (net::Target), read once for the
+# estate: its scheme chooses the transport (ADR-0064, amendment 2026-10-28).
+net = { package = "xmip-core-library-net", git = "https://github.com/IlleNilsson/xmip-core-library-net", branch = "main" }
 # A filter is one line of Xmip's expression language; the designer's rows
 # are a view of its compiled tree, never a second grammar (ADR-0066).
 # The stages a compiled unit serves are the message path's, read by node's

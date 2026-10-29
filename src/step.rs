@@ -271,7 +271,7 @@ mod tests {
     #[test]
     fn a_node_attaching_a_call_is_refused_until_units_run() {
         let head = "[service]\nname = \"n\"\ncluster_name = \"c\"\nnode_name = \"d\"\n\n\
-                    [[receive_locations]]\nname = \"drop\"\ntransport = \"t\"\naddress = \"a\"\n";
+                    [[receive_locations]]\nname = \"drop\"\naddress = \"a\"\n";
         let plain = parse_toml(head).expect("reads");
         assert_eq!(unrun(&plain, &[]), [] as [String; 0]);
 

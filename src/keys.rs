@@ -164,7 +164,6 @@ fn bound_own(location: &Shapes, table: &[String]) -> Vec<Key> {
         location: ConfiguredLocation {
             name: String::new(),
             start: false,
-            transport: String::new(),
             address: String::new(),
             credentials: None,
             contract: None,
@@ -221,9 +220,15 @@ mod tests {
         let start = named(&["receive_locations"], "start");
         assert!(
             start.kind == "boolean" && !start.required,
-            "nothing: not started"
+            "nothing: started"
         );
-        assert!(named(&["receive_locations"], "transport").required);
+        assert!(named(&["receive_locations"], "address").required);
+        assert!(
+            of_table(&path(&["receive_locations"]))
+                .iter()
+                .all(|key| key.key != "transport"),
+            "the address's scheme chooses the transport"
+        );
         assert_eq!(named(&["nodes", &node], "tuning").kind, "free");
         assert_eq!(named(&["nodes", &node], ROLES).kind, "roles");
         let roles = of_table(&path(&["nodes", &node]));
@@ -256,7 +261,7 @@ mod tests {
                 .iter()
                 .map(|key| key.key.as_str())
                 .collect();
-            for expected in ["node", "name", "transport", "address", "settings"] {
+            for expected in ["node", "name", "address", "settings"] {
                 assert!(keys.contains(&expected), "{table:?}: {keys:?}");
             }
             let node_key = of_table(&table).into_iter().find(|key| key.key == "node");

@@ -454,7 +454,7 @@ mod tests {
         let read = parties(&two()).expect("parses");
         let text = format!(
             "[service]\nname = \"n\"\ncluster_name = \"c\"\nnode_name = \"d\"\n\n{}\n\
-             [[receive_locations]]\nname = \"in\"\ntransport = \"t\"\naddress = \"a\"\n\
+             [[receive_locations]]\nname = \"in\"\naddress = \"a\"\n\
              [receive_locations.accept]\nmechanism = [\"mutual-tls\"]\n\
              party = [\"{}\", \"absent\"]\n",
             two(),

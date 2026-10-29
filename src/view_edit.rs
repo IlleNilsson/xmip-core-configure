@@ -450,18 +450,15 @@ mod tests {
             value: value.to_string(),
         };
 
-        let refused = apply(&text, &add(Vec::new())).expect_err("transport is required");
+        let refused = apply(&text, &add(Vec::new())).expect_err("an address is required");
         assert!(
-            refused.contains("would not read") && refused.contains("transport"),
+            refused.contains("would not read") && refused.contains("address"),
             "{refused}"
         );
 
         let edited = apply(
             &text,
-            &add(vec![
-                given("transport", "\"xmip-core-transport-http\""),
-                given("address", "\"https://in.example\""),
-            ]),
+            &add(vec![given("address", "\"https://in.example\"")]),
         )
         .expect("applies");
         let names: Vec<_> = node(&edited, &first)
@@ -494,12 +491,7 @@ mod tests {
             key: path(&[key]),
             value: value.to_string(),
         };
-        let located = || {
-            vec![
-                given("transport", "\"xmip-core-transport-file\""),
-                given("address", "\"/var/xmip/out\""),
-            ]
-        };
+        let located = || vec![given("address", "\"/var/xmip/out\"")];
         let add = |section: &[&str], values: Vec<Given>| {
             apply(
                 &text,

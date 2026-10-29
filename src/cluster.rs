@@ -347,7 +347,6 @@ receive_idle = "1m"
 [[receive_locations]]
 name = "drop"
 start = true
-transport = "xmip-core-transport-file"
 address = "/var/xmip/in"
 
 [nodes.{first}.service]
@@ -363,7 +362,6 @@ address = "/srv/{first}/in"
 [[nodes.{first}.receive_locations]]
 name = "api"
 start = true
-transport = "xmip-core-transport-http"
 address = "https://{first}.example/in"
 
 [nodes.{second}]
@@ -400,10 +398,7 @@ nodes = ["{third}.example:7443"]
             first.receive_locations[0].address,
             format!("/srv/{}/in", written.first)
         );
-        assert_eq!(
-            first.receive_locations[0].transport,
-            "xmip-core-transport-file"
-        );
+        assert_eq!(first.receive_locations[0].scheme(), "file");
     }
 
     #[test]
