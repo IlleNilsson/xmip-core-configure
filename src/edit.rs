@@ -211,7 +211,6 @@ name = "Orders"
 [[receive_locations]]
 name = "OrdersIn"
 receive_port = "Orders"
-interaction = "data-transfer"
 depth = "light"
 
 [[work_processes]]

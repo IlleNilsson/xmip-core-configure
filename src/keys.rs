@@ -241,10 +241,10 @@ mod tests {
             named(&["nodes", &node, "service"], "online").kind,
             "boolean"
         );
-        let interaction = named(&["xmip_applications", "receive_locations"], "interaction");
-        assert_eq!(interaction.kind, "choice");
-        assert!(interaction.choices.contains(&"batch-load"));
-        assert!(!interaction.required);
+        let depth = named(&["xmip_applications", "receive_locations"], "depth");
+        assert_eq!(depth.kind, "choice");
+        assert!(depth.choices.contains(&"context"));
+        assert!(!depth.required);
         let destination = named(&["xmip_applications", "subscriptions"], "destination");
         assert_eq!(destination.kind, "variant");
         assert!(destination.required);

@@ -10,7 +10,6 @@
 //! [[xmip_applications.receive_locations]]
 //! name         = "InvoicesHttp"
 //! receive_port = "Invoices"         # a Location without a Port is refused
-//! interaction  = "data-transfer"    # composite | data-transfer | batch-load
 //! depth        = "light"            # transfer | light | context
 //!
 //! [[xmip_applications.send_ports]]
@@ -21,10 +20,12 @@
 //! correlation = "PerParty"      # one at a time per key, as the set says
 //! ```
 //!
-//! A Receive Location names its Receive Port and states its interaction and
-//! its processing depth (`runtime-model.md` sections 6 and 7); one that does
-//! not, or names a Port the Application does not declare, is a problem of
-//! the Application, refused at startup phase 3 with the rest of it. A Send
+//! A Receive Location names its Receive Port and states its processing depth
+//! (`runtime-model.md` sections 6 and 7); one that does not, or names a Port
+//! the Application does not declare, is a problem of the Application,
+//! refused at startup phase 3 with the rest of it. Every Receive Location
+//! answers its caller: a result code, or a response Message where a Work
+//! Process composes one. A Send
 //! Port states its policy (section 10). Any of them may name a correlation
 //! set (`crate::correlation`): what passes it goes one at a time per key.
 //! A word a key does not have is refused as the Application is read.
@@ -75,18 +76,6 @@ pub struct DesignedWorkProcess {
     pub settings: LocationSettings,
 }
 
-/// What the caller expects back (`runtime-model.md` section 7).
-#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(rename_all = "kebab-case")]
-pub enum Interaction {
-    /// A response composed through configured Xmip work.
-    Composite,
-    /// Acknowledged once acceptance succeeds.
-    DataTransfer,
-    /// Accepted and acknowledged for later processing.
-    BatchLoad,
-}
-
 /// How far Xmip interprets the content (`runtime-model.md` section 7).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "kebab-case")]
@@ -121,16 +110,14 @@ pub enum OnFailure {
 }
 
 /// A Receive Location as designed: its name, the Receive Port it belongs
-/// to, and what it states of its interaction and depth. The binding gives
-/// it its transport, address and node.
+/// to, and the depth it states. The binding gives it its transport, address
+/// and node.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct DesignedReceiveLocation {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub receive_port: Option<String>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub interaction: Option<Interaction>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub depth: Option<Depth>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
@@ -234,12 +221,6 @@ pub(crate) fn receive_problems(
             }
             Some(_) => {}
         }
-        if location.interaction.is_none() {
-            problems.push(format!(
-                "the Receive Location '{name}' of '{application}' states no interaction \
-                 (composite, data-transfer or batch-load)"
-            ));
-        }
         if location.depth.is_none() {
             problems.push(format!(
                 "the Receive Location '{name}' of '{application}' states no depth \
@@ -294,7 +275,6 @@ name = "Invoices"
 [[receive_locations]]
 name = "InvoicesHttp"
 receive_port = "Invoices"
-interaction = "data-transfer"
 depth = "light"
 
 [[send_ports]]
@@ -315,7 +295,6 @@ correlation = "PerParty"
         );
         let location = &application.receive_locations[0];
         assert_eq!(location.receive_port.as_deref(), Some("Invoices"));
-        assert_eq!(location.interaction, Some(super::Interaction::DataTransfer));
         assert_eq!(location.depth, Some(super::Depth::Light));
         let port = &application.send_ports[0];
         assert_eq!(port.send_locations, ["ErpPrimary", "ErpBackup"]);
@@ -360,7 +339,7 @@ correlation = "PerParty"
     #[test]
     fn a_word_a_key_does_not_have_is_refused_as_it_reads() {
         for (from, to) in [
-            ("\"data-transfer\"", "\"streaming\""),
+            ("\"light\"", "\"deep\""),
             ("\"next\"", "\"random\""),
             ("correlation", "order_key"),
         ] {

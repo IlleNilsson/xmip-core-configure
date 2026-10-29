@@ -825,7 +825,7 @@ takes what names it. From `module/platform/configure/src/binding.rs`:
   what this node runs: the bound Receive Locations and Send Ports whose
   `node` is this node's `node_name`, the Send Ports as the Send Locations
   they leave by, the Receive Ports those Receive Locations are at with
-  each Location's interaction and depth, the Send Ports as designed with
+  each Location's depth, the Send Ports as designed with
   their policy, every Subscription of every bound Application and every
   Send Port Group, which a Subscription routed to a group reaches. It
   refuses an Application the node was not given, a bound Application's own
