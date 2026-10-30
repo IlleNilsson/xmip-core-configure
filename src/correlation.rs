@@ -41,7 +41,7 @@ pub struct Correlation {
     pub name: String,
     /// What makes a key, in order: [`KeyWord`]s.
     pub keys: Vec<String>,
-    /// What a Journey that failed does to its sequence: block where it says
+    /// What a Message that failed does to its sequence: block where it says
     /// nothing.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub on_failure: Option<OnFailure>,
