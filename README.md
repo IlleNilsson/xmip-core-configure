@@ -18,7 +18,7 @@ An Application's Receive Ports are `[[receive_ports]]`, and each Receive
 Location names its `receive_port`, refused without one, and states its
 `depth` (`transfer`, `light`, `context`); a Send Port states its policy —
 `send_locations` tried in order, `retry = { attempts, backoff }`,
-`failover` (`next`, `none`) and the `correlation` its Journeys pass it by —
+`failover` (`next`, `none`) and the `correlation` its Messages pass it by —
 and a Receive Location, a Receive Port and a Work Process may name a
 `correlation` too, declared once for the cluster in `[[correlations]]`
 (`correlation.rs`, its keys and `on_failure`, `block` or `skip`; `port.rs`;

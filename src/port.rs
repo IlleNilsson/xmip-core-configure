@@ -64,7 +64,7 @@ pub struct DesignedReceivePort {
 #[serde(deny_unknown_fields)]
 pub struct DesignedWorkProcess {
     pub name: String,
-    /// The Correlation its Journeys go one at a time per key by
+    /// The Correlation its Messages go one at a time per key by
     /// (`crate::correlation`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub correlation: Option<String>,
@@ -95,7 +95,7 @@ pub enum Depth {
 pub enum Failover {
     /// The next Send Location, in the order configured.
     Next,
-    /// None: the Journey fails.
+    /// None: the Message fails.
     None,
 }
 
@@ -159,7 +159,7 @@ pub struct DesignedSendPort {
     pub retry: Option<Retry>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub failover: Option<Failover>,
-    /// The Correlation its Journeys pass it by, one at a time per key.
+    /// The Correlation its Messages pass it by, one at a time per key.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub correlation: Option<String>,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]

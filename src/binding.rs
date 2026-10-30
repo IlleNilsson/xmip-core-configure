@@ -92,7 +92,7 @@ pub struct Bound {
     /// Subscription routed to the group reaches together.
     pub send_port_groups: Vec<SendPortGroup>,
     /// Every Send Port of every bound Application, taken here or not: a
-    /// Journey published on this node takes its place in the sequence of
+    /// Message published on this node takes its place in the sequence of
     /// the Port it is bound for, whichever node sends it.
     pub designed_send_ports: Vec<DesignedSendPort>,
     /// Every Send Location this document holds that names a correlation

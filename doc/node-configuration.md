@@ -31,7 +31,7 @@ publishes each Work Process as planned, not started. Compilation at design
 time and execution are [built, not in the assembled service](../../../../doc/architecture/estate-map.md#process-execution)
 (ADR-0066, amendment 2026-10-22): a Work Process naming its unit by `module`
 and `unit` is opened from that module's library as the node starts, and the
-node's Work Process step takes a turn of its Instance for each Journey bound
+node's Work Process step takes a turn of its Instance for each Message bound
 for it.
 
 ### What a Work Process is made of
@@ -43,7 +43,7 @@ From `module/platform/configure/src/lib.rs`:
   unit that is its flow (*Compiled units* below; ADR-0066, amendment
   2026-10-22). The lists default to empty when
   omitted, as the document's own lists do (ADR-0031, amendment 2026-09-24);
-  `name` and `start` have no default. How many of its Journeys go at once is
+  `name` and `start` have no default. How many of its Messages go at once is
   the Correlation its Application names it by (`runtime-model.md`
   section 3, *Sequences*).
 - **`Correlation`** — `[[correlations]]`: `name`, `keys` and `on_failure`,
@@ -145,7 +145,7 @@ cluster's `[nodes.<name>] roles` declares, which the slice writes there
 An embedded Storage node's databases Xmip encrypts itself: every record sealed
 under a data key a key store wraps (ADR-0063). What a node keeps across a
 restart — a paused Subscription's standing in the administration database,
-the Journeys it holds in the Ledger (ADR-0013, amendments 2026-09-30 and
+the Messages it holds in the Ledger (ADR-0013, amendments 2026-09-30 and
 2026-10-03) — is kept there. The engines are no node's choice: the runtime
 database is always RocksDB (ADR-0015 and ADR-0018, amendments 2026-10-01),
 and `engine` and `place` are refused as unknown keys. `[store]` names the
@@ -357,7 +357,7 @@ node_receive_threads_per_hardware_thread = 4 # 1 to 256
 receive_chunks_per_thread = 8               # 1 to 4096
 send_threads_per_hardware_thread = 2        # 1 to 64
 send_idle = "1m"                            # a send thread's idle time
-send_lease = "30s"                          # how long a claim on a Journey holds
+send_lease = "30s"                          # how long a claim on a Message holds
 send_scan = "1s"                            # how often the send queues are read
 failed_window = 100                         # oldest failed Messages kept per Send Port, 1 to 10000
 send_chunks_per_thread = 16                 # 1 to 65536
@@ -414,7 +414,7 @@ local_timeout = "2s"                        # how long a call to the local endpo
   the node's one Send pool (`runtime-model.md` section 3).
 - **`send_chunks_per_thread`**: the bytes the node's sends hold at once,
   in chunks for each thread of the Send pool, beside the pool's count of
-  Journeys. A send whose transport streams is counted as holding six
+  Messages. A send whose transport streams is counted as holding six
   chunks, what reading it holds, measured at a little over five; one
   whose transport gathers the whole Message holds all of it, and waits for
   room where others hold the rest (`runtime-model.md` section 10).
@@ -423,9 +423,9 @@ local_timeout = "2s"                        # how long a call to the local endpo
   they leave it behind, to read what it missed from Xmip Storage once it
   takes again. While it keeps taking it is waited for, however slowly
   (ADR-0018, amendment 2026-10-27). The 100 ms is a draft for the owner.
-- **`send_lease`** and **`send_scan`**: how long a claim on a Journey holds
+- **`send_lease`** and **`send_scan`**: how long a claim on a Message holds
   before it lapses unless renewed, and how often the queues of the Send
-  Ports this node sends are read for unclaimed Journeys (`runtime-model.md`
+  Ports this node sends are read for unclaimed Messages (`runtime-model.md`
   section 10).
 - **`failed_window`**: how many of the oldest failed Messages of each Send
   Port the node keeps and publishes. Xmip Storage keeps the count and every

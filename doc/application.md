@@ -39,7 +39,7 @@ From `module/platform/configure/src/application.rs` (`XmipApplication`) and
   ADR-0066, amendments 2026-10-22). A Receive Port may name one too.
 - **`[[xmip_applications.work_processes]]`**: the Work Processes a
   Subscription may route to, by `name`, each naming the `correlation`
-  its Journeys pass it by where it names one. Its flow is a compiled Work
+  its Messages pass it by where it names one. Its flow is a compiled Work
   Process unit the node's `[[work_processes]]` names by `module` and `unit`
   (ADR-0066, amendment 2026-10-22).
 - **`[[xmip_applications.send_ports]]`**: where Messages leave: a `name`,
@@ -47,7 +47,7 @@ From `module/platform/configure/src/application.rs` (`XmipApplication`) and
   `send_locations`, its Send Locations by name, tried in order;
   `retry = { attempts, backoff }` on the active Location, the backoff a
   duration such as `5s`; `failover`, `next` or `none`; and `correlation`,
-  the cluster's set its Journeys pass it by, one at a time per key.
+  the cluster's set its Messages pass it by, one at a time per key.
 - **`[[correlations]]`**, once for the cluster, beside the Applications:
   a `name`, the `keys` that make a key — `receive-location`, `receive-port`,
   `work-process`, `send-port-group`, `send-port`, `journey:origin`,
