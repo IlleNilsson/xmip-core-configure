@@ -50,7 +50,7 @@ pub struct Correlation {
 /// What one key of a Correlation reads.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum KeyWord {
-    /// The Receive Location the Journey's Stream came through.
+    /// The Receive Location the Message's Stream came through.
     ReceiveLocation,
     /// Its Receive Port.
     ReceivePort,

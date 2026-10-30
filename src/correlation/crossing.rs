@@ -2,11 +2,11 @@
 //! 2026-10-27: *Validation refuses a configuration where two paths could
 //! take correlation sets in crossing order. Sets are taken in path order*).
 //!
-//! A Journey takes its places in path order — Receive Location, Receive
+//! A Message takes its places in path order — Receive Location, Receive
 //! Port, Work Process, Send Port Group, Send Port, Send Location — and
 //! holds its Stream's end to end while it waits for the ones after. Where
 //! one path takes set `A` before set `B` and another takes `B` before `A`,
-//! Journeys of equal keys could each hold what the other waits for. A
+//! Messages of equal keys could each hold what the other waits for. A
 //! Subscription's filter may match any Message, so every receive point is
 //! taken to reach every destination: each path is a receive point's sets,
 //! then a Work Process's, then the set of a Send Port Group that reaches a
@@ -142,7 +142,7 @@ pub fn crossing(bound: &Bound, work_processes: &[(String, String)]) -> Vec<Strin
             if reach.contains_key(&(*first, *second)) && reach.contains_key(&(*second, *first)) {
                 problems.push(format!(
                     "the Correlations '{first}' and '{second}' are taken in crossing order: \
-                     {}, and {}, so Journeys of equal keys could each wait for the other for \
+                     {}, and {}, so Messages of equal keys could each wait for the other for \
                      ever; take '{first}' before '{second}' on both paths",
                     said(first, second),
                     said(second, first)
