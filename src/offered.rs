@@ -98,7 +98,7 @@ pub(crate) fn offered(
                         kind: inner.kind,
                         required: inner.required,
                         choices: inner.choices.iter().map(ToString::to_string).collect(),
-                        meaning: None,
+                        meaning: inner.meaning,
                         elements: Vec::new(),
                     })
                     .collect();
@@ -110,7 +110,7 @@ pub(crate) fn offered(
                 kind: key.kind,
                 required: key.required,
                 choices: choices(entry, key, references, roles),
-                meaning: None,
+                meaning: key.meaning,
                 elements,
             })
         })
@@ -186,6 +186,8 @@ mod tests {
             keys.contains(&"secret") && !keys.contains(&"address"),
             "{keys:?}"
         );
+        let secret = drop.offered.iter().find(|o| o.key == "secret");
+        assert!(secret.is_some_and(|o| o.meaning.is_some()), "its meaning");
         let node = entry("node", &first);
         let roles = node
             .offered

@@ -5,8 +5,8 @@
 //! cluster's `xmip.toml`, `[[xmip_applications]]` ([`crate::section`]);
 //! each node's configuration names the Applications it runs in
 //! `[[applications]]`, each binding the section of its name, and gives every
-//! Receive Location and Send Port it binds a transport, an address, a
-//! the secret it names and the node that takes it, as the bindings
+//! Receive Location and Send Port it binds an address, the secret it names
+//! and the node that takes it, as the bindings
 //! of the platforms Xmip replaces do. The same route is never written again
 //! per node.
 //!
@@ -51,9 +51,11 @@ pub struct ApplicationBinding {
 }
 
 /// A Receive Location or a Send Port an Application declares, given its
-/// environment: the node that takes it, and the Location's transport,
-/// address, start and the secret it names, in the node's own shape.
+/// environment: the node that takes it, and the Location's address, start
+/// and the secret it names, in the node's own shape. A key neither reads is
+/// refused, never ignored.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct BoundLocation {
     /// The node that takes it, a `service.node_name`.
     pub node: String,
@@ -102,7 +104,7 @@ pub struct Bound {
 }
 
 /// What the bindings in `document` say wrong: a name, the section of that
-/// name held and sound, every bound Location's node, name and transport
+/// name held and sound, every bound Location's node, name and address
 /// present, and no Location bound twice.
 #[must_use]
 pub fn binding_problems(document: &XmipConfigurationDocument) -> Vec<String> {
@@ -458,6 +460,16 @@ filter = "MessageType = 'Order'"
         assert_eq!(bound.receive_ports, [] as [BoundReceivePort; 0]);
         assert_eq!(bound.send_locations[0].name, "Billing");
         assert_eq!(bound.send_ports[0].name, "Billing");
+    }
+
+    #[test]
+    fn a_bound_location_refuses_a_key_it_does_not_read() {
+        let text = binding(0).replace(
+            "secret = \"orders-in\"\n",
+            "secret = \"orders-in\"\ntransport = \"xmip-core-transport-file\"\n",
+        );
+        let refused = parse_toml(&text).expect_err("the address chooses the transport");
+        assert!(refused.contains("unknown field `transport`"), "{refused}");
     }
 
     #[test]
