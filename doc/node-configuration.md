@@ -359,7 +359,7 @@ send_threads_per_hardware_thread = 2        # 1 to 64
 send_idle = "1m"                            # a send thread's idle time
 send_lease = "30s"                          # how long a claim on a Journey holds
 send_scan = "1s"                            # how often the send queues are read
-failed_window = 100                         # oldest failed Journeys kept per Send Port, 1 to 10000
+failed_window = 100                         # oldest failed Messages kept per Send Port, 1 to 10000
 send_chunks_per_thread = 16                 # 1 to 65536
 stream_stall = "100ms"                      # how long a send taking nothing holds its Stream's others back
 storage_timeout = "5s"                      # each connect and read to a Storage node
@@ -427,9 +427,9 @@ local_timeout = "2s"                        # how long a call to the local endpo
   before it lapses unless renewed, and how often the queues of the Send
   Ports this node sends are read for unclaimed Journeys (`runtime-model.md`
   section 10).
-- **`failed_window`**: how many of the oldest failed Journeys of each Send
+- **`failed_window`**: how many of the oldest failed Messages of each Send
   Port the node keeps and publishes. Xmip Storage keeps the count and every
-  one of them in the Ledger, in each queue's index of failed Journeys; a
+  one of them in the Ledger, in each queue's index of failed Messages; a
   surface pages the rest from there, so the node's memory stays bounded
   however many fail (`runtime-model.md` section 10, corrected 2026-10-16).
 - **`storage_timeout`** and **`storage_pass_over`**: what bounds each
