@@ -36,6 +36,9 @@ pub struct Key {
     pub choices: Vec<&'static str>,
     /// Whether the table is refused without it.
     pub required: bool,
+    /// What it means, where its type says ([`ConfiguredLocation::MEANINGS`]).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub meaning: Option<&'static str>,
 }
 
 /// What stands for any node's name in [`Key::table`].
@@ -110,6 +113,7 @@ fn listed(shapes: &Shapes, at: &[&str]) -> Vec<Key> {
             .map(ToString::to_string)
             .chain(path.iter().cloned())
             .collect();
+        let location = reads_as_location(shape);
         for field in &shape.fields {
             let child = [path.clone(), vec![(*field).to_string()]].concat();
             let held = shapes.get(&child).cloned().unwrap_or_default();
@@ -119,10 +123,32 @@ fn listed(shapes: &Shapes, at: &[&str]) -> Vec<Key> {
                 kind: kind_of(&held),
                 choices: held.choices,
                 required: shape.required.contains(field),
+                meaning: location.then(|| meaning(field)).flatten(),
             });
         }
     }
     keys
+}
+
+/// Whether a table of `shape` is read as a Location: it holds a
+/// [`ConfiguredLocation`]'s keys, wherever in the file it is.
+fn reads_as_location(shape: &Shape) -> bool {
+    static LOCATION: OnceLock<Vec<&'static str>> = OnceLock::new();
+    let location = LOCATION.get_or_init(|| {
+        shapes::<ConfiguredLocation>()
+            .remove(&Vec::new())
+            .unwrap_or_default()
+            .fields
+    });
+    !location.is_empty() && shape.fields == *location
+}
+
+/// What a Location's `key` means, as [`ConfiguredLocation::MEANINGS`] says.
+fn meaning(key: &str) -> Option<&'static str> {
+    ConfiguredLocation::MEANINGS
+        .iter()
+        .find(|(name, _)| *name == key)
+        .map(|(_, meaning)| *meaning)
 }
 
 fn kind_of(shape: &Shape) -> &'static str {
@@ -146,6 +172,7 @@ fn key(
         kind,
         choices: choices.to_vec(),
         required,
+        meaning: None,
     }
 }
 
@@ -193,6 +220,7 @@ fn bound_own(location: &Shapes, table: &[String]) -> Vec<Key> {
                 kind: if value.is_str() { "text" } else { "any" },
                 choices: Vec::new(),
                 required: BoundLocation::deserialize(toml::Value::Table(without)).is_err(),
+                meaning: None,
             }
         })
         .collect()
@@ -229,6 +257,15 @@ mod tests {
                 .all(|key| key.key != "transport"),
             "the address's scheme chooses the transport"
         );
+        for table in [
+            path(&["send_locations"]),
+            path(&["nodes", &node, "applications", "receive_locations"]),
+        ] {
+            let secret = of_table(&table).into_iter().find(|key| key.key == "secret");
+            let said = secret.and_then(|key| key.meaning).unwrap_or_default();
+            assert!(said.contains("never the secret itself"), "{table:?}");
+        }
+        assert!(named(&["receive_locations"], "address").meaning.is_none());
         assert_eq!(named(&["nodes", &node], "tuning").kind, "free");
         assert_eq!(named(&["nodes", &node], ROLES).kind, "roles");
         let roles = of_table(&path(&["nodes", &node]));

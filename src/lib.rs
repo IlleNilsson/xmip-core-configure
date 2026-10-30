@@ -266,8 +266,9 @@ pub fn document_kind(source: &str) -> DocumentKind {
 /// ([`settings::location_problems`], ADR-0064 amendment 2026-09-26), and
 /// empty or absent where the Location gives none. `accept` is what a
 /// Receive Location takes ([`Accept`]); a Send Location presents and gives
-/// none.
+/// none. A key the Location does not read is refused, never ignored.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
 pub struct ConfiguredLocation {
     pub name: String,
     #[serde(default = "starts")]
@@ -300,6 +301,17 @@ pub struct ConfiguredLocation {
     /// A Send Location's Correlation ([`correlation`]).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub correlation: Option<String>,
+}
+
+impl ConfiguredLocation {
+    /// What a Location's keys mean, in the words an editor's hover and a
+    /// designer show beside the key ([`keys`]).
+    pub const MEANINGS: [(&'static str, &'static str); 1] = [(
+        "secret",
+        "The name of the secret the Location presents to the party it connects to, \
+         never the secret itself: the Administration Database keeps it, a password, \
+         a key or a certificate.",
+    )];
 }
 
 /// `accept`: the closed set a Receive Location authenticates (ADR-0019
@@ -474,6 +486,16 @@ lifetime = \"8h\"
         let source = format!("{HEAD}[[send_locations]]\nname = \"out\"\n");
         let error = parse_toml(&source).expect_err("an address is required");
         assert!(error.contains("address"), "names the missing key: {error}");
+    }
+
+    #[test]
+    fn a_key_a_location_does_not_read_is_refused_not_ignored() {
+        let source = format!(
+            "{HEAD}[[send_locations]]\nname = \"out\"\naddress = \"sftp://h/out\"\n\
+             transport = \"xmip-core-transport-sftp\"\n"
+        );
+        let error = parse_toml(&source).expect_err("the address chooses the transport");
+        assert!(error.contains("unknown field `transport`"), "{error}");
     }
 
     #[test]
