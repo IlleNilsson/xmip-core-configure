@@ -183,7 +183,7 @@ pub fn written(placements: &[Placement], bound: impl Fn(&Placement) -> Binding) 
         }
         if binding.accepting {
             text.push_str(&format!(
-                "[applications.{list}.accept]\nmechanism = [\"circumstance\"]\n"
+                "[applications.{list}.accept]\nmechanism = [\"circumstance\"]\ntransport = \"claimed\"\n"
             ));
         }
     }

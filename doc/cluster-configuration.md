@@ -143,6 +143,7 @@ node = "<node>"
 address = "/var/xmip/in"
 [nodes.<node>.applications.receive_locations.accept]
 mechanism = ["circumstance"]
+transport = "claimed"
 
 [[nodes.<node>.applications.send_ports]]
 name = "Out"

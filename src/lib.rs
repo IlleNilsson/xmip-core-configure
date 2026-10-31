@@ -94,6 +94,7 @@ pub use work_process::WorkProcessConfiguration;
 
 use std::collections::BTreeMap;
 
+use context::{Minimum, Required};
 use serde::{Deserialize, Serialize};
 
 /// The words every problem opens with that is the TOML reader's: a surface
@@ -324,10 +325,16 @@ impl ConfiguredLocation {
 /// empty, the Location takes nothing: an unconfigured endpoint is closed,
 /// not open.
 ///
+/// `transport` and `message` are the weakest verdict the Location takes on
+/// each layer — `proven`, `vouched` or `claimed` — and `proven` where
+/// absent (ADR-0019, amendment 2026-10-31): a drop folder's circumstance and
+/// an X12 interchange's sender are claimed, and taken only where written.
+///
 /// ```toml
 /// [receive_locations.accept]
 /// mechanism = ["mutual-tls", "oauth2"]
 /// party     = ["<party>"]
+/// message   = "claimed"
 /// ```
 #[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -338,14 +345,30 @@ pub struct Accept {
     /// mechanisms verify.
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub party: Vec<String>,
+    #[serde(default, skip_serializing_if = "Required::is_proven")]
+    pub transport: Required,
+    #[serde(default, skip_serializing_if = "Required::is_proven")]
+    pub message: Required,
 }
 
 impl Accept {
-    /// Whether the Location declares nothing it takes: no mechanism and no
-    /// Party.
+    /// Whether the Location declares nothing it takes: no mechanism, no
+    /// Party and no minimum weaker than proven.
     #[must_use]
     pub const fn is_empty(&self) -> bool {
-        self.mechanism.is_empty() && self.party.is_empty()
+        self.mechanism.is_empty()
+            && self.party.is_empty()
+            && self.transport.is_proven()
+            && self.message.is_proven()
+    }
+
+    /// The weakest verdict it takes on each layer.
+    #[must_use]
+    pub const fn minimum(&self) -> Minimum {
+        Minimum {
+            transport: self.transport,
+            message: self.message,
+        }
     }
 }
 
