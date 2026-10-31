@@ -124,6 +124,7 @@ A node's flow is **Receive Location → Work Process → Send Location**, each L
    address = "/var/xmip/in/invoices"   # a path: the file transport's
    [receive_locations.accept]
    mechanism = ["circumstance"]        # a drop folder's implied identity
+   transport = "claimed"               # which nothing proves: taken where written
 
    [[send_locations]]
    name = "forward"
@@ -657,6 +658,7 @@ address = "/var/xmip/in"
 prepare = ["Unzip"]                   # Preparation Steps, in order
 [receive_locations.accept]
 mechanism = ["circumstance"]
+transport = "claimed"
 ```
 
 - **A unit** is declared in its Module's manifest: its name, its
@@ -734,7 +736,13 @@ closed, not open — and one receiving from something that presents nothing,
 a drop folder or a raw socket, accepts `circumstance`: the circumstance is
 the transport identity, implied by where the Stream came from, and every
 build of `xmip-service` verifies it (ADR-0019 clause 7; the owner,
-2026-10-19). A node that starts one refuses a mechanism no authenticator it
+2026-10-19). A circumstance is claimed, never proven: nothing stands behind
+a folder. **`transport` and `message` are the weakest verdict the Location
+takes on each layer** — `proven`, `vouched` or `claimed` — and `proven`
+where absent (ADR-0019, amendment 2026-10-31), so a drop folder writes
+`transport = "claimed"` and a Location taking an X12 interchange's sender
+writes `message = "claimed"`. A verdict short of it is refused before any
+policy is asked, and audited. A node that starts one refuses a mechanism no authenticator it
 was built with verifies, and a Party no `[[parties]]` declares. A Send
 Location presents and accepts nothing, so `accept` on one is refused. Where
 the node is built with the `location` policy, each Receive Location it

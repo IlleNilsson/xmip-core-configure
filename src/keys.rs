@@ -282,6 +282,19 @@ mod tests {
         assert_eq!(depth.kind, "choice");
         assert!(depth.choices.contains(&"context"));
         assert!(!depth.required);
+        // The weakest verdict a Location takes, in the words a verdict is
+        // written in; never `refused`, which meets nothing.
+        for layer in ["transport", "message"] {
+            let minimum = named(&["receive_locations", "accept"], layer);
+            assert_eq!(minimum.kind, "choice");
+            assert!(!minimum.required, "proven where absent");
+            let words: Vec<&str> = context::Verified::ALL
+                .into_iter()
+                .filter(|verdict| *verdict != context::Verified::Refused)
+                .map(context::Verified::word)
+                .collect();
+            assert_eq!(minimum.choices, words);
+        }
         let destination = named(&["xmip_applications", "subscriptions"], "destination");
         assert_eq!(destination.kind, "variant");
         assert!(destination.required);
