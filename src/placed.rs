@@ -66,13 +66,15 @@ impl Placement {
 }
 
 /// How one placement is bound: the address, whose scheme chooses the
-/// technology, the settings beyond it, and whether it accepts what the
-/// circumstance of its drop identifies — a Receive Location's, where
-/// nothing else is presented.
+/// technology, the settings beyond it, the secret it presents where it
+/// names one, and whether it accepts what the circumstance of its drop
+/// identifies — a Receive Location's, where nothing else is presented.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Binding {
     pub address: String,
     pub settings: Vec<(String, String)>,
+    /// The name of the secret it presents (`secret = "<name>"`).
+    pub secret: Option<String>,
     pub accepting: bool,
 }
 
@@ -175,6 +177,9 @@ pub fn written(placements: &[Placement], bound: impl Fn(&Placement) -> Binding) 
             quoted(&placement.node),
             quoted(&binding.address),
         ));
+        if let Some(secret) = &binding.secret {
+            text.push_str(&format!("secret = {}\n", quoted(secret)));
+        }
         if !binding.settings.is_empty() {
             text.push_str(&format!("[applications.{list}.settings]\n"));
             for (key, value) in &binding.settings {
@@ -192,14 +197,24 @@ pub fn written(placements: &[Placement], bound: impl Fn(&Placement) -> Binding) 
 
 /// Each placement over SFTP on the Parties' far end at `host` — `host` or
 /// `host:port`, [`FAR_END_PORT`] where it names none — as a user of its
-/// own, the user's directory its folder there; a Receive Location accepting
-/// the circumstance of what it fetches, as a drop folder's.
+/// own, the user's directory its folder there, presenting the password its
+/// secret [`far_end_secret`] holds, which the far end checks; a Receive
+/// Location accepting the circumstance of what it fetches, as a drop
+/// folder's.
 pub fn far_end(host: &str) -> impl Fn(&Placement) -> Binding + '_ {
     move |placement| Binding {
         address: format!("sftp://{}@{}", placement.folded(), with_port(host)),
         settings: vec![("timeout".to_string(), "10s".to_string())],
+        secret: Some(far_end_secret(placement)),
         accepting: placement.placed == Placed::Receive,
     }
+}
+
+/// The name of the secret a placement presents to the Parties' far end:
+/// `far-end.<folded name>`, set on its node by whoever serves the far end.
+#[must_use]
+pub fn far_end_secret(placement: &Placement) -> String {
+    format!("far-end.{}", placement.folded())
 }
 
 /// `host` with [`FAR_END_PORT`] where it names no port of its own.
@@ -306,6 +321,7 @@ mod tests {
             first["settings"].get("user").is_none(),
             "the address names the user"
         );
+        assert_eq!(first["secret"].as_str(), Some("far-end.from-a"));
         assert_eq!(
             first["accept"]["mechanism"][0].as_str(),
             Some("circumstance")
