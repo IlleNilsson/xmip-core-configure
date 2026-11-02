@@ -514,7 +514,7 @@ anchors = "tls/anchors.pem"
 
 Xmip Storage keeps three databases, one to each data domain, and each is a
 table of its own, its `storage` and its `connection` (`src/database.rs`;
-the owner, 2026-10-10: *i would do it like runtime, storage, connection
+the owner, 2026-10-10: *I would do it like runtime, storage, connection
 string. Same for audit and administration*, and *Yes, better*). Each may be
 on another technology and another server:
 

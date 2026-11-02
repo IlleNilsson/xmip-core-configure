@@ -4,7 +4,7 @@
 //! `deployment-model.md` section 7).
 //!
 //! Each domain is a table of its own, its `storage` and its `connection`
-//! (the owner, 2026-10-10: *i would do it like runtime, storage, connection
+//! (the owner, 2026-10-10: *I would do it like runtime, storage, connection
 //! string. Same for audit and administration*, and *Yes, better*), and each
 //! may be on another technology and another server:
 //!
