@@ -235,12 +235,14 @@ endpoint the user its process runs as; `role` is what each may do, and a
 word that is no role is Observer, which acts on nothing. A key it does not
 know is refused.
 
-`relay` names who may act for a caller it serves (ADR-0009, amendment
-2026-11-01): a web host takes its browsers' TLS, and the node, not the host,
-decides who acts. Each identity it names — an account on the local endpoint,
-a certificate's subject on the network listener — may hand the node the
-certificate a caller presented to it; the node verifies it against `anchors`
-and its own authentication gate before it holds the caller, acts for that
+`relay` names who may act for a caller it serves (ADR-0009, amendments
+2026-11-01 and 2026-11-02): a web host takes its browsers' TLS, and the node,
+not the host, decides who acts. Each identity it names — an account on the
+local endpoint, a certificate's subject on the network listener — may ask the
+node for fresh nonces and hand it a browser's handshake bound to one; the node
+checks that the browser signed it with its certificate's key, to that
+relay's own listener under `anchors`, verifies the browser's chain against
+`anchors` and its own authentication gate before it holds the caller, acts for that
 caller by the caller's own role, never the relay's, and audits who and the
 relay it came through. A handle a relay was answered is no one through any
 other identity, and ends with the caller's certificate or when the relay
