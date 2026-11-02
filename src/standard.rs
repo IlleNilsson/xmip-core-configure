@@ -92,7 +92,7 @@ pub fn with_declared(modules: &[ModuleConfiguration]) -> (Vec<ModuleConfiguratio
 /// What a call to the standard unit `unit` giving `given` is refused for
 /// beyond its declaration, one sentence each: a Script runtime Xmip does not
 /// host, JavaScript by name (the owner, 2026-10-22: *Keeping JavaScript out
-/// of it from the begining is one way*). The rule is
+/// of it from the beginning is one way*). The rule is
 /// `transform::declaration::script_refusal`, the one a starting node calls.
 #[must_use]
 pub fn refusals(unit: &str, given: &[(String, Given)]) -> Vec<String> {
