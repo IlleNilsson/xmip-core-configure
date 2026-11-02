@@ -17,11 +17,11 @@ unsafe_code = "forbid"
 
 [dependencies]
 serde = { version = "1", features = ["derive"] }
-toml = "0.9"
+toml = "1"
 # The same family as toml, keeping what it does not touch: an edit a designer
 # makes to an Xmip Application changes its lines and leaves the developer's
 # comments and layout as they were (ADR-0064 clause 4).
-toml_edit = { version = "0.23", features = ["serde"] }
+toml_edit = { version = "0.25", features = ["serde"] }
 abi = { package = "xmip-core-abi", git = "https://github.com/IlleNilsson/xmip-core-abi", branch = "main" }
 # A Subscription, its filter and where it routes are route's, read here from
 # an Xmip Application and never modelled again (ADR-0064).
