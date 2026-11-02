@@ -22,7 +22,18 @@
 //! role = "operator"                   # every proven caller's; Observer if left out
 //! admit = ['CONTOSO\xmip-operators']  # who else may open the local endpoint
 //! group = "xmip-operators"            # on Unix, the socket's group; the node's own if left out
+//! relay = ['CONTOSO\xmip-web']        # who may act for a caller it vouches for
 //! ```
+//!
+//! **Who may relay for a caller** (ADR-0009, amendment 2026-11-01): a web
+//! host takes its browsers' TLS, and the node, not the host, decides who
+//! acts. Each identity `relay` names — an account on the local endpoint,
+//! a certificate's subject on the network listener — may hand the node the
+//! certificate a caller presented to it, which the node verifies against
+//! `anchors` and its own authentication gate before it holds the caller,
+//! and act for that caller by the caller's own role; never by its own,
+//! which relaying adds nothing to. `relay` takes `anchors`, also where
+//! there is no `listen`. Nobody relays where it is left out.
 //!
 //! **Who may open the local endpoint** is the operating system's to
 //! enforce and the configuration's to say (the owner, 2026-10-19: *local
@@ -87,6 +98,10 @@ pub struct OperateConfiguration {
     /// descriptor and reads it not.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub group: Option<String>,
+    /// The identities that may act for a caller they vouch for, by the
+    /// caller's own role; nobody where it is left out.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub relay: Vec<String>,
 }
 
 /// The network listener's keys, all given.
@@ -118,6 +133,25 @@ impl OperateConfiguration {
             key: given(listen, "key", self.key.as_deref())?,
             anchors: given(listen, "anchors", self.anchors.as_deref())?,
         }))
+    }
+}
+
+impl OperateConfiguration {
+    /// Who may relay and the anchors file their callers' certificates must
+    /// reach, where `relay` names anyone.
+    ///
+    /// # Errors
+    ///
+    /// `relay` without `anchors`, in words naming the key.
+    pub fn relaying(&self) -> Result<Option<(&[String], &str)>, String> {
+        if self.relay.is_empty() {
+            return Ok(None);
+        }
+        let anchors = self
+            .anchors
+            .as_deref()
+            .ok_or_else(|| "[operate] relay needs anchors".to_string())?;
+        Ok(Some((&self.relay, anchors)))
     }
 }
 
@@ -164,5 +198,20 @@ mod tests {
             short.network(),
             Err("[operate] listen = \"x:1\" needs key".to_string())
         );
+    }
+
+    #[test]
+    fn a_relay_takes_anchors_and_nobody_relays_where_it_names_none() {
+        let none: OperateConfiguration = toml::from_str("role = \"operator\"\n").expect("read");
+        assert_eq!(none.relaying(), Ok(None));
+        let bare: OperateConfiguration = toml::from_str("relay = ['HOST\\web']\n").expect("read");
+        assert_eq!(
+            bare.relaying(),
+            Err("[operate] relay needs anchors".to_string())
+        );
+        let named: OperateConfiguration =
+            toml::from_str("relay = ['HOST\\web']\nanchors = \"a.pem\"\n").expect("read");
+        let relay = ["HOST\\web".to_string()];
+        assert_eq!(named.relaying(), Ok(Some((&relay[..], "a.pem"))));
     }
 }
