@@ -25,12 +25,14 @@
 //! relay = ['CONTOSO\xmip-web']        # who may act for a caller it vouches for
 //! ```
 //!
-//! **Who may relay for a caller** (ADR-0009, amendment 2026-11-01): a web
-//! host takes its browsers' TLS, and the node, not the host, decides who
-//! acts. Each identity `relay` names — an account on the local endpoint,
-//! a certificate's subject on the network listener — may hand the node the
-//! certificate a caller presented to it, which the node verifies against
-//! `anchors` and its own authentication gate before it holds the caller,
+//! **Who may relay for a caller** (ADR-0009, amendments 2026-11-01 and
+//! 2026-11-02): a web host takes its browsers' TLS, and the node, not the
+//! host, decides who acts. Each identity `relay` names — an account on the
+//! local endpoint, a certificate's subject on the network listener — may
+//! hand the node a browser's handshake bound to the node's own fresh nonce,
+//! which proves the browser held its key, to that relay's own listener; the
+//! node verifies the browser's chain against `anchors` and its own
+//! authentication gate before it holds the caller,
 //! and act for that caller by the caller's own role; never by its own,
 //! which relaying adds nothing to. `relay` takes `anchors`, also where
 //! there is no `listen`. Nobody relays where it is left out.
