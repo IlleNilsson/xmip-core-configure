@@ -226,13 +226,27 @@ anchors = "tls/cluster-anchor.pem"  # what a surface's certificate must reach
 role = "operator"                   # every proven caller's; Observer if left out
 admit = ['CONTOSO\xmip-operators']  # who else may open the local endpoint
 group = "xmip-operators"            # on Unix, the socket's group; the node's own if left out
+relay = ['CONTOSO\xmip-web']        # who may act for a caller it vouches for
 ```
 
 A relative path is relative to the configuration file. Every caller on the
 network is the subject of the certificate it presented, and on the local
 endpoint the user its process runs as; `role` is what each may do, and a
 word that is no role is Observer, which acts on nothing. A key it does not
-know is refused. `xmip-service` refuses to start a node whose listener cannot
+know is refused.
+
+`relay` names who may act for a caller it serves (ADR-0009, amendment
+2026-11-01): a web host takes its browsers' TLS, and the node, not the host,
+decides who acts. Each identity it names — an account on the local endpoint,
+a certificate's subject on the network listener — may hand the node the
+certificate a caller presented to it; the node verifies it against `anchors`
+and its own authentication gate before it holds the caller, acts for that
+caller by the caller's own role, never the relay's, and audits who and the
+relay it came through. A handle a relay was answered is no one through any
+other identity, and ends with the caller's certificate or when the relay
+lets it go. Relaying grants no act of its own. `relay` takes `anchors`,
+also where there is no `listen`; nobody relays where it is left out, and a
+host acting for a browser is then refused in words. `xmip-service` refuses to start a node whose listener cannot
 bind or whose files cannot be read, as it refuses any node that cannot
 start.
 
