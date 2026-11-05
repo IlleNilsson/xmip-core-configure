@@ -1,4 +1,4 @@
-//! A cluster's configuration, `xmip.toml`, and the one slicing of it into
+//! A cluster's configuration, `cluster.xmip`, and the one slicing of it into
 //! each node's (ADR-0031, amendment 2026-10-03: *There is one xmip.toml
 //! file per cluster. When deployed the sections regarding a node will be
 //! sliced to that node*).
@@ -123,7 +123,7 @@ pub fn slice(cluster: &str, node: &str) -> Result<String, String> {
                     .map(|name| format!("[nodes.{name}]"))
                     .collect();
                 return Err(format!(
-                    "the cluster's xmip.toml has no [nodes.{node}]; it has {}",
+                    "cluster.xmip has no [nodes.{node}]; it has {}",
                     if tables.is_empty() {
                         "none".to_string()
                     } else {
@@ -162,7 +162,7 @@ pub fn slice(cluster: &str, node: &str) -> Result<String, String> {
     }
     let written = toml::to_string(&table).map_err(|error| error.to_string())?;
     Ok(format!(
-        "# The node {node}'s configuration, sliced from its cluster's xmip.toml.\n\
+        "# The node {node}'s configuration, sliced from its cluster's cluster.xmip.\n\
          # Edit the cluster's file; this one is written again as the node is deployed.\n\n\
          {written}"
     ))
@@ -196,7 +196,7 @@ pub fn cluster_name(cluster: &str) -> Result<Option<String>, String> {
 /// As [`slice`]; where `name` is empty, or the file names another cluster.
 pub fn slice_named(cluster: &str, node: &str, name: &str) -> Result<String, String> {
     if name.trim().is_empty() {
-        return Err("the environment names no cluster for the cluster's xmip.toml".to_string());
+        return Err("the environment names no cluster for cluster.xmip".to_string());
     }
     let mut table = read(cluster)?;
     let Value::Table(service) = table
@@ -208,7 +208,7 @@ pub fn slice_named(cluster: &str, node: &str, name: &str) -> Result<String, Stri
     match service.get("cluster_name").and_then(Value::as_str) {
         Some(written) if written != name => {
             return Err(format!(
-                "the cluster's xmip.toml names the cluster '{written}', and its environment \
+                "cluster.xmip names the cluster '{written}', and its environment \
                  names '{name}'"
             ));
         }

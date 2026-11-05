@@ -1,4 +1,4 @@
-//! What the cluster designer does to the one `xmip.toml`, applied to its
+//! What the cluster designer does to the one `cluster.xmip`, applied to its
 //! text (ADR-0064 clause 4 and amendment 2026-10-03: every designer is a
 //! view of its own sections of the one file).
 //!

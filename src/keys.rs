@@ -1,4 +1,4 @@
-//! The keys a cluster's `xmip.toml` may hold, table by table, as its
+//! The keys a cluster's `cluster.xmip` may hold, table by table, as its
 //! readers declare them (ADR-0064, amendment 2026-10-13: every key and value
 //! suggested from the one parse, never a copy in a surface).
 //!

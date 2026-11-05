@@ -1,6 +1,6 @@
-//! An Xmip Application held as a section of the cluster's `xmip.toml`
+//! An Xmip Application held as a section of `cluster.xmip`
 //! (ADR-0064 and ADR-0031, amendments 2026-10-03: *Developers, Operators
-//! deal with the one xmip.toml file*, its Xmip Applications among its
+//! deal with the one cluster.xmip file*, its Xmip Applications among its
 //! sections). There is no other place an Application is written.
 //!
 //! ```toml

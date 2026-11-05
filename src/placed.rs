@@ -6,10 +6,10 @@
 //! present that declare `receiving` or `executing`; its Send Ports over
 //! those declaring `sending` or `executing`.
 //!
-//! The Playground places the nodes it starts on one computer by it, over
+//! The Essentials places the nodes it starts on one computer by it, over
 //! folders of its run; `xmip-service --slice --bind` places a node on a
-//! machine of its own by it, over the Parties' far end the Playground
-//! serves ([`far_end`]); and the Playground drives what it placed, so the
+//! machine of its own by it, over the Parties' far end the Essentials
+//! serves ([`far_end`]); and the Essentials drives what it placed, so the
 //! two can never place differently.
 
 use crate::{cluster, section};

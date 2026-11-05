@@ -2,9 +2,9 @@
 //! name from (the owner, 2026-10-03: names in code and tests are parameters
 //! and configuration, never literals).
 //!
-//! It reads the cluster's `xmip.toml` the variable [`VARIABLE`] names, a
+//! It reads `cluster.xmip` the variable [`VARIABLE`] names, a
 //! path — `Start-XmipTest` sets it — and otherwise the estate's
-//! `test/xmip.toml`, through [`crate::cluster`], the one reading of a
+//! `test/cluster.xmip`, through [`crate::cluster`], the one reading of a
 //! cluster's file. A test finds a node by what it declares
 //! ([`TestCluster::with_role`]) or by its place ([`TestCluster::node`]),
 //! and builds the text it tests from the names it is given. A test of two
@@ -21,11 +21,11 @@ use crate::cluster;
 pub const VARIABLE: &str = "XMIP_TEST_CLUSTER";
 
 /// Where the estate keeps its test cluster's file, from the estate's root.
-pub const ESTATE_FILE: &str = "test/xmip.toml";
+pub const ESTATE_FILE: &str = "test/cluster.xmip";
 
 /// Where the estate keeps its second test cluster's file, from the
 /// estate's root: the cluster beside the test cluster.
-pub const OTHER_FILE: &str = "test/other/xmip.toml";
+pub const OTHER_FILE: &str = "test/other/cluster.xmip";
 
 /// The test cluster, read.
 #[derive(Clone, Debug, PartialEq, Eq)]

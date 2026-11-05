@@ -1,4 +1,4 @@
-//! The cluster designer's views of the one `xmip.toml` (ADR-0064, amendment
+//! The cluster designer's views of the one `cluster.xmip` (ADR-0064, amendment
 //! 2026-10-03: *VS Code's Xmip Extension shall work against this one /
 //! cluster toml file*, every designer a view of its own sections of it).
 //!

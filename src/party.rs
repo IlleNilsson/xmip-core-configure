@@ -12,7 +12,7 @@
 //! ]
 //! ```
 //!
-//! Written once at the top of the cluster's `xmip.toml`, so every node's
+//! Written once at the top of `cluster.xmip`, so every node's
 //! slice holds them ([`crate::cluster`]). Read here and nowhere else: the
 //! node document's field ([`crate::XmipConfigurationDocument::parties`]) and
 //! [`parties`], for a reader that holds a cluster's file and no node.

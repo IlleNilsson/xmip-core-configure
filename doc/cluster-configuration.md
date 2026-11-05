@@ -1,6 +1,6 @@
-# The cluster's configuration, `xmip.toml`
+# The cluster's configuration, `cluster.xmip`
 
-A cluster's configuration is one file, `xmip.toml` (ADR-0031, amendment
+A cluster's configuration is one file, `cluster.xmip` (ADR-0031, amendment
 2026-10-03: *There is one xmip.toml file per cluster. When deployed the
 sections regarding a node will be sliced to that node*). What the whole
 cluster shares is written once, at the top; what concerns one node is under
@@ -190,10 +190,10 @@ writes the node `node` its configuration document, which
   names. A cluster's file that says nothing of where it runs — no cluster
   name, no machine's address, no absolute path — is the same file on one
   computer and on machines of their own (ADR-0028, amendment 2026-10-21):
-  the Playground's run names the cluster, and `xmip-service --slice
+  the Essentials' run names the cluster, and `xmip-service --slice
   --cluster` and `--install --cluster` on a machine.
 
-**Only this file is edited.** A node's `xmip-node.toml` is its slice, written
+**Only this file is edited.** A node's `node.xmip` is its slice, written
 by desired state and never edited; one changed by hand breaks the
 configuration rules and is written over at the next deployment (ADR-0031,
 amendment 2026-10-05).
@@ -206,17 +206,17 @@ document holding `[nodes]`, saying it is a cluster's to slice.
 - **Desired state**, as it deploys each node (`deployment-model.md`
   section 8): the environment templates — Microsoft DSC v3's
   `deploy/dsc/msdsc/environment` and Ansible's role `xmip_node` — place the
-  cluster's `xmip.toml` and write the node `xmip-service --configuration
-  <xmip.toml> --node <name> --cluster <cluster> --slice`'s output as its
-  `xmip-node.toml`. Neither takes the file apart itself; the estate root's
-  `cargo test --test deploy` slices the Playground's file, which the example
+  cluster's `cluster.xmip` and write the node `xmip-service --configuration
+  <cluster.xmip> --node <name> --cluster <cluster> --slice`'s output as its
+  `node.xmip`. Neither takes the file apart itself; the estate root's
+  `cargo test --test deploy` slices the Essentials' file, which the example
   environment runs, for every node it declares and reads each slice as
   `xmip-service` does.
 - **The Operation Desktop**, when its Configure page saves the cluster's
   file (ADR-0031, amendment 2026-10-05: *the cluster TOML file is sliced
   into node TOML files and shipped to each node on save*): through the
   runtime's `xmip_cluster_slices_v1` (`xmip_operate.h` section 10), node by
-  node, each slice written as `<node>/xmip-node.toml` where the desktop
+  node, each slice written as `<node>/node.xmip` where the desktop
   keeps them. The node the desktop starts reads its slice there; another
   node's is written and not shipped, since no Xmip path yet puts a file on
   another node — desired state, above, slices it on the node.
@@ -236,8 +236,8 @@ different acts with different states (ADR-0031, amendments 2026-10-01 and
 
 | Act | What it is | State |
 | --- | --- | --- |
-| **Saving** | the cluster's `xmip.toml` written, validated by the runtime, and audited | [built, in the assembled service](../../../../doc/architecture/estate-map.md#configuration-saving) |
-| **Slicing** | the file taken apart into each node's `xmip-node.toml`, by the desktop or by desired state | [built, in the assembled service](../../../../doc/architecture/estate-map.md#configuration-saving) |
+| **Saving** | `cluster.xmip` written, validated by the runtime, and audited | [built, in the assembled service](../../../../doc/architecture/estate-map.md#configuration-saving) |
+| **Slicing** | the file taken apart into each node's `node.xmip`, by the desktop or by desired state | [built, in the assembled service](../../../../doc/architecture/estate-map.md#configuration-saving) |
 | **Delivery** | a slice put on its node, over Xmip's own transport | [decided, not built](../../../../doc/architecture/estate-map.md#configuration-delivery): desired state places the cluster's file and slices it on the node; the desktop delivers only to the node it starts itself |
 | **Acceptance** | the node validating what it was given and answering accepted or refused | [decided, not built](../../../../doc/architecture/estate-map.md#configuration-delivery) |
 | **Activation** | the node running by it: a changed slice takes effect when what reads it starts again, never mid-flight | a whole node's restart is [built, in the assembled service](../../../../doc/architecture/estate-map.md#configuration-saving); restarting only the threads or Host Services that changed is [decided, not built](../../../../doc/architecture/estate-map.md#configuration-delivery) |
@@ -316,7 +316,7 @@ through the runtime's `xmip_operate.h` section 10:
 ## The test cluster
 
 The estate's tests take every cluster's and node's name from one file, the
-estate's `test/xmip.toml`, or the file the variable `XMIP_TEST_CLUSTER`
+estate's `test/cluster.xmip`, or the file the variable `XMIP_TEST_CLUSTER`
 names: `configure::fixture::test_cluster()` (feature `test-support`) reads
 it through the slicing above and answers its name and its nodes, each found
 by the roles it declares (`with_role`) or its place (`node`), never by a

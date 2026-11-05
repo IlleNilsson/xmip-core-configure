@@ -6,7 +6,7 @@ It owns configuration interpretation, not runtime execution or durable state.
 
 `XmipConfigurationDocument` is the one model of a node's configuration in
 the estate, read by `parse_toml`. `XmipApplication` is the Xmip Application
-a developer designs (ADR-0064), a section of the cluster's one `xmip.toml`,
+a developer designs (ADR-0064), a section of the cluster's one `cluster.xmip`,
 `[[xmip_applications]]`, read by `parse_application` and checked by
 `problems`; its Subscriptions are `route`'s own, never modeled again. A
 node's configuration binds the sections it runs in `[[applications]]`, and
@@ -84,7 +84,7 @@ choice — RocksDB for the runtime database (ADR-0015 and ADR-0018,
 amendments 2026-10-01) — and `[store] engine` and `[store] place` are
 refused as unknown keys.
 
-A cluster's configuration is one `xmip.toml`: its shared sections once and
+A cluster's configuration is one `cluster.xmip`: its shared sections once and
 each node's under `[nodes.<name>]`, and `slice` is the one slicing of it
 into a node's document, the node's value winning (`cluster.rs`; ADR-0031,
 amendment 2026-10-03; [`doc/cluster-configuration.md`](doc/cluster-configuration.md)).
@@ -122,7 +122,7 @@ so `xmip_validate_v1` validates it node by node. `[tuning]` holds every
 outward and hardware assumption a node runs by; its keys, bounds and
 defaults are the runtime's declaration (`tuning::TUNING`). With the
 `test-support` feature, `fixture::test_cluster` reads the estate's test
-cluster, `test/xmip.toml` or the file `XMIP_TEST_CLUSTER` names: the one
+cluster, `test/cluster.xmip` or the file `XMIP_TEST_CLUSTER` names: the one
 place a test takes a cluster's or a node's name from.
 
 A node's top-level `roles` is the role words its cluster's

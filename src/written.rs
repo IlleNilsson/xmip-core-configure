@@ -1,4 +1,4 @@
-//! Where each table and key of a cluster's `xmip.toml` is written, in bytes
+//! Where each table and key of a cluster's `cluster.xmip` is written, in bytes
 //! of its text (ADR-0064, amendment 2026-10-13: an editor goes to a
 //! definition, finds its references and outlines the file from the one
 //! parse).

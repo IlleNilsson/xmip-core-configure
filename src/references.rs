@@ -1,4 +1,4 @@
-//! What in a cluster's `xmip.toml` names what (ADR-0064, amendment
+//! What in a cluster's `cluster.xmip` names what (ADR-0064, amendment
 //! 2026-10-13: go to a definition, find every reference, rename across the
 //! file, and refuse or follow a deletion of something still named).
 //!
