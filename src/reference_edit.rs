@@ -1,5 +1,5 @@
 //! The edits that follow what names what ([`crate::references`]), made in
-//! place in the cluster's `xmip.toml` as [`crate::view_edit`] makes every
+//! place in `cluster.xmip` as [`crate::view_edit`] makes every
 //! edit (ADR-0064, amendment 2026-10-13: create, edit, delete, rename):
 //!
 //! - **rename** an entry or a node, and every name in the file that stands

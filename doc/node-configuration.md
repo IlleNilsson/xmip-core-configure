@@ -3,7 +3,7 @@
 Moved here from the estate root on 2026-09-12 (ADR-0020 clause 3: the document lives where its subject lives).
 
 A node's document is written once for the whole cluster, in its
-`xmip.toml`, and sliced to each node as it is deployed: every section below
+`cluster.xmip`, and sliced to each node as it is deployed: every section below
 is written there at the top for every node, or under `[nodes.<name>]` for
 one ([`cluster-configuration.md`](cluster-configuration.md); ADR-0031,
 amendment 2026-10-03).
@@ -353,7 +353,7 @@ gap where no route reaches the authority (`xmip certificate --node`,
 ### What a node runs by: `[tuning]`
 
 Every outward and hardware assumption a node runs by is configured, per
-cluster and per node, under `[tuning]` in the cluster's `xmip.toml` and
+cluster and per node, under `[tuning]` in `cluster.xmip` and
 `[nodes.<name>.tuning]` for one node, the node's winning in its slice
 ([`cluster-configuration.md`](cluster-configuration.md); ADR-0031,
 amendment 2026-10-03). Every key may be left out; its default is the
@@ -830,7 +830,7 @@ address = "/var/xmip/out/ledger"
 ```
 
 A binding binds the Application the configuration holds as its section of
-the same name, `[[xmip_applications]]`: the cluster's one `xmip.toml`
+the same name, `[[xmip_applications]]`: the cluster's one `cluster.xmip`
 writes it, and the slice gives it to the nodes that bind it
 ([`cluster-configuration.md`](cluster-configuration.md)). `<cluster>`,
 `<node>` and `<another>` stand for the names whoever runs the cluster

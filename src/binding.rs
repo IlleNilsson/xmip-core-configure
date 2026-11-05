@@ -2,7 +2,7 @@
 //! it, and the environment's side of what it declares.
 //!
 //! The Application holds the design, drawn once as a section of the
-//! cluster's `xmip.toml`, `[[xmip_applications]]` ([`crate::section`]);
+//! cluster's `cluster.xmip`, `[[xmip_applications]]` ([`crate::section`]);
 //! each node's configuration names the Applications it runs in
 //! `[[applications]]`, each binding the section of its name, and gives every
 //! Receive Location and Send Port it binds an address, the secret it names

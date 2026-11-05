@@ -1,6 +1,6 @@
 //! The Xmip Application (ADR-0064): an integration as a developer designs
 //! it, drawn once and bound by every node that runs it. It is a section of
-//! the cluster's one `xmip.toml`, `[[xmip_applications]]` ([`crate::section`];
+//! the cluster's one `cluster.xmip`, `[[xmip_applications]]` ([`crate::section`];
 //! ADR-0064 and ADR-0031, amendments 2026-10-03), and [`parse_application`]
 //! is its one reading.
 //!

@@ -17,14 +17,14 @@
 //! An Xmip Application (ADR-0064) — an integration as a developer designs
 //! it: its Receive Ports and Locations, Subscriptions, Work Processes and
 //! Send Ports, with no environment in it — is a section of the cluster's
-//! one `xmip.toml`, `[[xmip_applications]]` ([`section`]), read by
+//! one `cluster.xmip`, `[[xmip_applications]]` ([`section`]), read by
 //! [`parse_application`]. A node's configuration *binds* the sections it
 //! runs (`[[applications]]`, [`binding`]) and [`bind`] joins the two into
 //! what one node runs; where an environment writes no binding by hand,
 //! [`placed`] places each Location on its nodes. The designer's view of an Application — its
 //! [`routes`], a filter's structure ([`filter`]) and the edits it makes
 //! ([`edit`]) — is here too, and so is the designer's view of the cluster's
-//! one `xmip.toml`, artifact by artifact ([`views`]), and the edits it makes
+//! one `cluster.xmip`, artifact by artifact ([`views`]), and the edits it makes
 //! there ([`view_edit`]), because what the design means is this crate's to
 //! say; the language server reaches it through the runtime's library. So
 //! is what an editor suggests, looks up and renames by (ADR-0064, amendment
@@ -161,7 +161,7 @@ pub struct XmipConfigurationDocument {
     /// side of what it declares (ADR-0064). Empty when the node binds none.
     #[serde(default)]
     pub applications: Vec<ApplicationBinding>,
-    /// The Xmip Applications held as sections of the cluster's `xmip.toml`,
+    /// The Xmip Applications held as sections of `cluster.xmip`,
     /// `[[xmip_applications]]` ([`section`], ADR-0064 amendment
     /// 2026-10-03): those this node's bindings name, as the slice gives
     /// them. A binding binds the section of its name.
@@ -228,14 +228,14 @@ impl XmipConfigurationDocument {
     }
 }
 
-/// Which of the two documents a text is. A cluster's `xmip.toml` declares
+/// Which of the two documents a text is. A cluster's `cluster.xmip` declares
 /// its nodes in `[nodes]` ([`cluster`]); everything else is read as a
 /// node's configuration, whose reading says what is wrong with it.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum DocumentKind {
     /// A node's configuration, [`XmipConfigurationDocument`].
     Node,
-    /// A cluster's `xmip.toml`, each node's document sliced from it
+    /// A cluster's `cluster.xmip`, each node's document sliced from it
     /// ([`slice`]).
     Cluster,
 }
@@ -377,12 +377,12 @@ impl Accept {
 ///
 /// # Errors
 /// When the text is not TOML, lacks a key the document requires, or is a
-/// cluster's `xmip.toml`, which a node reads only as its slice.
+/// cluster's `cluster.xmip`, which a node reads only as its slice.
 pub fn parse_toml(source: &str) -> Result<XmipConfigurationDocument, String> {
     let document = toml::from_str(source).map_err(|error: toml::de::Error| error.to_string())?;
     if is_cluster(source) {
         return Err(
-            "this is a cluster's xmip.toml, which declares [nodes]; a node reads the slice \
+            "this is a cluster's cluster.xmip, which declares [nodes]; a node reads the slice \
              deployment writes it (configure::slice)"
                 .to_string(),
         );
@@ -442,7 +442,7 @@ lifetime = \"8h\"
 
     #[test]
     fn the_data_directory_is_the_layouts_unless_the_document_names_one() {
-        let path = std::path::Path::new("/opt/xmip/config/xmip-node.toml");
+        let path = std::path::Path::new("/opt/xmip/config/node.xmip");
         let installed = parse_toml(HEAD).expect("parses");
         let layout = if cfg!(windows) {
             "/opt/xmip/data"
@@ -456,7 +456,7 @@ lifetime = \"8h\"
         // In the platform's own separators, whatever the document wrote.
         let shown = installed
             .service
-            .data_directory(std::path::Path::new("config/./xmip-node.toml"))
+            .data_directory(std::path::Path::new("config/./node.xmip"))
             .join("storage")
             .display()
             .to_string();

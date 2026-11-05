@@ -1,5 +1,5 @@
 //! What a designer does to an Xmip Application, applied to its section of
-//! the cluster's `xmip.toml` (ADR-0064 clause 4: a design is text, and the
+//! `cluster.xmip` (ADR-0064 clause 4: a design is text, and the
 //! designer is a view of it; [`crate::view_edit`] finds the section).
 //!
 //! An edit is checked against the Application as it reads — a Subscription

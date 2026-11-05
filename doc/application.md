@@ -7,7 +7,7 @@ repository (ADR-0031), diffed, reviewed and merged like code. The Route view
 of the VS Code designer is a view of this text; a developer may edit either,
 and the other follows.
 
-Developers author it among the sections of the cluster's one `xmip.toml`,
+Developers author it among the sections of the cluster's one `cluster.xmip`,
 as an `[[xmip_applications]]` entry, and nowhere else (ADR-0064 and
 ADR-0031, amendments 2026-10-03;
 [`cluster-configuration.md`](cluster-configuration.md)); the slice gives it

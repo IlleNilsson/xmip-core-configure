@@ -53,7 +53,7 @@ process = { package = "xmip-core-process", git = "https://github.com/IlleNilsson
 
 [features]
 # The test cluster every Rust test takes its cluster's and nodes' names from
-# (`fixture`, `test/xmip.toml`), placed once in the lowest layer that reads a
+# (`fixture`, `test/cluster.xmip`), placed once in the lowest layer that reads a
 # cluster's file. Never in a production build.
 test-support = []
 
