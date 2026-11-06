@@ -8,8 +8,9 @@
 //! holds a Location's settings to its technology's ([`declared`]).
 
 use std::collections::BTreeMap;
-use std::sync::{Mutex, OnceLock, PoisonError};
+use std::sync::{Mutex, OnceLock};
 use std::time::Duration;
+use xcore::lock::Locked;
 
 use abi::{ModuleManifest, ModuleUnit, UnitCapability, UnitDefault, UnitSetting};
 use node::Stage;
@@ -179,11 +180,7 @@ pub fn declared(module: &str, unit: &ModuleUnit) -> Result<&'static Settings, St
     static MADE: OnceLock<Mutex<BTreeMap<String, &'static Settings>>> = OnceLock::new();
     let key = format!("{module}\u{0}{unit:?}");
     let made = MADE.get_or_init(Mutex::default);
-    if let Some(found) = made
-        .lock()
-        .unwrap_or_else(PoisonError::into_inner)
-        .get(&key)
-    {
+    if let Some(found) = made.locked().get(&key) {
         return Ok(found);
     }
     let technology = format!("{module} unit {}", unit.name);
@@ -196,9 +193,7 @@ pub fn declared(module: &str, unit: &ModuleUnit) -> Result<&'static Settings, St
         technology: kept(technology),
         settings: Box::leak(settings.into_boxed_slice()),
     }));
-    made.lock()
-        .unwrap_or_else(PoisonError::into_inner)
-        .insert(key, shaped);
+    made.locked().insert(key, shaped);
     Ok(shaped)
 }
 
