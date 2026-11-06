@@ -208,10 +208,13 @@ document holding `[nodes]`, saying it is a cluster's to slice.
 
 - **Desired state**, as it deploys each node (`deployment-model.md`
   section 8): the environment templates — Microsoft DSC v3's
-  `deploy/dsc/msdsc/environment` and Ansible's role `xmip_node` — place the
-  cluster's `cluster.xmip` and write the node `xmip-service --configuration
-  <cluster.xmip> --node <name> --cluster <cluster> --slice`'s output as its
-  `node.xmip`. Neither takes the file apart itself; the estate root's
+  `deploy/dsc/msdsc/environment` and Ansible's role `xmip_node` — run
+  `xmip-service --configuration <cluster.xmip> --node <name> --cluster
+  <cluster> --authority <folder> --slice` on the machine the environment is
+  deployed from, signed by the environment's authority kept there, and ship
+  the node its output as `node.xmip` with the authority's certificate
+  beside it; a node never slices (ADR-0031, amendment 2026-11-06). Neither
+  takes the file apart itself; the estate root's
   `cargo test --test deploy` slices the Essentials' file, which the example
   environment runs, for every node it declares and reads each slice as
   `xmip-service` does.
