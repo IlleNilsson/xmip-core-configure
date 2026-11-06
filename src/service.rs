@@ -38,24 +38,32 @@ impl ServiceConfiguration {
     /// a directory before it may be a link.
     #[must_use]
     pub fn data_directory(&self, configuration: &Path) -> PathBuf {
-        let base = configuration.parent().unwrap_or_else(|| Path::new(""));
-        let joined = base.join(self.data.as_deref().unwrap_or(DEFAULT_DATA));
-        let mut clean = PathBuf::new();
-        for part in joined.components() {
-            match part {
-                std::path::Component::CurDir => {}
-                std::path::Component::ParentDir
-                    if cfg!(windows)
-                        && matches!(
-                            clean.components().next_back(),
-                            Some(std::path::Component::Normal(_))
-                        ) =>
-                {
-                    clean.pop();
-                }
-                other => clean.push(other),
-            }
-        }
-        clean
+        data_directory(self.data.as_deref(), configuration)
     }
+}
+
+/// The data directory `data` names, [`DEFAULT_DATA`] where it names none,
+/// for the configuration file at `configuration`: as
+/// [`ServiceConfiguration::data_directory`] says.
+#[must_use]
+pub fn data_directory(data: Option<&str>, configuration: &Path) -> PathBuf {
+    let base = configuration.parent().unwrap_or_else(|| Path::new(""));
+    let joined = base.join(data.unwrap_or(DEFAULT_DATA));
+    let mut clean = PathBuf::new();
+    for part in joined.components() {
+        match part {
+            std::path::Component::CurDir => {}
+            std::path::Component::ParentDir
+                if cfg!(windows)
+                    && matches!(
+                        clean.components().next_back(),
+                        Some(std::path::Component::Normal(_))
+                    ) =>
+            {
+                clean.pop();
+            }
+            other => clean.push(other),
+        }
+    }
+    clean
 }
