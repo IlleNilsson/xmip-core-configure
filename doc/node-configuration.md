@@ -6,7 +6,10 @@ A node's document is written once for the whole cluster, in its
 `cluster.xmip`, and sliced to each node as it is deployed: every section below
 is written there at the top for every node, or under `[nodes.<name>]` for
 one ([`cluster-configuration.md`](cluster-configuration.md); ADR-0031,
-amendment 2026-10-03).
+amendment 2026-10-03). A slice ends in the `[signature]` table its
+cluster's authority signs it under, which no node reads as configuration:
+a node runs the text above it only where the signature verifies (ADR-0031,
+amendment 2026-11-06).
 
 
 A Work Process passes through four things, kept apart here because only

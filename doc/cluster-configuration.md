@@ -194,9 +194,12 @@ writes the node `node` its configuration document, which
   --cluster` and `--install --cluster` on a machine.
 
 **Only this file is edited.** A node's `node.xmip` is its slice, written
-by desired state and never edited; one changed by hand breaks the
-configuration rules and is written over at the next deployment (ADR-0031,
-amendment 2026-10-05).
+by desired state and never edited (ADR-0031, amendment 2026-10-05). Every
+slice is signed by the cluster's authority as it is written, under a
+`[signature]` table (`configure::signed`), and a node runs only one that
+verifies against the authority's certificate in the `authority` folder
+beside it. One changed by hand is refused and audited, and the node runs
+its last accepted slice instead (ADR-0031, amendment 2026-11-06).
 
 A node never reads the cluster's file itself: `parse_toml` refuses a
 document holding `[nodes]`, saying it is a cluster's to slice.
@@ -215,9 +218,10 @@ document holding `[nodes]`, saying it is a cluster's to slice.
 - **The Operation Desktop**, when its Configure page saves the cluster's
   file (ADR-0031, amendment 2026-10-05: *the cluster TOML file is sliced
   into node TOML files and shipped to each node on save*): through the
-  runtime's `xmip_cluster_slices_v1` (`xmip_operate.h` section 10), node by
-  node, each slice written as `<node>/node.xmip` where the desktop
-  keeps them. The node the desktop starts reads its slice there; another
+  runtime's `xmip_cluster_signed_slice_v1` (`xmip_operate.h` section 10),
+  node by node, each slice signed by the authority beside the cluster's file
+  and written as `<node>/node.xmip` where the desktop keeps them, with the
+  authority's certificate beside it in `<node>/authority/authority.pem`. The node the desktop starts reads its slice there; another
   node's is written and not shipped, since no Xmip path yet puts a file on
   another node — desired state, above, slices it on the node.
 - **Validation**: `xmip_validate_v1` tells a cluster's file apart by its
@@ -239,7 +243,7 @@ different acts with different states (ADR-0031, amendments 2026-10-01 and
 | **Saving** | `cluster.xmip` written, validated by the runtime, and audited | [built, in the assembled service](../../../../doc/architecture/estate-map.md#configuration-saving) |
 | **Slicing** | the file taken apart into each node's `node.xmip`, by the desktop or by desired state | [built, in the assembled service](../../../../doc/architecture/estate-map.md#configuration-saving) |
 | **Delivery** | a slice put on its node, over Xmip's own transport | [decided, not built](../../../../doc/architecture/estate-map.md#configuration-delivery): desired state places the cluster's file and slices it on the node; the desktop delivers only to the node it starts itself |
-| **Acceptance** | the node validating what it was given and answering accepted or refused | [decided, not built](../../../../doc/architecture/estate-map.md#configuration-delivery) |
+| **Acceptance** | the node validating what it was given and answering accepted or refused | the signature checked as the node starts, a refused file audited and the last accepted slice run, is built (`runtime::signed`); the answer back to the save is [decided, not built](../../../../doc/architecture/estate-map.md#configuration-delivery) |
 | **Activation** | the node running by it: a changed slice takes effect when what reads it starts again, never mid-flight | a whole node's restart is [built, in the assembled service](../../../../doc/architecture/estate-map.md#configuration-saving); restarting only the threads or Host Services that changed is [decided, not built](../../../../doc/architecture/estate-map.md#configuration-delivery) |
 
 A save that says *OK* has saved and sliced; it has not delivered, been
