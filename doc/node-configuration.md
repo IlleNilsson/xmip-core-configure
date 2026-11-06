@@ -724,6 +724,7 @@ id         = "<a UUIDv7, minted once with the Party>"
 name       = "<party>"
 identities = [
   { mechanism = "mutual-tls", purpose = "receive", value = "CN=<party>.example" },
+  { mechanism = "ssh-key", purpose = "send", value = "xmip", secret = "<party>-sftp" },
 ]
 
 [receive_locations.accept]
@@ -740,7 +741,11 @@ Party without one, or with one that is not a UUIDv7 or is another Party's,
 is refused in words as the node starts. **Each identity states its
 mechanism and its purpose** (the owner, 2026-10-19; ADR-0019 clause 4): the
 mechanism that verifies it, by the name it declares, and whether it is for
-`receive` — matched against what arrives — or `send` — what Xmip presents.
+`receive` — matched against what arrives — or `send` — what Xmip presents,
+naming the `secret` it presents by name, never the secret itself. A `send`
+identity without a secret, a `receive` one with one, and a mechanism that
+neither the node's authenticators nor Xmip declare are refused in words as
+the node starts (ADR-0019, amendment 2026-11-06).
 
 An identity presented by any other mechanism is refused at authentication,
 and never tried against the rest. A verified identity resolves to the Party

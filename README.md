@@ -69,11 +69,12 @@ Location. Each Party is written with its `id`, a UUIDv7 minted once with
 it (`PartyConfiguration::new`, `party::mint`; the designer's `AddEntry`
 mints it for a Party it adds), and each identity with its `mechanism`, its
 `purpose` — `receive` or `send` — and its `value` (`PartyIdentity`; the
-owner, 2026-10-19); a Party without an id, or with one that is not a
-UUIDv7 or is another's, is a problem the binding reports in words
-(`party::problems`). A verified identity resolves to the Party holding its
-value under the mechanism that verified it, for the purpose asked
-(`party::holding`; ADR-0019, amendment 2026-10-20).
+owner, 2026-10-19), a `send` identity with the `secret` it presents, by
+name; a Party without an id, or with one that is not a UUIDv7 or is
+another's, and a `send` identity without a secret or a `receive` one with
+one, are problems the binding reports in words (`party::problems`). A
+running node builds its Parties from these and resolves a verified
+identity there (ADR-0019, amendment 2026-11-06).
 
 `[store]` names the key store an embedded Storage node's records are
 sealed under and where that keeps its keys, and `[service] data` the node's
