@@ -9,6 +9,7 @@
 //! name       = "<party>"
 //! identities = [
 //!   { mechanism = "mutual-tls", purpose = "receive", value = "CN=<party>.example" },
+//!   { mechanism = "ssh-key", purpose = "send", value = "xmip", secret = "<party>-sftp" },
 //! ]
 //! ```
 //!
@@ -27,9 +28,10 @@
 //! 2026-10-19; ADR-0019 clause 4: *per direction and per mechanism*): the
 //! mechanism that verifies it, by the name the mechanism declares, and
 //! whether it is for receiving — matched against what arrives — or for
-//! sending — what Xmip presents. A verified identity resolves to the Party
-//! holding that value under that mechanism for that purpose ([`holding`]),
-//! and to none otherwise.
+//! sending — what Xmip presents, naming the secret it presents by. A
+//! verified identity resolves to the Party holding that value under that
+//! mechanism for that purpose, and to none otherwise: a running node asks
+//! the Parties it built from these, each mechanism a declared one.
 //!
 //! A Receive Location names the Parties it takes in `accept.party`
 //! (ADR-0019 clause 1), and a name `accept.party` gives that no Party here
@@ -87,8 +89,8 @@ pub fn mint() -> PartyId {
 }
 
 /// One identity a Party holds: the mechanism that verifies it, what it is
-/// for, and its value as that mechanism writes it — a certificate subject,
-/// a key's name.
+/// for, its value as that mechanism writes it — a certificate subject, a
+/// key's name — and, where Xmip presents it, the secret it presents.
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct PartyIdentity {
@@ -98,16 +100,32 @@ pub struct PartyIdentity {
     #[serde(with = "purpose")]
     pub purpose: Purpose,
     pub value: String,
+    /// The name of the secret Xmip presents under this identity, never the
+    /// secret itself, as a Location's `secret` (ADR-0019 clause 4): written
+    /// for `send` and only there ([`problems`]).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub secret: Option<String>,
 }
 
 impl PartyIdentity {
-    /// The identity `value` under `mechanism`, for `purpose`.
+    /// The identity `value` under `mechanism`, for `purpose`, presenting no
+    /// secret.
     #[must_use]
     pub fn new(mechanism: impl Into<String>, purpose: Purpose, value: impl Into<String>) -> Self {
         Self {
             mechanism: mechanism.into(),
             purpose,
             value: value.into(),
+            secret: None,
+        }
+    }
+
+    /// This identity, presenting the secret named `secret`.
+    #[must_use]
+    pub fn presenting(self, secret: impl Into<String>) -> Self {
+        Self {
+            secret: Some(secret.into()),
+            ..self
         }
     }
 }
@@ -192,7 +210,9 @@ pub fn parties(source: &str) -> Result<Vec<PartyConfiguration>, String> {
 }
 
 /// The place among `parties` of the Party holding `value` under
-/// `mechanism` for `purpose`, where one does.
+/// `mechanism` for `purpose`, where one does, as written: what a reader of
+/// the configuration asks. A running node asks the Parties it built from
+/// them (`xmip-core-party`'s `Party::holds`).
 #[must_use]
 pub fn place_holding(
     parties: &[PartyConfiguration],
@@ -205,18 +225,6 @@ pub fn place_holding(
             held.mechanism == mechanism && held.purpose == purpose && held.value == value
         })
     })
-}
-
-/// The Party holding `value` under `mechanism` for `purpose`, by its
-/// identifier: what a verified identity resolves to.
-#[must_use]
-pub fn holding(
-    parties: &[PartyConfiguration],
-    mechanism: &str,
-    purpose: Purpose,
-    value: &str,
-) -> Option<PartyId> {
-    place_holding(parties, mechanism, purpose, value).and_then(|place| parties[place].id)
 }
 
 /// The Party named `name`, by its identifier.
@@ -260,7 +268,8 @@ pub const fn is_uuid_v7(id: PartyId) -> bool {
 /// What is wrong with `parties`, one sentence each: a Party without a name,
 /// a name used twice, a Party without an id or with one that is not a
 /// UUIDv7 or another Party's, a Party with no identity, an identity naming
-/// no mechanism or no value, and an identity two Parties hold — it would
+/// no mechanism or no value, a `send` identity naming no secret and a
+/// `receive` one naming one, and an identity two Parties hold — it would
 /// resolve to neither.
 #[must_use]
 pub fn problems(parties: &[PartyConfiguration]) -> Vec<String> {
@@ -302,6 +311,20 @@ pub fn problems(parties: &[PartyConfiguration]) -> Vec<String> {
                 ));
                 continue;
             }
+            let secret = identity.secret.as_deref().map(str::trim);
+            match (identity.purpose.needs_secret(), secret) {
+                (true, None | Some("")) => problems.push(format!(
+                    "the Party '{name}' has the {mechanism} identity '{value}' for {}, \
+                     which names no secret: Xmip presents it, so it names the secret it presents",
+                    identity.purpose
+                )),
+                (false, Some(_)) => problems.push(format!(
+                    "the Party '{name}' has the {mechanism} identity '{value}' for {}, \
+                     which names a secret: what arrives is matched, and no secret is kept for it",
+                    identity.purpose
+                )),
+                _ => {}
+            }
             let key = (mechanism, identity.purpose, value);
             if let Some(other) = held.insert(key, name)
                 && other != name
@@ -328,9 +351,14 @@ mod tests {
         let [first, second] = ["first", "second"].map(|word| format!("party-{word}"));
         let id = || PartyConfiguration::new("x", Vec::new()).id.expect("minted");
         let held = |mechanism: &str, purpose: &str, value: &str| {
+            let secret = if purpose == "send" {
+                ", secret = \"outbound\""
+            } else {
+                ""
+            };
             format!(
                 "  {{ mechanism = \"{mechanism}\", purpose = \"{purpose}\", \
-                 value = \"{value}\" }},\n"
+                 value = \"{value}\"{secret} }},\n"
             )
         };
         format!(
@@ -358,6 +386,10 @@ mod tests {
             )]
         );
         assert_eq!(read[1].identities.len(), 3);
+        assert_eq!(
+            read[1].identities[2],
+            PartyIdentity::new("api-key", Purpose::Send, "k").presenting("outbound")
+        );
         assert!(
             read.iter()
                 .all(|party| party.id.is_some_and(super::is_uuid_v7))
@@ -427,23 +459,30 @@ mod tests {
     }
 
     #[test]
+    fn a_send_identity_without_a_secret_and_a_receive_one_with_one_are_problems() {
+        let mut read = parties(&two()).expect("parses");
+        read[1].identities[2].secret = None;
+        read[1].identities[1].secret = Some("kept".to_string());
+        let said = problems(&read).join("\n");
+        assert!(said.contains("for send, which names no secret"), "{said}");
+        assert!(said.contains("for receive, which names a secret"), "{said}");
+    }
+
+    #[test]
     fn an_identity_resolves_by_its_mechanism_and_purpose_to_the_party_holding_it() {
         let read = parties(&two()).expect("parses");
         let second = &read[1];
+        let holding = |mechanism, purpose, value| {
+            super::place_holding(&read, mechanism, purpose, value).map(|place| read[place].id)
+        };
 
-        assert_eq!(
-            super::holding(&read, "api-key", Purpose::Receive, "k"),
-            second.id
-        );
-        assert_eq!(super::holding(&read, "jwt", Purpose::Receive, "k"), None);
-        assert_eq!(
-            super::holding(&read, "api-key", Purpose::Process, "k"),
-            None
-        );
+        assert_eq!(holding("api-key", Purpose::Receive, "k"), Some(second.id));
+        assert_eq!(holding("jwt", Purpose::Receive, "k"), None);
+        assert_eq!(holding("api-key", Purpose::Process, "k"), None);
         let subject = format!("CN={}.example", read[0].name);
         assert_eq!(
-            super::holding(&read, "mutual-tls", Purpose::Receive, &subject),
-            read[0].id
+            holding("mutual-tls", Purpose::Receive, &subject),
+            Some(read[0].id)
         );
         assert_eq!(super::named(&read, &second.name), second.id);
         assert_eq!(super::named(&read, "absent"), None);
@@ -489,6 +528,7 @@ mod tests {
         assert_eq!(purpose.choices, ["receive", "send"]);
         assert_eq!(named("mechanism").kind, "text");
         assert_eq!(named("value").kind, "text");
+        assert!(!named("secret").required, "a receive identity names none");
         let id = keys
             .iter()
             .find(|key| key.key == "id" && key.table == ["parties"])
