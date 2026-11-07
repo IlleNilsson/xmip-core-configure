@@ -11,7 +11,7 @@
 //! from those types by [`crate::shape`]; this file only says where in the
 //! file each type is read.
 
-use std::sync::OnceLock;
+use std::sync::LazyLock;
 
 use serde::{Deserialize, Serialize};
 
@@ -47,8 +47,8 @@ pub const ANY_NODE: &str = "*";
 /// Every key of the cluster's file, read once.
 #[must_use]
 pub fn keys() -> &'static [Key] {
-    static KEYS: OnceLock<Vec<Key>> = OnceLock::new();
-    KEYS.get_or_init(read)
+    static KEYS: LazyLock<Vec<Key>> = LazyLock::new(read);
+    &KEYS
 }
 
 /// The keys `table`, written as its header writes it, may hold: a node's
@@ -133,14 +133,13 @@ fn listed(shapes: &Shapes, at: &[&str]) -> Vec<Key> {
 /// Whether a table of `shape` is read as a Location: it holds a
 /// [`ConfiguredLocation`]'s keys, wherever in the file it is.
 fn reads_as_location(shape: &Shape) -> bool {
-    static LOCATION: OnceLock<Vec<&'static str>> = OnceLock::new();
-    let location = LOCATION.get_or_init(|| {
+    static LOCATION: LazyLock<Vec<&'static str>> = LazyLock::new(|| {
         shapes::<ConfiguredLocation>()
             .remove(&Vec::new())
             .unwrap_or_default()
             .fields
     });
-    !location.is_empty() && shape.fields == *location
+    !LOCATION.is_empty() && shape.fields == *LOCATION
 }
 
 /// What a Location's `key` means, as [`ConfiguredLocation::MEANINGS`] says.

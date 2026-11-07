@@ -8,7 +8,7 @@
 //! holds a Location's settings to its technology's ([`declared`]).
 
 use std::collections::BTreeMap;
-use std::sync::{Mutex, OnceLock};
+use std::sync::{LazyLock, Mutex};
 use std::time::Duration;
 use xcore::lock::Locked;
 
@@ -177,9 +177,10 @@ fn stage_problems(module: &str, unit: &ModuleUnit) -> Vec<String> {
 /// # Errors
 /// A setting whose kind, presence or default is not one the shape has.
 pub fn declared(module: &str, unit: &ModuleUnit) -> Result<&'static Settings, String> {
-    static MADE: OnceLock<Mutex<BTreeMap<String, &'static Settings>>> = OnceLock::new();
+    static MADE: LazyLock<Mutex<BTreeMap<String, &'static Settings>>> =
+        LazyLock::new(Mutex::default);
     let key = format!("{module}\u{0}{unit:?}");
-    let made = MADE.get_or_init(Mutex::default);
+    let made = &*MADE;
     if let Some(found) = made.locked().get(&key) {
         return Ok(found);
     }
