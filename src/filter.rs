@@ -225,6 +225,7 @@ fn language<T, E: std::fmt::Display>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::assert_matches;
 
     /// Filters in the canonical form: each reads to rows that write it back
     /// byte for byte.
@@ -250,7 +251,7 @@ mod tests {
     fn canonical_text_to_rows_and_back_is_byte_exact() {
         for original in CANONICAL {
             let rows = structure(original).expect("reads");
-            assert!(matches!(rows, FilterPart::Group { .. }), "{original}");
+            assert_matches!(rows, FilterPart::Group { .. }, "{original}");
             assert_eq!(text(&rows).expect("writes"), original);
         }
     }
@@ -309,7 +310,7 @@ mod tests {
                 kind: String::new(),
             }
         );
-        assert!(matches!(&parts[2], FilterPart::Not { .. }));
+        assert_matches!(&parts[2], FilterPart::Not { .. });
 
         let listed = structure("Region in ('EU', 'US')").expect("reads");
         let FilterPart::Group { parts, .. } = listed else {
