@@ -156,10 +156,7 @@ impl TryFrom<String> for StorageAddress {
         let Some((host, port)) = text.rsplit_once(':') else {
             return Err(refused("names no port"));
         };
-        let host = host
-            .strip_prefix('[')
-            .and_then(|h| h.strip_suffix(']'))
-            .unwrap_or(host);
+        let host = host.strip_circumfix('[', ']').unwrap_or(host);
         if host.is_empty() || host.contains(char::is_whitespace) {
             return Err(refused("names no host"));
         }
