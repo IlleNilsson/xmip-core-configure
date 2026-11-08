@@ -479,8 +479,10 @@ operate_handshake = "10s"                   # how long a handshake may take in a
   ([built, in the assembled service](../../../../doc/architecture/estate-map.md#storage-nodes)).
 - **`storage_beat`**, **`storage_silence`** and **`storage_kept`**: on a
   Storage node one of several, how often a primary says it is there to an
-  idle standby (100 ms), how long a standby hears no primary before it is
-  promoted (1 s), and how many bytes of each database's writes a primary
+  idle standby (100 ms), how long it waits to hear from another — a
+  standing asked, its primary's next write or beat — and how often a
+  primary asks the others what they are (1 s), and how many bytes of each
+  database's writes a primary
   keeps for a standby behind it (64 MiB); one further behind is copied whole
   ([built, in the assembled service](../../../../doc/architecture/estate-map.md#storage-standby)).
 - **`local_timeout`**: how long a surface's call to the node's local
@@ -524,12 +526,15 @@ anchors = "tls/anchors.pem"
 
 - **`nodes`**: each `host:port`, a host name or an address, IPv6 in
   brackets, each once. More than one is the safety: a node carries on
-  through the next while one is stopped. An address without its port is
+  through the next while a standby is stopped, and a stopped primary is
+  waited for until a witness exists. An address without its port is
   refused in words, and so is a Storage node named twice. A node declaring
   the Storage role that lists them is one of several, which every Storage
   node of the cluster lists in the same order: the first listed is the first
-  primary, the others its standbys, and a standby is promoted once the
-  primary is gone (ADR-0056, amendment 2026-10-22).
+  primary, the others its standbys. One is promoted only where every one
+  listed answers and none is a primary, so a primary that is gone is
+  waited for, never replaced, until there is a witness (ADR-0056,
+  amendments 2026-10-22 and 2026-11-08).
 - **`listen`**: where a node declaring the Storage role serves Xmip Storage
   to the nodes reaching it, the node's address and the Storage plane's port
   (ADR-0067, amendment 2026-10-22); read by such a node alone, so one

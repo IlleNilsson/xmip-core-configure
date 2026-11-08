@@ -18,7 +18,8 @@
 //!
 //! Each address is `host:port`, a host name or an address, IPv6 in
 //! brackets; the list names each once. More than one is the safety: a node
-//! carries on through the next while one is stopped. Every Storage node of
+//! carries on through the next while a standby is stopped, and a stopped
+//! primary is waited for until a witness exists. Every Storage node of
 //! the cluster lists the same nodes, itself among them, in the same order:
 //! the first listed is the first primary, and the others its standbys
 //! (ADR-0056, amendment 2026-10-22).
