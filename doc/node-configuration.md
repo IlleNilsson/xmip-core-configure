@@ -217,7 +217,7 @@ it is refused. `listen` is its address for another machine — `xmip
 --remote`, `-Remote`, a GUI whose `Surface` is `remote` — inside Xmip's
 mutual TLS, and takes `certificate`, `key` and `anchors` with it; without
 it the node serves no network listener. With no `[operate]` at all the node
-is operated at `xmip-<node>`, every caller an Observer:
+serves `xmip-<node>` and grants no caller a role, so every call is refused:
 
 ```toml
 [operate]
@@ -226,17 +226,33 @@ listen = "0.0.0.0:7401"             # host:port; no port is assumed
 certificate = "tls/node.pem"        # this node's PEM chain, leaf first
 key = "tls/node.key"                # its PEM private key
 anchors = "tls/cluster-anchor.pem"  # what a surface's certificate must reach
-role = "operator"                   # every proven caller's; Observer if left out
+observers = ["CN=watch@example.org"]                 # who watches
+operators = ['CONTOSO\jane', "CN=jane@example.org"]  # who also acts and configures
+developers = ["build.example.org"]                   # who also builds
 admit = ['CONTOSO\xmip-operators']  # who else may open the local endpoint
 group = "xmip-operators"            # on Unix, the socket's group; the node's own if left out
 relay = ['CONTOSO\xmip-web']        # who may act for a caller it vouches for
 ```
 
 A relative path is relative to the configuration file. Every caller on the
-network is the subject of the certificate it presented, and on the local
-endpoint the user its process runs as; `role` is what each may do, and a
-word that is no role is Observer, which acts on nothing. A key it does not
-know is refused.
+network is the certificate it presented, and on the local endpoint the user
+its process runs as. **Which role each holds is its own** (ADR-0009,
+amendment 2026-11-07): `observers`, `operators` and `developers` each list
+the callers holding that role — a certificate by its subject or by an
+alternative name it carries, a DNS name or a user principal name; an
+account by the name the operating system gives it, `DOMAIN\user` on
+Windows, without regard to case there. A caller no list names holds no role
+and is refused every call, reading the publication included: a certificate
+reaching `anchors` proves who it is and grants nothing. A name listed under
+two roles is refused as the node starts, as is a key it does not know.
+
+What bounds each listener against a caller that holds it up rather than
+asks it anything is `[tuning]`'s, per cluster and per node:
+`operate_connections` (256), the connections it answers at once,
+`operate_handshakes` (32), how many of them may be in their handshake, and
+`operate_handshake` (`"10s"`), how long a handshake may take in all, however
+slowly it is sent. A connection past either count is closed as it is
+accepted, and the audit told once for each run of them.
 
 `relay` names who may act for a caller it serves (ADR-0009, amendments
 2026-11-01 and 2026-11-02): a web host takes its browsers' TLS, and the node,
@@ -246,7 +262,9 @@ node for fresh nonces and hand it a browser's handshake bound to one; the node
 checks that the browser signed it with its certificate's key, to that
 relay's own listener under `anchors`, verifies the browser's chain against
 `anchors` and its own authentication gate before it holds the caller, acts for that
-caller by the caller's own role, never the relay's, and audits who and the
+caller by the role the lists grant the caller's own certificate, never the
+relay's — a relay that follows the node is listed itself, as an Observer at
+least — and audits who and the
 relay it came through. A handle a relay was answered is no one through any
 other identity, and ends with the caller's certificate or when the relay
 lets it go. Relaying grants no act of its own. `relay` takes `anchors`,
@@ -385,6 +403,9 @@ stream_stall = "100ms"                      # how long a send taking nothing hol
 storage_timeout = "5s"                      # each connect and read to a Storage node
 storage_pass_over = "5s"                    # how long one that did not answer waits its turn
 local_timeout = "2s"                        # how long a call to the local endpoint waits
+operate_connections = 256                   # connections each operate listener answers at once
+operate_handshakes = 32                     # of them in their handshake at once
+operate_handshake = "10s"                   # how long a handshake may take in all
 ```
 
 - **`tcp_segment`** and **`segments`**: a Stream is written to the Ledger
@@ -468,6 +489,14 @@ local_timeout = "2s"                        # how long a call to the local endpo
   answer and shows it so; the tool recovers on its own.* The node declares
   it beside its endpoint (`local_timeout_ms`, ADR-0053), and a surface on
   the machine that names no wait of its own takes it from there.
+- **`operate_connections`**, **`operate_handshakes`** and
+  **`operate_handshake`**: what bounds each operate listener against a
+  caller that holds it up rather than asks it anything (`[operate]` above,
+  `plane::limits`): a connection past either count is closed as it is
+  accepted, and a handshake not done within `operate_handshake` in all —
+  however it is read, a byte at a time included — is cut. The handshake's
+  default is the web host's secure listener's own bound
+  (`secure_listener::HANDSHAKE_WITHIN`).
 
 Durations are a whole number and `ms`, `s`, `m` or `h`, above nothing and
 at most an hour. Which keys there are, their kinds, bounds and defaults are

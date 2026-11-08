@@ -19,11 +19,22 @@
 //! certificate = "tls/node.pem"        # this node's chain, leaf first
 //! key = "tls/node.key"                # its private key
 //! anchors = "tls/cluster-anchor.pem"  # what a surface's certificate reaches
-//! role = "operator"                   # every proven caller's; Observer if left out
+//! observers = ["CN=watch@example.org"]          # who watches
+//! operators = ['CONTOSO\jane', "CN=jane@example.org"]  # who also acts
+//! developers = ["build.example.org"]            # who also builds
 //! admit = ['CONTOSO\xmip-operators']  # who else may open the local endpoint
 //! group = "xmip-operators"            # on Unix, the socket's group; the node's own if left out
 //! relay = ['CONTOSO\xmip-web']        # who may act for a caller it vouches for
 //! ```
+//!
+//! **Which role a caller holds** is its own, by name (ADR-0009, amendment
+//! 2026-11-07): `observers`, `operators` and `developers` each list the
+//! callers that hold that role, on either listener — a certificate by its
+//! subject or by an alternative name it carries, a DNS name or a user
+//! principal name; an account on the local endpoint by the name the
+//! operating system gives it, `DOMAIN\user` on Windows. A caller no list
+//! names holds no role and is refused every call: proving who it is grants
+//! nothing. A name listed under two roles is refused as the node starts.
 //!
 //! **Who may relay for a caller** (ADR-0009, amendments 2026-11-01 and
 //! 2026-11-02): a web host takes its browsers' TLS, and the node, not the
@@ -33,8 +44,9 @@
 //! which proves the browser held its key, to that relay's own listener; the
 //! node verifies the browser's chain against `anchors` and its own
 //! authentication gate before it holds the caller,
-//! and act for that caller by the caller's own role; never by its own,
-//! which relaying adds nothing to. `relay` takes `anchors`, also where
+//! and act for that caller by the role the lists grant the caller; never by
+//! the relay's own, which relaying adds nothing to. A relay that follows the
+//! node — a web host does — is listed itself, as an Observer at least. `relay` takes `anchors`, also where
 //! there is no `listen`. Nobody relays where it is left out.
 //!
 //! **Who may open the local endpoint** is the operating system's to
@@ -59,11 +71,7 @@
 //! Windows, `/run/xmip/<name>.sock` on Linux and
 //! `/var/run/xmip/<name>.sock` on macOS; a name may change, the folder may
 //! not, and one that would leave it is refused as the node starts
-//! (`xmip-core-runtime`'s `plane::local::place`). `role` is the role the
-//! run states for every caller the connection proved — by its
-//! certificate, or on the local endpoint by the operating system
-//! (ADR-0009, amendment 2026-10-06): a word that is no role grants
-//! Observer, which acts on nothing.
+//! (`xmip-core-runtime`'s `plane::local::place`).
 
 use serde::{Deserialize, Serialize};
 
@@ -86,9 +94,15 @@ pub struct OperateConfiguration {
     /// The PEM anchors a surface's certificate must reach.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub anchors: Option<String>,
-    /// The role every proven caller holds; Observer where it is left out.
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub role: Option<String>,
+    /// The callers that hold the Observer role, by name.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub observers: Vec<String>,
+    /// The callers that hold the Operator role, by name.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub operators: Vec<String>,
+    /// The callers that hold the Developer role, by name.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub developers: Vec<String>,
     /// The accounts and groups the operating system lets open the local
     /// endpoint beside the node's own account and the machine's
     /// administrators; nobody else where it is left out.
@@ -157,6 +171,39 @@ impl OperateConfiguration {
     }
 }
 
+impl OperateConfiguration {
+    /// The callers each role's list names, least role first: `observers`,
+    /// `operators`, `developers`.
+    ///
+    /// # Errors
+    ///
+    /// A name that is blank, or that two entries list — under two roles or
+    /// twice under one, without regard to case — in words naming it.
+    pub fn grants(&self) -> Result<[&[String]; 3], String> {
+        let lists = [
+            ("observers", &self.observers),
+            ("operators", &self.operators),
+            ("developers", &self.developers),
+        ];
+        let mut seen: Vec<(&str, &str)> = Vec::new();
+        for (key, names) in lists {
+            for name in names {
+                let name = name.trim();
+                if name.is_empty() {
+                    return Err(format!("[operate] {key} lists a blank name"));
+                }
+                if let Some((first, _)) = seen.iter().find(|(_, s)| s.eq_ignore_ascii_case(name)) {
+                    return Err(format!(
+                        "[operate] lists '{name}' under {first} and {key}: one role a caller"
+                    ));
+                }
+                seen.push((key, name));
+            }
+        }
+        Ok([&self.observers, &self.operators, &self.developers])
+    }
+}
+
 /// A key `listen` takes, or the refusal naming it.
 fn given<'a>(listen: &str, key: &str, value: Option<&'a str>) -> Result<&'a str, String> {
     value.ok_or_else(|| format!("[operate] listen = \"{listen}\" needs {key}"))
@@ -171,11 +218,37 @@ mod tests {
         let read: Result<OperateConfiguration, _> = toml::from_str(
             "listen = \"127.0.0.1:7401\"\ncertificate = \"c\"\nkey = \"k\"\nanchors = \"a\"\n",
         );
-        assert_eq!(read.expect("read").role, None);
+        assert_eq!(read.expect("read").grants(), Ok([&[][..], &[], &[]]));
         let wrong: Result<OperateConfiguration, _> = toml::from_str(
             "listen = \"x:1\"\ncertificate = \"c\"\nkey = \"k\"\nanchors = \"a\"\nport = 1\n",
         );
         assert!(wrong.is_err());
+        // One role for every caller is no key at all.
+        let single: Result<OperateConfiguration, _> = toml::from_str("role = \"operator\"\n");
+        assert!(single.is_err());
+    }
+
+    #[test]
+    fn each_role_lists_its_callers_and_a_caller_holds_one() {
+        let listed: OperateConfiguration = toml::from_str(
+            "observers = [\"CN=watch\"]\noperators = ['HOST\\jane', \"CN=jane\"]\n\
+             developers = [\"build.example.org\"]\n",
+        )
+        .expect("read");
+        let [observers, operators, developers] = listed.grants().expect("granted");
+        assert_eq!(observers, ["CN=watch"]);
+        assert_eq!(operators, ["HOST\\jane", "CN=jane"]);
+        assert_eq!(developers, ["build.example.org"]);
+        let twice: OperateConfiguration =
+            toml::from_str("observers = [\"CN=jane\"]\noperators = [\"cn=JANE\"]\n").expect("read");
+        assert_eq!(
+            twice.grants(),
+            Err(
+                "[operate] lists 'cn=JANE' under observers and operators: one role a caller".into()
+            )
+        );
+        let blank: OperateConfiguration = toml::from_str("operators = [\" \"]\n").expect("read");
+        assert!(blank.grants().is_err());
     }
 
     #[test]
@@ -183,8 +256,9 @@ mod tests {
         let local: OperateConfiguration = toml::from_str("local = \"xmip-node\"\n").expect("read");
         assert_eq!(local.network(), Ok(None));
         // The local endpoint always starts: a table naming no listener is
-        // a role for it.
-        let neither: OperateConfiguration = toml::from_str("role = \"operator\"\n").expect("read");
+        // who holds which role on it.
+        let neither: OperateConfiguration =
+            toml::from_str("operators = [\"CN=jane\"]\n").expect("read");
         assert_eq!(neither.network(), Ok(None));
         assert!(neither.admit.is_empty(), "nobody else where it says none");
         let admitting: OperateConfiguration =
@@ -204,7 +278,8 @@ mod tests {
 
     #[test]
     fn a_relay_takes_anchors_and_nobody_relays_where_it_names_none() {
-        let none: OperateConfiguration = toml::from_str("role = \"operator\"\n").expect("read");
+        let none: OperateConfiguration =
+            toml::from_str("operators = [\"CN=jane\"]\n").expect("read");
         assert_eq!(none.relaying(), Ok(None));
         let bare: OperateConfiguration = toml::from_str("relay = ['HOST\\web']\n").expect("read");
         assert_eq!(

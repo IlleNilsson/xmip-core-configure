@@ -27,7 +27,7 @@ receive_threads_per_hardware_thread = 4
 local_timeout = "500ms"                    # a call to its local endpoint waits this long
 
 [nodes.<node>.operate]                     # its local endpoint starts without this
-role = "operator"                          # at xmip-<node>; local names another
+operators = ['<DOMAIN>\<operator>']        # at xmip-<node>; local names another
 
 [[nodes.<node>.receive_locations]]         # merged with "drop" by its name
 name = "drop"
@@ -195,11 +195,14 @@ writes the node `node` its configuration document, which
 
 **Only this file is edited.** A node's `node.xmip` is its slice, written
 by desired state and never edited (ADR-0031, amendment 2026-10-05). Every
-slice is signed by the cluster's authority as it is written, under a
-`[signature]` table (`configure::signed`), and a node runs only one that
-verifies against the authority's certificate in the `authority` folder
-beside it. One changed by hand is refused and audited, and the node runs
-its last accepted slice instead (ADR-0031, amendment 2026-11-06).
+slice is signed by the cluster's authority as it is written, for its node
+and under a strictly increasing serial, in a `[signature]` table
+(`configure::signed`), and a node runs only one that verifies against the
+authority's certificate in the `authority` folder beside it, that
+certificate being the one its accepted slice pinned, for the node it pinned
+and above the serial it pinned. Any other is refused and audited, and the
+node runs its last accepted slice instead (ADR-0031, amendments 2026-11-06
+and 2026-11-07).
 
 A node never reads the cluster's file itself: `parse_toml` refuses a
 document holding `[nodes]`, saying it is a cluster's to slice.
