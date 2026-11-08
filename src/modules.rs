@@ -220,6 +220,7 @@ fn shaped(technology: &str, setting: &UnitSetting) -> Result<Setting, String> {
         "duration" => Kind::Duration,
         "address" => Kind::Address,
         "secret" => Kind::Secret,
+        "table" => Kind::Table,
         "choice" if !setting.choices.is_empty() => Kind::Choice {
             choices: Box::leak(
                 setting
@@ -234,7 +235,7 @@ fn shaped(technology: &str, setting: &UnitSetting) -> Result<Setting, String> {
         other => {
             return Err(refused(&format!(
                 "of the kind '{other}', which is none of text, integer, boolean, duration, \
-                 address, secret or choice"
+                 address, secret, choice or table"
             )));
         }
     };

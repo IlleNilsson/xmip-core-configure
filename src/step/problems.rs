@@ -369,6 +369,30 @@ mod tests {
     }
 
     #[test]
+    fn a_paths_namespaces_are_a_table_of_text_beside_it() {
+        let promotion = |namespaces: &str| {
+            node(&format!(
+                "\n[[promotions]]\nname = \"Id\"\nmodule = \"xmip\"\nunit = \"Promote\"\n\
+                 settings = {{ property = \"Id\", language = \"xpath\", \
+                 expression = \"/o:order/o:id\", namespaces = {namespaces} }}\n"
+            ))
+        };
+        assert_eq!(
+            promotion("{ o = \"urn:example:order\" }"),
+            [] as [String; 0]
+        );
+        for wrong in ["{ o = 1 }", "{ o = \"\" }", "\"o=urn:example:order\""] {
+            let found = promotion(wrong);
+            assert!(
+                found
+                    .iter()
+                    .any(|p| p.contains("'Id'") && p.contains("namespaces")),
+                "{wrong}: {found:?}"
+            );
+        }
+    }
+
+    #[test]
     fn a_unit_is_attached_only_at_a_stage_it_serves() {
         let found = node(
             "\n[[send_locations]]\nname = \"out\"\naddress = \"a\"\n\

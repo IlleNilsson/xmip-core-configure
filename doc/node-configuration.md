@@ -628,7 +628,8 @@ reference = "schemas/order.json"
 Which settings there are is never written here, in `configure`, in the
 language server or in the desktop editor: **every technology declares its
 own** in its own crate — each setting's name, kind (text, integer, boolean,
-duration such as `30s`, address, a secret's name, or one of a list),
+duration such as `30s`, address, a secret's name, one of a list, or a table
+of text by its key),
 default or requirement, what it means, and whether a Receive Location, a
 Send Location or both read it (ADR-0064, amendment 2026-09-26). A transport
 declares them through `transport::Configured`, a contract through
@@ -745,6 +746,27 @@ transport = "claimed"
   unit attached at a stage it does not serve, a Promotion or a Debatch on
   send and a Demotion on receive. Running a unit is [decided, not built](../../../../doc/architecture/estate-map.md#artifact-steps):
   a node refuses to start a Port or Location that attaches one.
+- **A path's namespaces**: Promote and Demote, the standard module's
+  units, read a value through a `language`, an `expression` and, beside
+  them, a `namespaces` table binding each prefix the expression uses to its
+  URI. A prefix means the URI this table gives it, never the one a Message
+  happens to declare: `/o:order` reads a document that writes the order
+  namespace as `ord:` or as its default namespace, at the root or below it,
+  and not one that binds `o` to another URI. The table is held to be text
+  by its key with the rest of the call's settings; a prefix it does not
+  bind is refused, naming the prefix, as the path compiles when its step
+  is opened (`xmip-core-unit`), and a language with no namespaces, or
+  `language = "context"`, refuses a table that binds anything (ADR-0066,
+  amendment 2026-11-08).
+
+  ```toml
+  [[promotions]]
+  name = "OrderNumber"
+  module = "xmip"
+  unit = "Promote"
+  settings = { property = "OrderNumber", language = "xpath", expression = "/o:order/o:id", namespaces = { o = "urn:example:order" } }
+  ```
+
 - **Assignment is not configured**: a Work Process's compiled code assigns
   (the owner, 2026-10-22).
 

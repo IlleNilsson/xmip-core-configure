@@ -160,6 +160,8 @@ fn fixed_default(fixed: Fixed) -> UnitDefault {
         Given::Integer(value) => UnitDefault::Integer(value),
         Given::Boolean(value) => UnitDefault::Boolean(value),
         Given::Text(text) => UnitDefault::Text(text),
+        // No default is a table or anything else TOML says: Fixed holds none.
+        Given::Table(_) => UnitDefault::Text("table".to_string()),
         Given::Other(word) => UnitDefault::Text(word.to_string()),
     }
 }

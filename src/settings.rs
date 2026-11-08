@@ -68,7 +68,12 @@ fn given(value: &toml::Value) -> Given {
         toml::Value::Float(_) => Given::Other("float"),
         toml::Value::Datetime(_) => Given::Other("date"),
         toml::Value::Array(_) => Given::Other("array"),
-        toml::Value::Table(_) => Given::Other("table"),
+        toml::Value::Table(table) => Given::Table(
+            table
+                .iter()
+                .map(|(key, value)| (key.clone(), given(value)))
+                .collect(),
+        ),
     }
 }
 
