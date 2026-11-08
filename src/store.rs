@@ -76,15 +76,19 @@ impl StoreConfiguration {
         self == &Self::default()
     }
 
+    /// The key store the data key is wrapped by: the one named, else the
+    /// platform's.
+    #[must_use]
+    pub fn key_store(&self) -> &str {
+        self.key_store.as_deref().unwrap_or(PLATFORM_KEY_STORE)
+    }
+
     /// The key store this says, with `data` the node's data directory and
     /// `base` the directory the configuration file is in.
     #[must_use]
     pub fn resolve(&self, data: &Path, base: &Path) -> Store {
         Store {
-            key_store: self
-                .key_store
-                .clone()
-                .unwrap_or_else(|| PLATFORM_KEY_STORE.to_string()),
+            key_store: self.key_store().to_string(),
             keys: self
                 .keys
                 .as_ref()
