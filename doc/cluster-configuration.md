@@ -199,10 +199,11 @@ slice is signed by the cluster's authority as it is written, for its node
 and under a strictly increasing serial, in a `[signature]` table
 (`configure::signed`), and a node runs only one that verifies against the
 authority's certificate in the `authority` folder beside it, that
-certificate being the one its accepted slice pinned, for the node it pinned
-and above the serial it pinned. Any other is refused and audited, and the
-node runs its last accepted slice instead (ADR-0031, amendments 2026-11-06
-and 2026-11-07).
+certificate being the one its pin holds, for the node it pinned and above
+the highest serial it has seen. Any other is refused and audited, and so is
+one that verifies and that the node cannot start; the node runs its active
+configuration, the last slice that ran, instead (ADR-0031, amendments
+2026-11-06, 2026-11-07 and 2026-11-12).
 
 A node never reads the cluster's file itself: `parse_toml` refuses a
 document holding `[nodes]`, saying it is a cluster's to slice.
@@ -249,8 +250,8 @@ different acts with different states (ADR-0031, amendments 2026-10-01 and
 | **Saving** | `cluster.xmip` written, validated by the runtime, and audited | [built, in the assembled service](../../../../doc/architecture/estate-map.md#configuration-saving) |
 | **Slicing** | the file taken apart into each node's `node.xmip`, by the desktop or by desired state | [built, in the assembled service](../../../../doc/architecture/estate-map.md#configuration-saving) |
 | **Delivery** | a slice put on its node, over Xmip's own transport | [decided, not built](../../../../doc/architecture/estate-map.md#configuration-delivery): desired state places the cluster's file and slices it on the node; the desktop delivers only to the node it starts itself |
-| **Acceptance** | the node validating what it was given and answering accepted or refused | the signature checked as the node starts, a refused file audited and the last accepted slice run, is built (`runtime::signed`); the answer back to the save is [decided, not built](../../../../doc/architecture/estate-map.md#configuration-delivery) |
-| **Activation** | the node running by it: a changed slice takes effect when what reads it starts again, never mid-flight | a whole node's restart is [built, in the assembled service](../../../../doc/architecture/estate-map.md#configuration-saving); restarting only the threads or Host Services that changed is [decided, not built](../../../../doc/architecture/estate-map.md#configuration-delivery) |
+| **Acceptance** | the node validating what it was given and answering accepted or refused | the signature checked against the node's pin as it starts, a slice above the serial seen pinned as seen before anything reads it, and a refused file audited, is built (`runtime::signed`); the node's answer is its record at `<node>/configuration` and `xmip-service --activation`; the answer back to the save is [decided, not built](../../../../doc/architecture/estate-map.md#configuration-delivery) |
+| **Activation** | the node running by it: a changed slice takes effect when what reads it starts again, never mid-flight | a whole node's restart is [built, in the assembled service](../../../../doc/architecture/estate-map.md#configuration-saving): every startup phase and the program's own steps run over the slice, serving nothing, and only then is it kept as the active configuration and served; refused at any step, the node runs its active configuration and tries the slice again at its next start (`runtime::running::activation`; ADR-0031, amendment 2026-11-12); restarting only the threads or Host Services that changed is [decided, not built](../../../../doc/architecture/estate-map.md#configuration-delivery) |
 
 A save that says *OK* has saved and sliced; it has not delivered, been
 accepted or been activated anywhere but on the desktop's own node.
