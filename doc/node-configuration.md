@@ -397,11 +397,13 @@ send_threads_per_hardware_thread = 2        # 1 to 64
 send_idle = "1m"                            # a send thread's idle time
 send_lease = "30s"                          # how long a claim on a Message holds
 send_scan = "1s"                            # how often the send queues are read
+work_scan = "1s"                            # how often the Work Processes' queues are read
 failed_window = 100                         # oldest failed Messages kept per Send Port, 1 to 10000
 send_chunks_per_thread = 16                 # 1 to 65536
 stream_stall = "100ms"                      # how long a send taking nothing holds its Stream's others back
 storage_timeout = "5s"                      # each connect and read to a Storage node
 storage_pass_over = "5s"                    # how long one that did not answer waits its turn
+storage_wait = "1m"                         # the longest a Storage node holds one node's wait
 local_timeout = "2s"                        # how long a call to the local endpoint waits
 operate_connections = 256                   # connections each operate listener answers at once
 operate_handshakes = 32                     # of them in their handshake at once
@@ -467,7 +469,12 @@ operate_handshake = "10s"                   # how long a handshake may take in a
 - **`send_lease`** and **`send_scan`**: how long a claim on a Message holds
   before it lapses unless renewed, and how often the queues of the Send
   Ports this node sends are read for unclaimed Messages (`runtime-model.md`
-  section 10).
+  section 10). A queue another node puts a Message in is read at once, the
+  node waiting on its queues in Xmip Storage, so the scan is the bound on
+  one wait and recovery's, finding a claim that lapsed on a node that died
+  (corrected 2026-11-12).
+- **`work_scan`**: the same for the queues of the Work Processes the node
+  runs, and their timers' recovery (ADR-0066, amendment 2026-11-12).
 - **`failed_window`**: how many of the oldest failed Messages of each Send
   Port the node keeps and publishes. Xmip Storage keeps the count and every
   one of them in the Ledger, in each queue's index of failed Messages; a
@@ -485,6 +492,12 @@ operate_handshake = "10s"                   # how long a handshake may take in a
   database's writes a primary
   keeps for a standby behind it (64 MiB); one further behind is copied whole
   ([built, in the assembled service](../../../../doc/architecture/estate-map.md#storage-standby)).
+- **`storage_wait`**: on a Storage node, the longest it holds one node's
+  wait on its queues before it answers that nothing moved (a minute), so a
+  node that vanished mid-wait holds none of its threads longer; the node
+  waiting asks again, and one whose `send_scan` or `work_scan` is longer
+  rests the rest of it, its scan reading the queues meanwhile (ADR-0018,
+  amendment 2026-11-12).
 - **`local_timeout`**: how long a surface's call to the node's local
   endpoint waits — decided by the owner, 2026-10-13: *a local call waits at
   most a set time — `[tuning]`, default 2 s — then says the node did not
