@@ -9,7 +9,12 @@ one ([`cluster-configuration.md`](cluster-configuration.md); ADR-0031,
 amendment 2026-10-03). A slice ends in the `[signature]` table its
 cluster's authority signs it under, which no node reads as configuration:
 a node runs the text above it only where the signature verifies (ADR-0031,
-amendment 2026-11-06).
+amendment 2026-11-06). A slice that verifies and that the node cannot
+start — a technology its build lacks, a listener that will not bind — is
+refused as it starts, and the node runs its active configuration, the last
+slice that ran, kept beside its pin in its data directory, and tries the
+slice again at its next start (ADR-0031, amendment 2026-11-12):
+`<node>/configuration` says which slice runs and why the other did not.
 
 
 A Work Process passes through four things, kept apart here because only
@@ -397,6 +402,7 @@ send_threads_per_hardware_thread = 2        # 1 to 64
 send_idle = "1m"                            # a send thread's idle time
 send_lease = "30s"                          # how long a claim on a Message holds
 send_scan = "1s"                            # how often the send queues are read
+work_threads_per_hardware_thread = 2        # 1 to 64
 work_scan = "1s"                            # how often the Work Processes' queues are read
 failed_window = 100                         # oldest failed Messages kept per Send Port, 1 to 10000
 send_chunks_per_thread = 16                 # 1 to 65536
@@ -404,6 +410,7 @@ stream_stall = "100ms"                      # how long a send taking nothing hol
 storage_timeout = "5s"                      # each connect and read to a Storage node
 storage_pass_over = "5s"                    # how long one that did not answer waits its turn
 storage_wait = "1m"                         # the longest a Storage node holds one node's wait
+storage_unwaited = 16384                    # of what no node waits on, how many a Storage node keeps
 local_timeout = "2s"                        # how long a call to the local endpoint waits
 operate_connections = 256                   # connections each operate listener answers at once
 operate_handshakes = 32                     # of them in their handshake at once
@@ -473,6 +480,12 @@ operate_handshake = "10s"                   # how long a handshake may take in a
   node waiting on its queues in Xmip Storage, so the scan is the bound on
   one wait and recovery's, finding a claim that lapsed on a node that died
   (corrected 2026-11-12).
+- **`work_threads_per_hardware_thread`**: the most threads the node's
+  Work pool runs per hardware thread, its idle time `send_idle`'s. It is
+  also the most turns the Work Process step holds at once, queued or
+  running, shared among the Work Processes with work; what has no place
+  stays in the Ledger, read a page at a time (`runtime-model.md` section 3;
+  ADR-0066, third amendment 2026-11-12).
 - **`work_scan`**: the same for the queues of the Work Processes the node
   runs, and their timers' recovery (ADR-0066, amendment 2026-11-12).
 - **`failed_window`**: how many of the oldest failed Messages of each Send
@@ -498,6 +511,14 @@ operate_handshake = "10s"                   # how long a handshake may take in a
   waiting asks again, and one whose `send_scan` or `work_scan` is longer
   rests the rest of it, its scan reading the queues meanwhile (ADR-0018,
   amendment 2026-11-12).
+- **`storage_unwaited`**: on a Storage node — the only one, or the primary
+  among several — how many of what no node waits on now (a queue's tail or
+  head, an Instance, a key) it keeps where its writer left it, so a wait on
+  one again reads nothing (16,384, about 3 MB at most; 0 to 4,194,304).
+  Past that, the longest unwaited is let go and read from the store when
+  next waited on, so what it keeps follows the waits under way, never every
+  conversation it ever carried; what a node waits on now is always kept
+  (ADR-0018, amendment 2026-11-12).
 - **`local_timeout`**: how long a surface's call to the node's local
   endpoint waits — decided by the owner, 2026-10-13: *a local call waits at
   most a set time — `[tuning]`, default 2 s — then says the node did not
