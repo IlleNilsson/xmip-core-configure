@@ -94,6 +94,41 @@ pub fn roles(cluster: &str) -> Result<Vec<(String, Vec<String>)>, String> {
         .collect()
 }
 
+/// Each node of the cluster's file `cluster` that `[storage] nodes` lists,
+/// with its place in that list from zero, in the order listed: the first
+/// listed is the configured primary (ADR-0056, amendment 2026-10-22). An
+/// entry names a node as every name resolves, its `host` of `host:port`
+/// being the node's key under `[nodes]` (`DS1:7443` is the node DS1); an
+/// entry naming no node the file declares — a machine's address — places
+/// none. What a cluster's drawing relates and stands its Storage nodes by
+/// (ADR-0052 and ADR-0056, amendments 2026-11-13).
+///
+/// # Errors
+/// As [`nodes`], and where `[storage] nodes` is not a list of strings.
+pub fn storage_places(cluster: &str) -> Result<Vec<(String, u32)>, String> {
+    let table = read(cluster)?;
+    let declared = declared(&table)?;
+    let listed = match table.get("storage").and_then(|storage| storage.get(NODES)) {
+        None => return Ok(Vec::new()),
+        Some(Value::Array(listed)) => listed,
+        Some(_) => return Err("[storage] nodes is a list of host:port".to_string()),
+    };
+    let mut places = Vec::new();
+    for (place, entry) in listed.iter().enumerate() {
+        let Value::String(address) = entry else {
+            return Err("[storage] nodes is a list of host:port".to_string());
+        };
+        let host = address
+            .rsplit_once(':')
+            .map_or(address.as_str(), |(host, _)| host);
+        if declared.contains_key(host) {
+            let place = u32::try_from(place).unwrap_or(u32::MAX);
+            places.push((host.to_string(), place));
+        }
+    }
+    Ok(places)
+}
+
 /// Whether `source` is a cluster's file: it declares its nodes.
 #[must_use]
 pub fn is_cluster(source: &str) -> bool {
@@ -399,6 +434,21 @@ nodes = ["{third}.example:7443"]
             format!("/srv/{}/in", written.first)
         );
         assert_eq!(first.receive_locations[0].scheme(), "file");
+    }
+
+    /// The Storage nodes `[storage] nodes` lists by name, each at its place
+    /// in the list; an address naming no node of the file places none.
+    #[test]
+    fn the_storage_nodes_listed_by_name_take_their_places_in_the_list() {
+        let cluster = test_cluster();
+        let [first, second] = [0, 1].map(|at| cluster.node(at).name.clone());
+        let text = format!(
+            "[storage]\nnodes = [\"{second}:7443\", \"elsewhere.example:7443\", \"{first}:7443\"]\n\
+             [nodes.{first}]\nroles = \"storage\"\n[nodes.{second}]\nroles = \"storage\"\n"
+        );
+        assert_eq!(storage_places(&text), Ok(vec![(second, 0), (first, 2)]));
+        assert_eq!(storage_places("[nodes]\n"), Ok(Vec::new()));
+        assert!(storage_places("[storage]\nnodes = 7\n").is_err());
     }
 
     #[test]
