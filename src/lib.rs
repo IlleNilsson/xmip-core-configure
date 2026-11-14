@@ -47,6 +47,7 @@ pub mod fixture;
 pub mod keys;
 mod kinds;
 pub mod modules;
+pub mod observers;
 pub mod offered;
 pub mod operate;
 pub mod party;
@@ -72,7 +73,8 @@ pub mod written;
 
 pub use application::{SendPortGroup, XmipApplication, parse_application};
 pub use binding::{
-    ApplicationBinding, Bound, BoundLocation, BoundReceivePort, bind, binding_problems,
+    ApplicationBinding, Bound, BoundLocation, BoundReceivePort, BoundWorkProcess, bind,
+    binding_problems,
 };
 pub use cluster::{is_cluster, slice, slice_named, slices};
 pub use correlation::Correlation;

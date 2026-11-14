@@ -45,6 +45,7 @@
 //! (`deployment-model.md` section 8), and the runtime's validation calls it
 //! for every node the file declares.
 
+use node::{Capability, NodeRole};
 use toml::{Table, Value};
 
 use crate::section::SECTIONS;
@@ -67,31 +68,62 @@ pub fn nodes(cluster: &str) -> Result<Vec<String>, String> {
 pub const ROLES: &str = "roles";
 
 /// Each node the cluster's file `cluster` declares, in the order of their
-/// names, with the role words its [`ROLES`] says, as written — none where
-/// it says none. Whether a word is a role is `node::NodeRole`'s to say.
+/// names, with the roles its [`ROLES`] declares, read by
+/// `node::NodeRole::declared` and as one declaration says them — none
+/// where it says none.
 ///
 /// # Errors
-/// As [`nodes`], and where a node's [`ROLES`] is not a string.
-pub fn roles(cluster: &str) -> Result<Vec<(String, Vec<String>)>, String> {
+/// As [`nodes`], and where a node's [`ROLES`] is not a string or names a
+/// word that is no role, REFUSED naming the node.
+pub fn roles(cluster: &str) -> Result<Vec<(String, Vec<NodeRole>)>, String> {
     let table = read(cluster)?;
     declared(&table)?
         .into_iter()
+        .map(|(node, own)| Ok((node.clone(), declared_roles(&node, &own)?)))
+        .collect()
+}
+
+/// Each node the cluster's file `cluster` declares, in the order of their
+/// names, with what it declares (ADR-0056 clause 1): its [`roles`], and
+/// its online capability, `[service] online` as its slice reads it — its
+/// own `[nodes.<name>.service]` over the file's, offline where neither
+/// says (ADR-0045). What a cluster's work is placed by (`crate::placed`).
+///
+/// # Errors
+/// As [`roles`], and where `online` is not true or false.
+pub fn capabilities(cluster: &str) -> Result<Vec<(String, Capability)>, String> {
+    let table = read(cluster)?;
+    let shared = match table.get("service") {
+        Some(Value::Table(service)) => service.clone(),
+        _ => Table::new(),
+    };
+    declared(&table)?
+        .into_iter()
         .map(|(node, own)| {
-            let words = match own.get(ROLES) {
-                None => Vec::new(),
-                Some(Value::String(said)) => said
-                    .split([',', '+'])
-                    .map(str::trim)
-                    .filter(|word| !word.is_empty())
-                    .map(str::to_string)
-                    .collect(),
-                Some(_) => {
-                    return Err(format!("[nodes.{node}] {ROLES} is a string of role words"));
-                }
+            let roles = declared_roles(&node, &own)?;
+            let mut service = shared.clone();
+            if let Some(Value::Table(own)) = own.get("service") {
+                merge(&mut service, own.clone());
+            }
+            let online = match service.get("online") {
+                None => false,
+                Some(Value::Boolean(online)) => *online,
+                Some(_) => return Err(format!("[nodes.{node}.service] online is true or false")),
             };
-            Ok((node, words))
+            Ok((node, Capability::of(&roles).with_online(online)))
         })
         .collect()
+}
+
+/// The roles the table `own` of the node `node` declares under [`ROLES`].
+fn declared_roles(node: &str, own: &Value) -> Result<Vec<NodeRole>, String> {
+    match own.get(ROLES) {
+        None => Ok(Vec::new()),
+        Some(Value::String(said)) => {
+            NodeRole::declared(said).map_err(|refused| format!("[nodes.{node}] {ROLES}: {refused}"))
+        }
+        Some(_) => Err(format!("[nodes.{node}] {ROLES} is a string of role words")),
+    }
 }
 
 /// Each node of the cluster's file `cluster` that `[storage] nodes` lists,
@@ -138,7 +170,9 @@ pub fn is_cluster(source: &str) -> bool {
 }
 
 /// The node `node`'s configuration document, sliced from the cluster's
-/// file `cluster`: what [`crate::parse_toml`] reads.
+/// file `cluster`: what [`crate::parse_toml`] reads. Every node the file
+/// declares with the monitoring role is listed among its `[operate]
+/// observers` (`crate::observers`, ADR-0009, amendment 2026-11-13).
 ///
 /// # Errors
 /// When the text is not TOML, the cluster declares no node `node`, the
@@ -146,6 +180,7 @@ pub fn is_cluster(source: &str) -> bool {
 /// another than its key.
 pub fn slice(cluster: &str, node: &str) -> Result<String, String> {
     let mut table = read(cluster)?;
+    let gathering = crate::observers::gathering(&declared(&table)?);
     let mut own = {
         let declared = declared(&table)?;
         match declared.get(node) {
@@ -186,6 +221,7 @@ pub fn slice(cluster: &str, node: &str) -> Result<String, String> {
     }
     merge(&mut table, own);
     bound_sections(&mut table);
+    crate::observers::listed(&mut table, &gathering)?;
     match table
         .entry("service")
         .or_insert_with(|| Value::Table(Table::new()))
@@ -554,24 +590,63 @@ nodes = ["{third}.example:7443"]
     }
 
     #[test]
-    fn each_node_declares_the_role_words_its_roles_says_and_none_where_it_says_none() {
+    fn each_node_declares_the_roles_its_roles_says_and_none_where_it_says_none() {
         let cluster = test_cluster();
         let [one, two] = [0, 1].map(|place| cluster.node(place).name.clone());
-        let text = format!("[nodes.{one}]\n{ROLES} = \"processing, sending\"\n\n[nodes.{two}]\n");
+        let text = format!("[nodes.{one}]\n{ROLES} = \"sending, processing\"\n\n[nodes.{two}]\n");
         let mut expected = vec![
-            (
-                one.clone(),
-                vec!["processing".to_string(), "sending".to_string()],
-            ),
+            (one.clone(), vec![NodeRole::Processing, NodeRole::Sending]),
             (two.clone(), Vec::new()),
         ];
-        expected.sort();
+        expected.sort_by(|a, b| a.0.cmp(&b.0));
         assert_eq!(roles(&text).expect("reads"), expected);
         let plus = format!("[nodes.{one}]\n{ROLES} = \"receiving+sending\"\n");
-        assert_eq!(roles(&plus).expect("reads")[0].1, ["receiving", "sending"]);
+        assert_eq!(
+            roles(&plus).expect("reads")[0].1,
+            [NodeRole::Receiving, NodeRole::Sending]
+        );
+        let three = format!("[nodes.{one}]\n{ROLES} = \"receiving,processing,sending\"\n");
+        assert_eq!(roles(&three).expect("reads")[0].1, [NodeRole::Executing]);
         assert!(roles(&format!("[nodes.{one}]\n{ROLES} = 1\n")).is_err());
+        let stranger = roles(&format!("[nodes.{one}]\n{ROLES} = \"receiving,relay\"\n"))
+            .expect_err("relay is no role");
+        assert!(
+            stranger.starts_with(&format!(
+                "[nodes.{one}] {ROLES}: REFUSED: no role is called relay"
+            )),
+            "{stranger}"
+        );
         let declared = roles(&cluster.text).expect("the test cluster reads");
         assert_eq!(declared.len(), cluster.nodes.len());
+    }
+
+    #[test]
+    fn a_node_declares_its_roles_and_online_as_its_slice_reads_them() {
+        let cluster = test_cluster();
+        let [one, two, three] = [0, 1, 2].map(|place| cluster.node(place).name.clone());
+        let text = format!(
+            "[service]\nonline = true\n[nodes.{one}]\n{ROLES} = \"receiving\"\n\
+             [nodes.{two}.service]\nonline = false\n[nodes.{three}]\n"
+        );
+        let declared = capabilities(&text).expect("reads");
+        let of = |name: &str| {
+            declared
+                .iter()
+                .find(|(node, _)| node == name)
+                .map(|(_, capability)| capability.clone())
+                .expect("declared")
+        };
+        assert_eq!(
+            of(&one),
+            Capability::of(&[NodeRole::Receiving]).with_online(true)
+        );
+        assert_eq!(of(&two), Capability::none(), "its own says offline");
+        assert_eq!(of(&three), Capability::none().with_online(true));
+        let sliced = slice_named(&text, &two, &cluster.name).expect("slices");
+        let sliced = crate::parse_toml(&sliced).expect("reads");
+        assert!(!sliced.service.online, "as its slice reads it");
+        let unread = capabilities(&format!("[nodes.{one}.service]\nonline = \"yes\"\n"));
+        assert!(unread.expect_err("no boolean").contains("online"));
     }
 
     /// A cluster's file says nothing of where it runs; the environment
