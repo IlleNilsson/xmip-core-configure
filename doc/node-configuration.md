@@ -401,6 +401,7 @@ receive_sweep = "1s"                        # a watched Location's recovery swee
 receive_backoff = "5s"                      # a polled Location's rest after a failure
 receive_drain = "1s"                        # the longest a stopping Location drains
 receive_handshake = "5s"                    # each TLS handshake read, apart from a Location's wait
+receive_turn = "1m"                         # the most one caller's turn on a Receive Location takes
 node_receive_threads_per_hardware_thread = 4 # 1 to 256
 receive_chunks_per_thread = 8               # 1 to 4096
 send_threads_per_hardware_thread = 2        # 1 to 64
@@ -416,6 +417,7 @@ storage_timeout = "5s"                      # each connect and read to a Storage
 storage_pass_over = "5s"                    # how long one that did not answer waits its turn
 storage_wait = "1m"                         # the longest a Storage node holds one node's wait
 storage_unwaited = 16384                    # of what no node waits on, how many a Storage node keeps
+storage_due_places = 16384                  # how many queues' due places a Storage node's writer keeps
 local_timeout = "2s"                        # how long a call to the local endpoint waits
 operate_connections = 256                   # connections each operate listener answers at once
 operate_handshakes = 32                     # of them in their handshake at once
@@ -430,6 +432,8 @@ sync_write = "10s"                          # the most a write waits on a node n
 sync_retry = "50ms"                         # the first wait before a member is tried again
 sync_retry_most = "1s"                      # the longest wait before it is tried again
 sync_follow = "1m"                          # how often the members are read again
+connect_retransmit = "1s"                   # a connect's wait for an answer before its SYN goes again
+connect_retransmissions = 1                 # how often an unanswered SYN goes again, 0 to 8
 ```
 
 - **`tcp_segment`** and **`segments`**: a Stream is written to the Ledger
@@ -465,6 +469,16 @@ sync_follow = "1m"                          # how often the members are read aga
   content and is put back before a byte of it is read, so a Location's
   wait is never raised for a slow handshake (ADR-0033, amendment
   2026-10-20).
+- **`receive_turn`**: the most one caller's turn on a Receive Location
+  takes — one request, frame or message read whole — every read of it
+  waiting only what is left. A Location takes its callers' turns one after
+  another, so a caller that sends part of an exchange and stops, or a byte
+  inside each read's wait, is turned away at the deadline and the others
+  are served; the Location's own `timeout` still bounds each read. A
+  minute by default, enough for 64 MiB at ten megabits a second: a slower
+  network carrying large Streams wants more, and an open network facing
+  callers it does not know may want less (`runtime-model.md` section 5;
+  ADR-0018, amendment 2026-11-14).
 - **`node_receive_threads_per_hardware_thread`** and
   **`receive_chunks_per_thread`**: the node's budget beside each Receive
   Location's own pool. The node carries at most this many arrivals per
@@ -534,6 +548,13 @@ sync_follow = "1m"                          # how often the members are read aga
   next waited on, so what it keeps follows the waits under way, never every
   conversation it ever carried; what a node waits on now is always kept
   (ADR-0018, amendment 2026-11-12).
+- **`storage_due_places`**: on a Storage node — the only one, or the
+  primary among several — how many queues' places by when each is due its
+  one writer keeps as it left them, so a write into one reads none of them
+  from the store (16,384, some 100 bytes each, under two megabytes; 0 to
+  4,194,304; 0 keeps none, each read every write). Past that, the first
+  kept is let go and read again by the next write into it (ADR-0018,
+  amendment 2026-11-14).
 - **`local_timeout`**: how long a surface's call to the node's local
   endpoint waits — decided by the owner, 2026-10-13: *a local call waits at
   most a set time — `[tuning]`, default 2 s — then says the node did not
@@ -561,6 +582,22 @@ sync_follow = "1m"                          # how often the members are read aga
   `sync_retry` up to `sync_retry_most` — and how often the members are
   read again when nothing says they changed. No node joins the sync plane
   from its configuration yet; the keys are read and held.
+- **`connect_retransmit`** and **`connect_retransmissions`**: how every
+  TCP connect the node's process makes — to a Storage node, another
+  member, a Send Location's far end — sends a SYN nobody answered again:
+  after `connect_retransmit` (a second, RFC 6298's initial retransmission
+  timeout), then after twice the wait before, at most
+  `connect_retransmissions` times (once), all inside the connect's own
+  timeout. A refusal, or a host the network says is unreachable, is
+  answered at once and never asked again, so a stopped Storage node is
+  passed over in a millisecond, not two seconds. The network's
+  assumption: a lossy or distant one may want more sends or a longer
+  first wait; one computer, where no SYN is lost on loopback, wants none
+  sent again, which the Essentials' run on one computer says
+  (`connect_retransmissions = 0`). Windows follows both keys, each wait at
+  most 65,534 ms; Linux answers a refusal at once and sends a SYN again by
+  its own schedule until the timeout, which stands (`net::connect`;
+  ADR-0044, amendment 2026-11-14).
 
 Durations are a whole number and `ms`, `s`, `m` or `h`, above nothing and
 at most an hour. Which keys there are, their kinds, bounds and defaults are

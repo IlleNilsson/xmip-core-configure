@@ -46,7 +46,8 @@ From `module/platform/configure/src/application.rs` (`XmipApplication`) and
   and its policy (`runtime-model.md` section 10, the same amendment):
   `send_locations`, its Send Locations by name, tried in order;
   `retry = { attempts, backoff }` on the active Location, the backoff a
-  duration such as `5s`; `failover`, `next` or `none`; and `correlation`,
+  duration such as `5s`, built as the retry guard the node's program links
+  (ADR-0048, amendment 2026-11-14); `failover`, `next` or `none`; and `correlation`,
   the cluster's set its Messages pass it by, one at a time per key.
 - **`[[correlations]]`**, once for the cluster, beside the Applications:
   a `name`, the `keys` that make a key — `receive-location`, `receive-port`,
