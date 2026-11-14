@@ -45,7 +45,8 @@ pub struct TestCluster {
 pub struct TestNode {
     /// Its name, its key under `[nodes]`.
     pub name: String,
-    /// The role words its `roles` declares, as written.
+    /// The words of the roles its `roles` declares, as one declaration says
+    /// them (`node::NodeRole::declared`).
     pub roles: Vec<String>,
 }
 
@@ -85,7 +86,10 @@ fn read(path: PathBuf) -> TestCluster {
     let nodes: Vec<TestNode> = cluster::roles(&text)
         .unwrap_or_else(|problem| panic!("the test cluster {}: {problem}", path.display()))
         .into_iter()
-        .map(|(name, roles)| TestNode { name, roles })
+        .map(|(name, roles)| TestNode {
+            name,
+            roles: roles.iter().map(|role| role.name().to_string()).collect(),
+        })
         .collect();
     assert!(
         !nodes.is_empty(),

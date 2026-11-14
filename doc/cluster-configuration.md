@@ -151,6 +151,35 @@ node = "<node>"
 address = "/var/xmip/out"
 ```
 
+### Placed by what each node declares
+
+An environment that writes no bindings by hand — the Essentials' run, and
+`xmip-service --slice --bind --nodes` on machines of their own — has them
+written by `configure::placed` (`src/placed.rs`), the one placement for
+both, so the two never place differently. Each piece of work requires its
+stage served (ADR-0056, amendment 2026-11-13): a Receive Location the
+receive stage, a Send Port the send stage, a Work Process the process
+stage, and a node satisfies it where one of the roles its `[nodes.<name>]
+roles` declares serves that stage, `executing` serving every stage. Each
+Receive Location and Send Port goes to one node, round robin in the file's
+order over the nodes present that satisfy it (`xcluster::place`); each
+Work Process to every node present that satisfies it (`xcluster::every`),
+which share its turns through Xmip Storage. A Work Process is bound by its
+name and its node alone:
+
+```toml
+[[applications.work_processes]]
+name = "Purchase order confirmation"
+node = "<node>"
+```
+
+Work no node present satisfies is refused, never left unplaced, naming
+the requirement, every node considered and the work:
+
+```text
+REFUSED: no node satisfies work requiring serving Send; considered <node> (receiving; offline), <another> (storage; offline). Not placed: the Send Port 'To A' of 'Orders'.
+```
+
 `ApplicationSection` (`src/section.rs`) reads a section as the Application
 it is, through `parse_application`, the one reading of an Application.
 `binding_problems` refuses a binding where the configuration holds no

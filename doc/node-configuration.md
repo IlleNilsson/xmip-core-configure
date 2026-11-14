@@ -250,6 +250,11 @@ Windows, without regard to case there. A caller no list names holds no role
 and is refused every call, reading the publication included: a certificate
 reaching `anchors` proves who it is and grants nothing. A name listed under
 two roles is refused as the node starts, as is a key it does not know.
+A node sliced from a cluster's file lists among its `observers`, beside
+whom the file names, every node the file declares with the monitoring
+role, `CN=<node>` by its node certificate, which reads the node's
+publication to gather the cluster's view (ADR-0009, amendment 2026-11-13);
+a name the file already lists under a role keeps it.
 
 What bounds each listener against a caller that holds it up rather than
 asks it anything is `[tuning]`'s, per cluster and per node:
@@ -415,6 +420,16 @@ local_timeout = "2s"                        # how long a call to the local endpo
 operate_connections = 256                   # connections each operate listener answers at once
 operate_handshakes = 32                     # of them in their handshake at once
 operate_handshake = "10s"                   # how long a handshake may take in all
+operate_act = "1s"                          # how long a door holds an act's asker
+sync_beat = "1s"                            # how often an idle sync link says it is alive
+sync_silence = "3s"                         # how long a sync link may say nothing
+sync_handshake = "5s"                       # the most a sync link's handshake waits
+sync_watch = "50ms"                         # how often a waiting read looks whether it ends
+sync_connect = "2s"                         # the most a connect to a member waits
+sync_write = "10s"                          # the most a write waits on a node not reading
+sync_retry = "50ms"                         # the first wait before a member is tried again
+sync_retry_most = "1s"                      # the longest wait before it is tried again
+sync_follow = "1m"                          # how often the members are read again
 ```
 
 - **`tcp_segment`** and **`segments`**: a Stream is written to the Ledger
@@ -533,6 +548,19 @@ operate_handshake = "10s"                   # how long a handshake may take in a
   however it is read, a byte at a time included — is cut. The handshake's
   default is the web host's secure listener's own bound
   (`secure_listener::HANDSHAKE_WITHIN`).
+- **`operate_act`**: how long this node, as the door an operator's act is
+  asked at, holds the asker's call while the node it is asked of takes it
+  through Xmip Storage (ADR-0014, amendment 2026-11-13); past it the asker
+  is told the act is *asked*, and its node takes it as soon as it runs.
+- **`sync_beat`** to **`sync_follow`**: the bounds the sync plane runs by
+  (`xmip-core-cluster`'s `sync`; ADR-0065 and ADR-0067, amendments
+  2026-11-13): how often an idle link beats and how long silence is taken
+  for a broken link, the bounds on a link's handshake, connect and write,
+  how often a waiting read looks whether its side ends, the waits before a
+  member that could not be reached is tried again — doubled each time from
+  `sync_retry` up to `sync_retry_most` — and how often the members are
+  read again when nothing says they changed. No node joins the sync plane
+  from its configuration yet; the keys are read and held.
 
 Durations are a whole number and `ms`, `s`, `m` or `h`, above nothing and
 at most an hour. Which keys there are, their kinds, bounds and defaults are

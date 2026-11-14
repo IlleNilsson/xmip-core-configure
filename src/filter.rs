@@ -122,6 +122,18 @@ fn part(condition: &Condition) -> FilterPart {
             part: Box::new(part(inner)),
         },
         Condition::Compare { left, right, .. } => valued(left, right),
+        // A pattern with its escape is the value written as the language
+        // writes it, `'a\_b%' escape '\'`, read back by path's `pattern`.
+        Condition::Like {
+            value,
+            pattern,
+            escape: Some(escape),
+            ..
+        } => row(
+            value,
+            format!("{pattern} escape {}", Value::Text(escape.to_string())),
+            EXPRESSION,
+        ),
         Condition::Like { value, pattern, .. } => valued(value, pattern),
         Condition::In { value, list, .. } => {
             let items: Vec<String> = list.iter().map(ToString::to_string).collect();
@@ -181,11 +193,19 @@ fn row(property: &str, operator: &str, value: &str, kind: &str) -> Result<Condit
         });
     }
     Ok(match operator {
-        "like" | "not like" => Condition::Like {
-            value: left,
-            pattern: right()?,
-            negated,
-        },
+        "like" | "not like" => {
+            let (pattern, escape) = if kind == EXPRESSION {
+                language(value, path::expression::pattern)?
+            } else {
+                (right()?, None)
+            };
+            Condition::Like {
+                value: left,
+                pattern,
+                negated,
+                escape,
+            }
+        }
         "in" | "not in" => Condition::In {
             value: left,
             list: if kind == EXPRESSION {
@@ -229,7 +249,7 @@ mod tests {
 
     /// Filters in the canonical form: each reads to rows that write it back
     /// byte for byte.
-    const CANONICAL: [&str; 14] = [
+    const CANONICAL: [&str; 15] = [
         "MessageType = 'Order' and not Amount > 1000 and header:http.x-channel = 'web'",
         "MessageType = 'Order'",
         "true",
@@ -245,6 +265,7 @@ mod tests {
         "Name = 'O''Brien' and Amount not in (1, 2) and A = B",
         "not exists Note or Customer not like '%-00_2'",
         "(a = 1 or b = 2) and (c = 3 or d = 4)",
+        r"party:sender like 'a\_b%' escape '\' and Customer not like 'EU!%%' escape '!'",
     ];
 
     #[test]

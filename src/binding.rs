@@ -6,9 +6,9 @@
 //! each node's configuration names the Applications it runs in
 //! `[[applications]]`, each binding the section of its name, and gives every
 //! Receive Location and Send Port it binds an address, the secret it names
-//! and the node that takes it, as the bindings
-//! of the platforms Xmip replaces do. The same route is never written again
-//! per node.
+//! and the node that takes it, and every Work Process the nodes that run it
+//! ([`BoundWorkProcess`]), as the bindings of the platforms Xmip replaces
+//! do. The same route is never written again per node.
 //!
 //! ```toml
 //! [[applications]]
@@ -33,7 +33,11 @@ use serde::{Deserialize, Serialize};
 use crate::application::{SendPortGroup, XmipApplication};
 use crate::port::{DesignedReceiveLocation, DesignedSendPort};
 use crate::section::ApplicationSection;
-use crate::{ConfiguredLocation, XmipConfigurationDocument};
+use crate::{ConfiguredLocation, WorkProcessConfiguration, XmipConfigurationDocument};
+
+mod bound_work_process;
+
+pub use bound_work_process::BoundWorkProcess;
 
 /// `[[applications]]`: one Xmip Application this node runs, the section of
 /// its name.
@@ -48,6 +52,10 @@ pub struct ApplicationBinding {
     /// The Send Ports it declares, each given the Send Location it leaves by.
     #[serde(default)]
     pub send_ports: Vec<BoundLocation>,
+    /// The Work Processes it declares that this environment runs, each
+    /// bound once for every node that runs it.
+    #[serde(default)]
+    pub work_processes: Vec<BoundWorkProcess>,
 }
 
 /// A Receive Location or a Send Port an Application declares, given its
@@ -101,6 +109,9 @@ pub struct Bound {
     /// set — its own and every binding's, taken here or not — by its name,
     /// with the set.
     pub send_location_sets: Vec<(String, String)>,
+    /// The bound Work Processes this node runs, each as its design says
+    /// it — its flow's `module`, `unit` and settings — and started.
+    pub work_processes: Vec<WorkProcessConfiguration>,
 }
 
 /// What the bindings in `document` say wrong: a name, the section of that
@@ -146,6 +157,7 @@ pub fn binding_problems(document: &XmipConfigurationDocument) -> Vec<String> {
                 }
             }
         }
+        bound_work_process::problems(application, &binding.work_processes, &mut problems);
     }
 
     problems
@@ -189,9 +201,10 @@ fn section_problems(
 }
 
 /// Join the node's bindings to the Applications it was given and take what
-/// this node runs: the bound Locations whose `node` is this node's name,
-/// the Receive Ports they are at and the Send Ports they are, and every
-/// Subscription and Send Port Group of every bound Application.
+/// this node runs: the bound Locations and Work Processes whose `node` is
+/// this node's name, the Receive Ports those Locations are at and the Send
+/// Ports they are, and every Subscription and Send Port Group of every
+/// bound Application.
 ///
 /// # Errors
 /// Every problem found, one sentence each: a binding's own
@@ -199,8 +212,9 @@ fn section_problems(
 /// Receive Location accepting a Party none declares
 /// ([`crate::party::accepted_problems`]), an Application the node binds and
 /// was not given,
-/// a bound Application's own problems, a Location it does not declare, and
-/// a Subscription or Location name two of them share on this node.
+/// a bound Application's own problems, a Location or Work Process it does
+/// not declare, and a Subscription, Location or Work Process name two of
+/// them share on this node.
 pub fn bind(
     document: &XmipConfigurationDocument,
     applications: &[XmipApplication],
@@ -244,9 +258,12 @@ pub fn bind(
             |design| &design.name,
             node,
         );
+        let (processes, unprocessed) =
+            bound_work_process::taken(&binding.work_processes, &application.work_processes, node);
         for (what, undeclared) in [
             ("Receive Location", &receive.undeclared),
             ("Send Port", &send.undeclared),
+            ("Work Process", &unprocessed),
         ] {
             for wanted in undeclared {
                 problems.push(format!(
@@ -257,6 +274,7 @@ pub fn bind(
         }
         bound.receive_locations.extend(receive.locations);
         bound.send_locations.extend(send.locations);
+        bound.work_processes.extend(processes);
         let (receive, send): (Vec<&DesignedReceiveLocation>, Vec<&DesignedSendPort>) =
             (receive.designs, send.designs);
 
@@ -352,6 +370,7 @@ fn once_on_the_node(
         .iter()
         .chain(&bound.receive_locations);
     let send = document.send_locations.iter().chain(&bound.send_locations);
+    let processes = document.work_processes.iter().chain(&bound.work_processes);
 
     for (what, names) in [
         ("Subscription", subscriptions.collect::<Vec<_>>()),
@@ -360,6 +379,7 @@ fn once_on_the_node(
             receive.map(|l| l.name.as_str()).collect(),
         ),
         ("Send Location", send.map(|l| l.name.as_str()).collect()),
+        ("Work Process", processes.map(|p| p.name.as_str()).collect()),
     ] {
         let mut seen = BTreeSet::new();
         for name in names {
@@ -530,6 +550,79 @@ filter = "MessageType = 'Order'"
         assert_eq!(
             bind(&first, &[]).expect("nothing to bind"),
             Bound::default()
+        );
+    }
+
+    /// [`binding`] with the Work Process "Confirm" designed, calling a
+    /// unit with a setting, and bound to the test cluster's nodes at
+    /// `bound`.
+    fn with_work_process(place: usize, bound: &[usize]) -> String {
+        let cluster = test_cluster();
+        let binds: String = bound
+            .iter()
+            .map(|at| {
+                format!(
+                    "[[applications.work_processes]]\nname = \"Confirm\"\nnode = \"{}\"\n",
+                    cluster.node(*at).name
+                )
+            })
+            .collect();
+        let design = "[[xmip_applications.work_processes]]\nname = \"Confirm\"\n\
+                      module = \"confirming\"\nunit = \"confirm\"\n\
+                      [xmip_applications.work_processes.settings]\nlimit = \"3\"\n";
+        binding(place).replacen(
+            "\n[[xmip_applications]]",
+            &format!("\n{binds}\n[[xmip_applications]]"),
+            1,
+        ) + design
+    }
+
+    #[test]
+    fn a_bound_work_process_runs_its_design_on_each_node_it_is_bound_to() {
+        for place in [0, 1] {
+            let document = node(&with_work_process(place, &[0, 1]));
+            let bound = bind(&document, &[orders(&document)]).expect("binds");
+            let [process] = bound.work_processes.as_slice() else {
+                panic!("one Work Process on each: {:?}", bound.work_processes);
+            };
+            assert_eq!(process.name, "Confirm");
+            assert!(process.start, "a bound Work Process starts");
+            assert_eq!(process.module.as_deref(), Some("confirming"));
+            assert_eq!(process.unit.as_deref(), Some("confirm"));
+            assert!(!process.settings.is_empty(), "its design's settings");
+        }
+        let elsewhere = node(&with_work_process(2, &[0, 1]));
+        let bound = bind(&elsewhere, &[orders(&elsewhere)]).expect("binds");
+        assert_eq!(bound.work_processes, [] as [WorkProcessConfiguration; 0]);
+    }
+
+    #[test]
+    fn a_work_process_not_designed_or_bound_twice_to_a_node_is_refused() {
+        let text = with_work_process(0, &[0]).replacen("name = \"Confirm\"", "name = \"Ship\"", 1);
+        let first = node(&text);
+        let problems = bind(&first, &[orders(&first)]).expect_err("refused");
+        assert_eq!(
+            problems,
+            ["the node binds the Work Process 'Ship' of 'Orders', which 'Orders' does not declare"]
+        );
+        let twice = node(&with_work_process(0, &[0, 0]));
+        let name = test_cluster().node(0).name.clone();
+        assert_eq!(
+            binding_problems(&twice),
+            [format!(
+                "'Orders' binds the Work Process 'Confirm' to the node '{name}' twice"
+            )]
+        );
+        let own = with_work_process(0, &[0]).replacen(
+            "\n[[applications]]",
+            "\n[[work_processes]]\nname = \"Confirm\"\nstart = true\n\n[[applications]]",
+            1,
+        );
+        let own = node(&own);
+        let problems = bind(&own, &[orders(&own)]).expect_err("refused");
+        assert_eq!(
+            problems,
+            ["the Work Process 'Confirm' is on this node twice"]
         );
     }
 

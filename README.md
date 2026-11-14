@@ -92,7 +92,12 @@ amendment 2026-10-03; [`doc/cluster-configuration.md`](doc/cluster-configuration
 Its Xmip Applications are sections of it, `[[xmip_applications]]`
 (`section.rs`, ADR-0064 amendment 2026-10-03), and nowhere else: a binding
 binds the section of its name, and the slice gives a node the sections its
-bindings name. The VS Code designer is a view of the file's
+bindings name. The slice also lists, under the node's `[operate]
+observers`, every node the file declares with the monitoring role, by the
+subject its node certificate carries, `CN=<node>`, so a monitoring node
+reads each member as an Observer — one rule, read from the roles and never
+a name, for every environment that writes a node's configuration
+(`observers.rs`; ADR-0009, amendment 2026-11-13). The VS Code designer is a view of the file's
 own sections, artifact by artifact: `views` answers one view per kind
 (`kinds.rs`) — Cluster, Node, Party, Module, Receive Port, Receive
 Location, Send Port, Send Location, Send Port Group, Prepare, Promote,
@@ -125,6 +130,24 @@ defaults are the runtime's declaration (`tuning::TUNING`). With the
 `test-support` feature, `fixture::test_cluster` reads the estate's test
 cluster, `test/cluster.xmip` or the file `XMIP_TEST_CLUSTER` names: the one
 place a test takes a cluster's or a node's name from.
+
+Where an environment writes no bindings by hand, `placed` writes them —
+the one placement the Essentials' run and `xmip-service --slice --bind`
+share (`placed.rs`; ADR-0056, amendment 2026-11-13;
+[`doc/cluster-configuration.md`](doc/cluster-configuration.md)). Each
+piece of work requires its stage served (`Placed::requirement`, a
+`node::Requirement`): a Receive Location the receive stage, a Send Port
+the send stage, a Work Process the process stage, matched against what
+each node present declares (`cluster::capabilities`: its roles, read by
+`node::NodeRole::declared` in `cluster::roles`, and its online
+capability). A Receive Location or Send Port goes to the one node
+`xcluster::place`'s rotation gives it, a Work Process to every node
+satisfying it (`xcluster::every`), bound as
+`[[applications.work_processes]]` by its name and node; `bind` gives the
+node each it runs as its design's `module`, `unit` and settings, started
+(`Bound::work_processes`). Work no node present satisfies is refused in
+words naming the requirement, every node considered and the work, never
+left unplaced.
 
 A node's top-level `roles` is the role words its cluster's
 `[nodes.<name>] roles` declares, as the slice gives them; their parse is
