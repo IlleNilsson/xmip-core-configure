@@ -214,11 +214,16 @@ against `admit` after (the owner, 2026-10-21); a group the system does not
 know, or one the node's account is no member of, is refused as the node
 starts. **It always starts** — decided by
 the owner, 2026-10-13: *the local endpoint always starts, named `xmip-<node>`
-unless the configuration names it* — at `\\.\pipe\<name>` on Windows,
-`/run/xmip/<name>.sock` on Linux and `/var/run/xmip/<name>.sock` on macOS,
-the folder the systemd unit or a launchd daemon makes for the node's
-account; a name may change, the folder may not, and a name that would leave
-it is refused. `listen` is its address for another machine — `xmip
+unless the configuration names it* — at `\\.\pipe\<name>` on Windows and
+elsewhere in its node's folder, named as the endpoint is,
+`/run/xmip/<name>/<name>.sock` on Linux and `/var/run/xmip/<name>/<name>.sock`
+on macOS: the folder the systemd unit or a launchd daemon makes for the
+node's account in the root-owned one (ADR-0014, amendment 2026-11-15), or,
+for a node no service manager started, in the folder
+`XMIP_RUNTIME_DIRECTORY` names, where the node makes its own. A name may
+change, the folder may not; a name that would leave it, or a socket's path
+longer than the system holds (107 bytes on Linux, 103 on macOS), is
+refused. `listen` is its address for another machine — `xmip
 --remote`, `-Remote`, a GUI whose `Surface` is `remote` — inside Xmip's
 mutual TLS, and takes `certificate`, `key` and `anchors` with it; without
 it the node serves no network listener. With no `[operate]` at all the node

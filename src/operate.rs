@@ -68,10 +68,13 @@
 //! A relative path is relative to the configuration file. The address is
 //! the node's one address (ADR-0067 clause 1) and the port the operate
 //! plane's own; no port is assumed. A local name is `\\.\pipe\<name>` on
-//! Windows, `/run/xmip/<name>.sock` on Linux and
-//! `/var/run/xmip/<name>.sock` on macOS; a name may change, the folder may
-//! not, and one that would leave it is refused as the node starts
-//! (`xmip-core-runtime`'s `plane::local::place`).
+//! Windows and elsewhere a socket in its node's folder, `xmip-node1` at
+//! `/run/xmip/xmip-node1/xmip-node1.sock` on Linux and
+//! `/var/run/xmip/xmip-node1/xmip-node1.sock` on macOS, the folder named as
+//! the endpoint is, or in the folder `XMIP_RUNTIME_DIRECTORY` names for
+//! a node no service manager started (ADR-0014, amendment 2026-11-15); a
+//! name may change, the folder may not, and one that would leave it is
+//! refused as the node starts (`xmip-core-runtime`'s `plane::local::place`).
 
 use serde::{Deserialize, Serialize};
 
