@@ -417,7 +417,7 @@ storage_timeout = "5s"                      # each connect and read to a Storage
 storage_pass_over = "5s"                    # how long one that did not answer waits its turn
 storage_wait = "1m"                         # the longest a Storage node holds one node's wait
 storage_unwaited = 16384                    # of what no node waits on, how many a Storage node keeps
-storage_due_places = 16384                  # how many queues' due places a Storage node's writer keeps
+storage_writer_kept = 16777216              # the bytes of what it wrote a Storage node's writer keeps
 local_timeout = "2s"                        # how long a call to the local endpoint waits
 operate_connections = 256                   # connections each operate listener answers at once
 operate_handshakes = 32                     # of them in their handshake at once
@@ -548,13 +548,17 @@ connect_retransmissions = 1                 # how often an unanswered SYN goes a
   next waited on, so what it keeps follows the waits under way, never every
   conversation it ever carried; what a node waits on now is always kept
   (ADR-0018, amendment 2026-11-12).
-- **`storage_due_places`**: on a Storage node — the only one, or the
-  primary among several — how many queues' places by when each is due its
-  one writer keeps as it left them, so a write into one reads none of them
-  from the store (16,384, some 100 bytes each, under two megabytes; 0 to
-  4,194,304; 0 keeps none, each read every write). Past that, the first
-  kept is let go and read again by the next write into it (ADR-0018,
-  amendment 2026-11-14).
+- **`storage_writer_kept`**: on a Storage node — the only one, or the
+  primary among several — how many bytes of the records it wrote its one
+  writer keeps as it left them: each claim, Journey, queue's entry, index
+  and places, places by when each is due, holder's count, failed Message's
+  and Dead Message Queue's records and Work Process Instance a later write
+  decides on, so that write reads none of them from the store — a
+  Message's hand-on none of what its Publication wrote (16,777,216, sixteen
+  mebibytes, some eight thousand Messages between their Publication and
+  their hand-on; 0 to 68,719,476,736; 0 keeps none, each read every
+  write). Past that, the first kept is let go and read again by the next
+  write that asks (ADR-0018, amendment 2026-11-15).
 - **`local_timeout`**: how long a surface's call to the node's local
   endpoint waits — decided by the owner, 2026-10-13: *a local call waits at
   most a set time — `[tuning]`, default 2 s — then says the node did not
