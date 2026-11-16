@@ -56,8 +56,9 @@ pub struct PartyConfiguration {
     /// Party: what a verified identity resolves to, what `xmip.party`
     /// holds for a filter and what the audit records. Absent, the Party is
     /// refused in words ([`problems`]). Declared last: the designer's
-    /// reading of the keys (`crate::shape`) stops a table at a value its
-    /// reader refuses, and a UUID refuses what the reading offers.
+    /// reading of the keys (`xmip-core-operate`'s `design::shape`) stops a
+    /// table at a value its reader refuses, and a UUID refuses what the
+    /// reading offers.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub id: Option<PartyId>,
 }
@@ -509,33 +510,6 @@ mod tests {
                 "the Receive Location 'in' accepts the Party 'absent', which [[parties]] does \
               not declare"
             ]
-        );
-    }
-
-    #[test]
-    fn the_designer_offers_an_identitys_mechanism_value_and_two_purposes() {
-        let keys = crate::keys::keys();
-        let of_parties =
-            |key: &&crate::keys::Key| key.table.first().is_some_and(|t| t == "parties");
-        let named = |name: &str| {
-            keys.iter()
-                .filter(of_parties)
-                .find(|key| key.key == name)
-                .unwrap_or_else(|| panic!("a Party reads {name}"))
-        };
-        let purpose = named("purpose");
-        assert_eq!(purpose.kind, "choice");
-        assert_eq!(purpose.choices, ["receive", "send"]);
-        assert_eq!(named("mechanism").kind, "text");
-        assert_eq!(named("value").kind, "text");
-        assert!(!named("secret").required, "a receive identity names none");
-        let id = keys
-            .iter()
-            .find(|key| key.key == "id" && key.table == ["parties"])
-            .expect("a Party reads its id");
-        assert!(
-            !id.required,
-            "absent, it is refused in words, not by the reader"
         );
     }
 

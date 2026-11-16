@@ -156,19 +156,20 @@ amendment 2026-10-01).
 
 ## The designer's view of it
 
-The cluster designer asks the runtime's library, which forwards to this
-crate (`xmip_operate.h` section 10, `views.rs` and `view_edit.rs` over the
-cluster's file). Its Receive Port view lists each Application's
+The cluster designer asks xmip-core-operate's library, whose designer reads
+the file through this crate (`xmip_operate.h` section 10; its
+`src/design/views.rs` and `src/design/view_edit.rs` over the cluster's
+file; ADR-0064, amendment 2026-11-16). Its Receive Port view lists each Application's
 `[[xmip_applications.receive_ports]]` and adds one there; its Receive
 Location and Send Port views show the keys above, each edited in place. The
 Route view:
 
-- **The routes** (`routes.rs`): the Application as a graph — Receive
+- **The routes** (`src/design/routes.rs`): the Application as a graph — Receive
   Locations, Subscriptions, Work Processes, Send Port Groups and Send Ports,
   each with its place along the route; every Receive Location *publishes*
   to every Subscription, a Subscription *routes* to its destination, and a
   Send Port Group *gathers* its Send Ports.
-- **A filter** (`filter.rs`): its line and its rows — a view of the
+- **A filter** (`src/design/filter.rs`): its line and its rows — a view of the
   compiled expression, never a second grammar. A row is a property (the
   left side, in the language, usually a name), an operator (the language's
   own: `=`, `<>`, `<`, `<=`, `>`, `>=`, `like`, `not like`, `in`,
@@ -179,7 +180,7 @@ Route view:
   filter only when it edits one, in the canonical form, which reads back
   to the same rows and writes again byte for byte; a line written by hand
   is never reformatted by reading it.
-- **An edit** (`edit.rs`): declare a Receive Location, a Work Process or a
+- **An edit** (`src/design/edit.rs`): declare a Receive Location, a Work Process or a
   Send Port; add a Subscription routing to a target; set a Subscription's
   filter; connect a Subscription to another target. The edit changes the
   lines it touches and leaves every comment, order and layout elsewhere as

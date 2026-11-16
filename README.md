@@ -25,14 +25,11 @@ and a Receive Location, a Receive Port and a Work Process may name a
 ADR-0031, amendment 2026-10-01; ADR-0024 and ADR-0066, amendments
 2026-10-22). A Work Process names its compiled flow by `module` and `unit`. Each is a problem
 of the Application, refused at startup phase 3, and held in the runtime's
-execution tree. The designer's Route view
-of an Application — its routes as a graph (`routes`), a filter's rows and
-groups as a view of its compiled expression (`filter`; the filter itself is
-one line of Xmip's expression language, `xmip-core-path`'s `expression`,
-compiled as the Application is read, ADR-0066), and the edits it makes to
-the text in place
-(`edit`) — is here too, reached by the VS Code extension's language server
-through the runtime's library (`xmip_operate.h` section 10). An operator who
+execution tree. The designer's view of an Application and of the cluster's
+file, and every edit it makes, are xmip-core-operate's `design`, reached by
+the VS Code extension's language server and the Operation Desktop through
+its library (`xmip_operate.h` section 10; ADR-0064, amendment 2026-11-16).
+An operator who
 opens a Subscription is shown its entry as the file says it,
 `subscription_entry`, read from the configuration's text with its layout and
 comments (ADR-0013, amendment 2026-09-30). The shapes are
@@ -97,18 +94,7 @@ observers`, every node the file declares with the monitoring role, by the
 subject its node certificate carries, `CN=<node>`, so a monitoring node
 reads each member as an Observer — one rule, read from the roles and never
 a name, for every environment that writes a node's configuration
-(`observers.rs`; ADR-0009, amendment 2026-11-13). The VS Code designer is a view of the file's
-own sections, artifact by artifact: `views` answers one view per kind
-(`kinds.rs`) — Cluster, Node, Party, Module, Receive Port, Receive
-Location, Send Port, Send Location, Send Port Group, Prepare, Promote,
-Demote, Route, Transformation, Work Process — with each entry's values
-(`field`), what may be set on it (`offered`, the runtime handing in its
-`[tuning]` declaration and the role words through `Views::offering`), an
-Application's routes, and every compiled unit the file's modules declare,
-and `view_edit` makes the designer's edits in place — `add-element` adding
-one element to an array of unnamed tables, a Party's identity — writing `start = true` on
-each Receive Location, Send Port and Send Location it creates, and refusing
-one that would leave a node or an Application that read unable to.
+(`observers.rs`; ADR-0009, amendment 2026-11-13).
 Prepare, Promote, Demote and Transformation are calls to compiled units
 (ADR-0066, amendment 2026-10-22; `step.rs`, `modules.rs`): a Module's
 manifest declares its units (`abi::ModuleUnit`: a name, a capability, the
@@ -153,8 +139,8 @@ A node's top-level `roles` is the role words its cluster's
 `[nodes.<name>] roles` declares, as the slice gives them; their parse is
 `node::NodeRole`'s, and only a node declaring `storage` keeps Xmip Storage
 itself (ADR-0056, amendment 2026-10-20). A cluster's shared top declares
-no roles: the editor's keys (`keys.rs`) offer `roles` under a node's own
-table alone. `[storage] nodes` lists the Storage nodes a node without the
+no roles: the editor's keys (xmip-core-operate's `design::keys`) offer
+`roles` under a node's own table alone. `[storage] nodes` lists the Storage nodes a node without the
 role reaches Xmip Storage at, `host:port` each, tried round robin
 (`storage.rs`, `deployment-model.md` section 7). `[runtime]`, `[administration]` and
 `[audit]` say what each of Xmip Storage's three data domains is kept on, a

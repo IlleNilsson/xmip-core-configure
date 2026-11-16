@@ -289,10 +289,12 @@ accepted or been activated anywhere but on the desktop's own node.
 
 The VS Code designer is a view of the file's own sections, artifact by
 artifact (ADR-0064, amendment 2026-10-03), and so is the Operation
-Desktop's Configure page; what both show and do is this crate's, reached
-through the runtime's `xmip_operate.h` section 10:
+Desktop's Configure page; what both show and do is xmip-core-operate's
+designer, reading the file through this crate and reached through its
+library's `xmip_operate.h` section 10 (ADR-0064, amendment 2026-11-16);
+the paths below are that repository's:
 
-- **`views::Views::of`** (`src/views.rs`, the kinds in `src/kinds.rs`)
+- **`views::Views::of`** (`src/design/views.rs`, the kinds in `src/design/kinds.rs`)
   answers one view per kind, in this order: Cluster (`[service]`,
   `[tuning]`, `[runtime]`, `[administration]`, `[audit]`, `[storage]`,
   `[store]`, `[operate]`, `[provision]`), Node (each `[nodes.<name>]`),
@@ -301,9 +303,9 @@ through the runtime's `xmip_operate.h` section 10:
   Process. A list kind finds its entries wherever the file holds them — the
   cluster's shared sections, a node's own, a binding, an Application
   section — each with the path an edit names it by, whose it is, and its
-  values as TOML writes them (`src/field.rs`), and says where a new one may
+  values as TOML writes them (`src/design/field.rs`), and says where a new one may
   be added. A Route entry is an Application section with its routes as a
-  graph (`routes.rs`), or the reason it does not read; the bindings are
+  graph (`src/design/routes.rs`), or the reason it does not read; the bindings are
   Route entries too. Prepare, Promote, Demote, Transformation and Debatch
   list the calls to compiled units, `[[preparation_steps]]`,
   `[[promotions]]`, `[[demotions]]`, `[[transformations]]` and
@@ -311,16 +313,16 @@ through the runtime's `xmip_operate.h` section 10:
   whose manifests declare the units (ADR-0066, amendment 2026-10-22;
   [`node-configuration.md`](node-configuration.md)); the answer also says
   every unit the file's modules declare, its stages and its settings.
-- **What may be set** (`src/offered.rs`; ADR-0064, amendment 2026-10-22):
+- **What may be set** (`src/design/offered.rs`; ADR-0064, amendment 2026-10-22):
   each entry carries `offered`, every key its table may hold and does not
   write, its kind, whether it is required and the words or names it may
   take; an array of unnamed tables, a Party's `identities`, is offered as
   the keys of one element, added by `add-element`. The runtime hands in
   what it owns, the `[tuning]` declaration and the role words
   (`Views::offering`).
-- **`view_edit::apply`** (`src/view_edit.rs`) makes one edit in place —
+- **`view_edit::apply`** (`src/design/view_edit.rs`) makes one edit in place —
   set or remove a value, add or remove an entry of a list, declare a node,
-  or one of an Application's own edits (`edit.rs`) on its section — keeping
+  or one of an Application's own edits (`src/design/edit.rs`) on its section — keeping
   every comment and layout it does not touch. An entry it adds whose table
   reads `start` and goes without it — a Receive Location, Send Port or Send
   Location — it writes `start = true`, unless the edit gives `start`
@@ -328,18 +330,18 @@ through the runtime's `xmip_operate.h` section 10:
   would leave a node that sliced and read unable to, or an Application
   section that read unable to, in the reader's words.
 - **What an editor needs** (ADR-0064, amendment 2026-10-13), in the same
-  views answer: `written` (`src/written.rs`), every table by its section
+  views answer: `written` (`src/design/written.rs`), every table by its section
   with the bytes of its header, its name, the text it covers and each key
-  and value; `references` (`src/references.rs`), each name that stands for
+  and value; `references` (`src/design/references.rs`), each name that stands for
   an entry declared elsewhere — a Receive Location's `receive_port`, a Send
   Port Group's `send_ports`, a Subscription's `destination`, a binding's
   `name`, each bound Location's `name` and `node`, a node's own
   `[service] node_name` — with what it names, where that is declared and
-  every name it may take; and `keys` (`src/keys.rs`), every key each table
+  every name it may take; and `keys` (`src/design/keys.rs`), every key each table
   of the file may hold, its kind, the words it reads and whether it is
   required, read from this crate's own types by listening to their
-  `Deserialize` (`src/shape.rs`, `src/probe.rs`), never listed a second
-  time. Edits that follow them (`src/reference_edit.rs`): `rename` renames
+  `Deserialize` (`src/design/shape.rs`, `src/design/probe.rs`), never listed a second
+  time. Edits that follow them (`src/design/reference_edit.rs`): `rename` renames
   an entry or a node and every name standing for it; `remove-entry` is
   refused while anything names the entry, saying which, unless
   `references`, which removes the entries those names belong to (where the
@@ -351,7 +353,7 @@ through the runtime's `xmip_operate.h` section 10:
   `prepare`, `transform`, `promote`, `demote` and `debatch` the calls of
   its document,
   offering only those whose unit serves its stage
-  (`src/references/calls.rs`).
+  (`src/design/references/calls.rs`).
 
 ## The test cluster
 
