@@ -18,9 +18,9 @@ unsafe_code = "forbid"
 [dependencies]
 serde = { version = "1", features = ["derive"] }
 toml = "1.2.1"
-# The same family as toml, keeping what it does not touch: an edit a designer
-# makes to an Xmip Application changes its lines and leaves the developer's
-# comments and layout as they were (ADR-0064 clause 4).
+# The same family as toml, keeping what it does not touch: a Subscription's
+# entry read as the file writes it, with its own layout and comments
+# (`entry`; ADR-0013, amendment 2026-09-30).
 toml_edit = { version = "0.25.19", features = ["serde"] }
 abi = { package = "xmip-core-abi", git = "https://github.com/IlleNilsson/xmip-core-abi", branch = "main" }
 # A Subscription, its filter and where it routes are route's, read here from
@@ -35,12 +35,9 @@ context = { package = "xmip-core-context", git = "https://github.com/IlleNilsson
 # A Location's address as a URI writes it (net::Target), read once for the
 # estate: its scheme chooses the transport (ADR-0064, amendment 2026-10-28).
 net = { package = "xmip-core-library-net", git = "https://github.com/IlleNilsson/xmip-core-library-net", branch = "main" }
-# A filter is one line of Xmip's expression language; the designer's rows
-# are a view of its compiled tree, never a second grammar (ADR-0066).
 # The stages a compiled unit serves are the message path's, read by node's
 # Stage and never listed again (ADR-0066, amendment 2026-10-22).
 node = { package = "xmip-core-node", git = "https://github.com/IlleNilsson/xmip-core-node", branch = "main" }
-path = { package = "xmip-core-path", git = "https://github.com/IlleNilsson/xmip-core-path", branch = "main" }
 # Where a cluster's file places its work: the one match of a requirement
 # against what each node declares, and its refusal (`xcluster::place`,
 # `every`; ADR-0056, amendment 2026-11-13). The pure part only, which opens

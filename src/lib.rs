@@ -21,55 +21,34 @@
 //! [`parse_application`]. A node's configuration *binds* the sections it
 //! runs (`[[applications]]`, [`binding`]) and [`bind`] joins the two into
 //! what one node runs; where an environment writes no binding by hand,
-//! [`placed`] places each Location on its nodes. The designer's view of an Application — its
-//! [`routes`], a filter's structure ([`filter`]) and the edits it makes
-//! ([`edit`]) — is here too, and so is the designer's view of the cluster's
-//! one `cluster.xmip`, artifact by artifact ([`views`]), and the edits it makes
-//! there ([`view_edit`]), because what the design means is this crate's to
-//! say; the language server reaches it through the runtime's library. So
-//! is what an editor suggests, looks up and renames by (ADR-0064, amendment
-//! 2026-10-13): the keys each table may hold, read from these types
-//! ([`keys`], [`shape`]), where each table and key is written ([`written`]),
-//! and what names what ([`references`]).
+//! [`placed`] places each Location on its nodes. The designer's view of
+//! these documents and the edits it makes are `xmip-core-operate`'s
+//! `design`, which reads them through this crate (ADR-0064, amendment
+//! 2026-11-16).
 
 pub mod application;
 pub mod binding;
 pub mod cluster;
 pub mod correlation;
 pub mod database;
-pub mod edit;
-mod element;
 pub mod entry;
-pub mod field;
-pub mod filter;
 #[cfg(any(test, feature = "test-support"))]
 pub mod fixture;
-pub mod keys;
-mod kinds;
 pub mod modules;
 pub mod observers;
-pub mod offered;
 pub mod operate;
 pub mod party;
 pub mod placed;
 pub mod port;
-mod probe;
-mod reference_edit;
-pub mod references;
-pub mod routes;
 pub mod section;
 pub mod service;
 pub mod settings;
-pub mod shape;
 pub mod signed;
 pub mod standard;
 pub mod step;
 pub mod storage;
 pub mod store;
-pub mod view_edit;
-pub mod views;
 pub mod work_process;
-pub mod written;
 
 pub use application::{SendPortGroup, XmipApplication, parse_application};
 pub use binding::{
@@ -309,7 +288,7 @@ pub struct ConfiguredLocation {
 
 impl ConfiguredLocation {
     /// What a Location's keys mean, in the words an editor's hover and a
-    /// designer show beside the key ([`keys`]).
+    /// designer show beside the key (`xmip-core-operate`'s `design::keys`).
     pub const MEANINGS: [(&'static str, &'static str); 1] = [(
         "secret",
         "The name of the secret the Location presents to the party it connects to, \
