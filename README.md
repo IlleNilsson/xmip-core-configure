@@ -82,6 +82,15 @@ choice — RocksDB for the runtime database (ADR-0015 and ADR-0018,
 amendments 2026-10-01) — and `[store] engine` and `[store] place` are
 refused as unknown keys.
 
+A configuration document's TOML is read, written and one key of it set in
+place here, once, for the runtime and every surface (`document.rs`: `read`,
+`write` and `set`, the comment trailing a value kept with it; ADR-0031,
+amendment 2026-11-17). xmip-core-operate exports them as
+`xmip_document_read_v1`, `_write_v1` and `_set_v1` (`xmip_operate.h`
+section 27), so the .NET surfaces' own documents, the Desktop's preferences
+and the estate's tooling's `cluster.xmip` are read by the reader a node
+reads with; no surface keeps a TOML parser of its own.
+
 A cluster's configuration is one `cluster.xmip`: its shared sections once and
 each node's under `[nodes.<name>]`, and `slice` is the one slicing of it
 into a node's document, the node's value winning (`cluster.rs`; ADR-0031,
