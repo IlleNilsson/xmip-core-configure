@@ -48,6 +48,7 @@
 use node::{Capability, NodeRole};
 use toml::{Table, Value};
 
+use crate::document::read;
 use crate::section::SECTIONS;
 
 /// The table a cluster's file declares its nodes in.
@@ -164,9 +165,7 @@ pub fn storage_places(cluster: &str) -> Result<Vec<(String, u32)>, String> {
 /// Whether `source` is a cluster's file: it declares its nodes.
 #[must_use]
 pub fn is_cluster(source: &str) -> bool {
-    source
-        .parse::<Table>()
-        .is_ok_and(|table| table.contains_key(NODES))
+    read(source).is_ok_and(|table| table.contains_key(NODES))
 }
 
 /// The node `node`'s configuration document, sliced from the cluster's
@@ -305,12 +304,6 @@ pub fn slices(cluster: &str) -> Result<Vec<(String, String)>, String> {
         .into_iter()
         .map(|node| slice(cluster, &node).map(|document| (node, document)))
         .collect()
-}
-
-fn read(cluster: &str) -> Result<Table, String> {
-    cluster
-        .parse::<Table>()
-        .map_err(|error| format!("{}: {error}", crate::PARSE_FAILED))
 }
 
 fn declared(table: &Table) -> Result<Table, String> {

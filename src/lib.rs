@@ -31,6 +31,7 @@ pub mod binding;
 pub mod cluster;
 pub mod correlation;
 pub mod database;
+pub mod document;
 pub mod entry;
 #[cfg(any(test, feature = "test-support"))]
 pub mod fixture;
