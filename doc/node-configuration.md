@@ -370,7 +370,10 @@ lifetime = "720h"                        # thirty days unless said
 `xmip certificate <request> --sign <this file>` and
 `New-XmipCertificate -Request <request> -Configuration <this file>` sign by
 it; a request asking more than client authentication for a person is
-refused.
+refused. The table comes in the node's signed slice, declared for the node
+in the cluster's file as `[nodes.<name>.provision.operator]`, and the file
+is read as its trust admits a slice: one edited by hand is refused
+(ADR-0031, amendment 2026-11-19).
 
 A table is read through its technology's declaration
 (`provision::read`): an unknown purpose, a `source` the program does not
