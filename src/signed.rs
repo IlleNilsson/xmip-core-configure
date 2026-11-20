@@ -82,24 +82,14 @@ impl Pin {
 /// `<stem>.pin.toml` in the default data directory.
 #[must_use]
 pub fn pin_at(path: &Path) -> PathBuf {
-    kept_at(path, PIN)
+    crate::service::kept_at(path, PIN)
 }
 
 /// Where the node whose configuration is at `path` keeps its active
 /// configuration: `<stem>.active.xmip` in the default data directory.
 #[must_use]
 pub fn active_at(path: &Path) -> PathBuf {
-    kept_at(path, ACTIVE)
-}
-
-/// `<stem>.<kept>` in the default data directory of the configuration at
-/// `path`, `../data` from its folder (`service::data_directory`): found from
-/// the configuration's place alone, never from what a slice says.
-fn kept_at(path: &Path, kept: &str) -> PathBuf {
-    let stem = path
-        .file_stem()
-        .map_or_else(|| "node".into(), |stem| stem.to_string_lossy());
-    crate::service::data_directory(None, path).join(format!("{stem}.{kept}"))
+    crate::service::kept_at(path, ACTIVE)
 }
 
 /// What a slice's `[signature]` table holds.

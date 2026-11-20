@@ -82,6 +82,15 @@ choice — RocksDB for the runtime database (ADR-0015 and ADR-0018,
 amendments 2026-10-01) — and `[store] engine` and `[store] place` are
 refused as unknown keys.
 
+The files a node keeps of its own are in its default data directory, found
+from the configuration's place alone and never from what a slice says
+(`service::kept_at`): its pin, `<stem>.pin.toml`, and its active
+configuration, `<stem>.active.xmip` (`signed::pin_at`, `active_at`, `Pin`;
+ADR-0031, amendment 2026-11-12); and the number of its latest start,
+`<stem>.start.toml` (`start::start_at`, `start::Start`; ADR-0056, amendment
+2026-11-20), which each start is numbered above. Their names and forms are
+here; the runtime writes them.
+
 A configuration document's TOML is read, written and one key of it set in
 place here, once, for the runtime and every surface (`document.rs`: `read`,
 `write` and `set`, the comment trailing a value kept with it; ADR-0031,
