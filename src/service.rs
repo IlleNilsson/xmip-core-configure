@@ -1,5 +1,5 @@
-//! `[service]`: the cluster and node a document configures, and where its
-//! data directory is.
+//! `[service]`: the cluster and node a document configures, where its
+//! data directory is, and where in it the node keeps its own files.
 
 use std::path::{Path, PathBuf};
 
@@ -66,4 +66,17 @@ pub fn data_directory(data: Option<&str>, configuration: &Path) -> PathBuf {
         }
     }
     clean
+}
+
+/// `<stem>.<kept>` in the default data directory of the configuration at
+/// `path`, `../data` from its folder ([`data_directory`]): where the node
+/// keeps a file of its own — its pin and its active configuration
+/// (`crate::signed`), the number of its latest start (`crate::start`) —
+/// found from the configuration's place alone, never from what a slice
+/// says.
+pub(crate) fn kept_at(path: &Path, kept: &str) -> PathBuf {
+    let stem = path
+        .file_stem()
+        .map_or_else(|| "node".into(), |stem| stem.to_string_lossy());
+    data_directory(None, path).join(format!("{stem}.{kept}"))
 }
