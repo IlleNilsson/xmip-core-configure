@@ -220,7 +220,7 @@ pub fn slice(cluster: &str, node: &str) -> Result<String, String> {
     }
     merge(&mut table, own);
     bound_sections(&mut table);
-    crate::observers::listed(&mut table, &gathering)?;
+    crate::observers::listed(&mut table, "observers", &gathering)?;
     match table
         .entry("service")
         .or_insert_with(|| Value::Table(Table::new()))

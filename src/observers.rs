@@ -35,16 +35,17 @@ pub fn gathering(nodes: &Table) -> Vec<String> {
         .collect()
 }
 
-/// `slice`, a node's configuration, with each of `gathering` listed under
-/// `[operate] observers` where none of its lists names it already —
-/// compared without regard to case, as a name listed twice is judged
-/// (`OperateConfiguration::grants`), so a name the cluster's file grants
-/// more keeps that role.
+/// `slice`, a node's configuration or a cluster's file, with each of
+/// `names` listed under `[operate]`'s `list` — `observers`, `operators` or
+/// `developers` — where none of its lists names it already: compared
+/// without regard to case, as a name listed twice is judged
+/// (`OperateConfiguration::grants`), so a name the file grants more keeps
+/// that role.
 ///
 /// # Errors
-/// `[operate]` that is no table, or `observers` that is no list.
-pub fn listed(slice: &mut Table, gathering: &[String]) -> Result<(), String> {
-    if gathering.is_empty() {
+/// `[operate]` that is no table, or `list` that is no list.
+pub fn listed(slice: &mut Table, list: &str, names: &[String]) -> Result<(), String> {
+    if names.is_empty() {
         return Ok(());
     }
     let Value::Table(operate) = slice
@@ -66,19 +67,38 @@ pub fn listed(slice: &mut Table, gathering: &[String]) -> Result<(), String> {
                 })
         })
     };
-    let adding: Vec<Value> = gathering
+    let adding: Vec<Value> = names
         .iter()
         .filter(|name| !named(name))
         .map(|name| Value::String(name.clone()))
         .collect();
-    let Value::Array(observers) = operate
-        .entry("observers")
+    let Value::Array(held) = operate
+        .entry(list)
         .or_insert_with(|| Value::Array(Vec::new()))
     else {
-        return Err("[operate] observers is a list of names".to_string());
+        return Err(format!("[operate] {list} is a list of names"));
     };
-    observers.extend(adding);
+    held.extend(adding);
     Ok(())
+}
+
+/// The cluster's file `cluster` with each of `operators` listed under its
+/// `[operate] operators`, which every node's slice is then given: on
+/// machines of their own the environment names who operates its nodes
+/// (`xmip-service --slice --operators`), a certificate's subject,
+/// `CN=<person>`, or an account, as the Essentials' run lists its tester on
+/// one computer (ADR-0009, amendment 2026-11-07).
+///
+/// # Errors
+/// The file is not TOML, or its `[operate]` is no table or `operators` no
+/// list.
+pub fn operated_by(cluster: &str, operators: &[String]) -> Result<String, String> {
+    if operators.is_empty() {
+        return Ok(cluster.to_string());
+    }
+    let mut table: Table = cluster.parse().map_err(|error| format!("{error}"))?;
+    listed(&mut table, "operators", operators)?;
+    toml::to_string(&table).map_err(|error| error.to_string())
 }
 
 #[cfg(test)]
@@ -165,19 +185,39 @@ mod tests {
         ]);
         slice.insert("operate".to_string(), Value::Table(operate));
         let gathering = [first, second, third.clone()].map(|one| format!("CN={one}"));
-        listed(&mut slice, &gathering).expect("listed");
+        listed(&mut slice, "observers", &gathering).expect("listed");
         let observers = slice["operate"]["observers"].as_array().expect("observers");
         let names: Vec<&str> = observers.iter().filter_map(Value::as_str).collect();
         let added = format!("CN={third}");
         assert_eq!(names, [gathering[0].as_str(), added.as_str()]);
         // A slice with no [operate] is given one; none gathering, nothing.
         let mut bare = Table::new();
-        listed(&mut bare, &[]).expect("nothing");
+        listed(&mut bare, "observers", &[]).expect("nothing");
         assert!(bare.is_empty());
-        listed(&mut bare, &gathering).expect("listed");
+        listed(&mut bare, "observers", &gathering).expect("listed");
         assert_eq!(
             bare["operate"]["observers"].as_array().map(Vec::len),
             Some(3)
         );
+    }
+
+    #[test]
+    fn every_node_sliced_lists_the_operators_the_environment_names() {
+        let cluster = test_cluster();
+        let operators = ["CN=operator".to_string(), r"HOST\installer".to_string()];
+        let operated = operated_by(&cluster.text, &operators).expect("listed");
+        for one in &cluster.nodes {
+            let sliced = crate::cluster::slice(&operated, &one.name).expect("slices");
+            let table: Table = sliced.parse().expect("TOML");
+            let held = table["operate"]["operators"].as_array().expect("operators");
+            for name in &operators {
+                assert!(
+                    held.iter().any(|one| one.as_str() == Some(name.as_str())),
+                    "{} lists {name}",
+                    one.name
+                );
+            }
+        }
+        assert_eq!(operated_by(&cluster.text, &[]).expect("same"), cluster.text);
     }
 }
