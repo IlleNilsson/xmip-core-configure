@@ -21,6 +21,8 @@
 //! serves ([`far_end`]); and the Essentials drives what it placed, so the
 //! two can never place differently.
 
+pub mod far_ends;
+
 use node::{Requirement, Stage};
 use xcluster::{Candidate, Rotation, Unplaced};
 
@@ -301,16 +303,32 @@ fn with_port(host: &str) -> String {
     }
 }
 
-/// `cluster` with every Application it designs placed over `present` on
-/// the Parties' far end at `host`: the file `xmip-service --slice --bind`
-/// slices.
+/// `cluster` with every Application it designs placed over `present` and
+/// bound over the Parties' far ends `far_ends`, each Receive Location
+/// listening on its node where `listening` ([`far_ends::bound`]): the file
+/// `xmip-service --slice --bind` slices. One far end serves every Location.
 ///
 /// # Errors
 ///
-/// As [`placements`].
-pub fn at_far_end(cluster: &str, present: &[String], host: &str) -> Result<String, String> {
+/// As [`placements`], and where no far end is named.
+pub fn at_far_ends(
+    cluster: &str,
+    present: &[String],
+    far_ends: &[String],
+    listening: bool,
+) -> Result<String, String> {
+    if far_ends.is_empty() {
+        return Err("no far end is named to bind the Locations to".to_string());
+    }
     let placed = placements(cluster, &self::present(cluster, present)?)?;
-    Ok(format!("{cluster}\n{}", written(&placed, far_end(host))))
+    let bound = far_ends::bound(&placed, far_ends, listening);
+    let binding = |placement: &Placement| {
+        bound.iter().find(|(one, _)| one == placement).map_or_else(
+            || far_end(&far_ends[0])(placement),
+            |(_, binding)| binding.clone(),
+        )
+    };
+    Ok(format!("{cluster}\n{}", written(&placed, binding)))
 }
 
 /// `text` as a TOML string, quoted and escaped as TOML writes it.
@@ -430,7 +448,8 @@ mod tests {
             )
         );
         assert_eq!(
-            at_far_end(&text, &two, "10.77.0.1").expect_err("refused the same"),
+            at_far_ends(&text, &two, &["10.77.0.1".to_string()], false)
+                .expect_err("refused the same"),
             refused,
             "--slice --bind refuses as the placement does"
         );
@@ -442,7 +461,7 @@ mod tests {
     #[test]
     fn the_far_end_binds_each_as_a_user_of_its_own_and_every_node_slices() {
         let (text, names) = file(ROLES);
-        let whole = at_far_end(&text, &names, "10.77.0.1").expect("placed");
+        let whole = at_far_ends(&text, &names, &["10.77.0.1".to_string()], false).expect("placed");
         let parsed: toml::Table = whole.parse().expect("TOML");
         let bound = &parsed["applications"][0];
         let first = &bound["receive_locations"][0];
@@ -490,7 +509,7 @@ mod tests {
     fn the_far_end_binds_exactly_what_the_placement_places() {
         let (text, names) = file(ROLES);
         let placed = placements(&text, &present(&text, &names).expect("declared")).expect("placed");
-        let whole = at_far_end(&text, &names, "10.77.0.1").expect("placed");
+        let whole = at_far_ends(&text, &names, &["10.77.0.1".to_string()], false).expect("placed");
         let parsed: toml::Table = whole.parse().expect("TOML");
         let bound = &parsed["applications"][0];
         let mut written = Vec::new();
