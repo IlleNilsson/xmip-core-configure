@@ -153,7 +153,7 @@ address = "/var/xmip/out"
 
 ### Placed by what each node declares
 
-An environment that writes no bindings by hand — the Essentials' run, and
+An environment that writes no bindings by hand — the System Tests' run, and
 `xmip-service --slice --bind --nodes` on machines of their own — has them
 written by `configure::placed` (`src/placed.rs`), the one placement for
 both, so the two never place differently. Each piece of work requires its
@@ -219,7 +219,7 @@ writes the node `node` its configuration document, which
   names. A cluster's file that says nothing of where it runs — no cluster
   name, no machine's address, no absolute path — is the same file on one
   computer and on machines of their own (ADR-0028, amendment 2026-10-21):
-  the Essentials' run names the cluster, and `xmip-service --slice
+  the System Tests' run names the cluster, and `xmip-service --slice
   --cluster` and `--install --cluster` on a machine.
 
 **Only this file is edited.** A node's `node.xmip` is its slice, written
@@ -248,7 +248,7 @@ document holding `[nodes]`, saying it is a cluster's to slice.
   the node its output as `node.xmip` with the authority's certificate
   beside it; a node never slices (ADR-0031, amendment 2026-11-06). Neither
   takes the file apart itself; the estate root's
-  `cargo test --test deploy` slices the Essentials' file, which the example
+  `cargo test --test deploy` slices the System Tests' file, which the example
   environment runs, for every node it declares and reads each slice as
   `xmip-service` does.
 - **The Operation Desktop**, when its Configure page saves the cluster's

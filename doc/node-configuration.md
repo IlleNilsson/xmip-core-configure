@@ -605,7 +605,7 @@ connect_retransmissions = 1                 # how often an unanswered SYN goes a
   passed over in a millisecond, not two seconds. The network's
   assumption: a lossy or distant one may want more sends or a longer
   first wait; one computer, where no SYN is lost on loopback, wants none
-  sent again, which the Essentials' run on one computer says
+  sent again, which the System Tests' run on one computer says
   (`connect_retransmissions = 0`). Windows follows both keys, each wait at
   most 65,534 ms; Linux answers a refusal at once and sends a SYN again by
   its own schedule until the timeout, which stands (`net::connect`;

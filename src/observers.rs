@@ -8,7 +8,7 @@
 //! 2026-11-07), so each member names it, by the subject its node
 //! certificate carries, `CN=<node>`, as the cluster's authority issues it
 //! (`provision::node`). Written here, in the one slice every environment
-//! writes a node's configuration with — the Essentials' served runs and
+//! writes a node's configuration with — the System Tests' served runs and
 //! `xmip-service --slice` the deploy templates call — and decided by the
 //! roles a node declares, never by its name.
 
@@ -86,7 +86,7 @@ pub fn listed(slice: &mut Table, list: &str, names: &[String]) -> Result<(), Str
 /// `[operate] operators`, which every node's slice is then given: on
 /// machines of their own the environment names who operates its nodes
 /// (`xmip-service --slice --operators`), a certificate's subject,
-/// `CN=<person>`, or an account, as the Essentials' run lists its tester on
+/// `CN=<person>`, or an account, as the System Tests' run lists its tester on
 /// one computer (ADR-0009, amendment 2026-11-07).
 ///
 /// # Errors

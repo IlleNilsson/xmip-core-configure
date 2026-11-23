@@ -15,11 +15,11 @@
 //! the requirement, every node considered and the work (ADR-0056 clause
 //! 4), never left unplaced. Nothing reads a node's name.
 //!
-//! The Essentials places the nodes it starts on one computer by it, over
+//! The System Tests place the nodes they start on one computer by it, over
 //! folders of its run; `xmip-service --slice --bind` places a node on a
-//! machine of its own by it, over the Parties' far end the Essentials
-//! serves ([`far_end`]); and the Essentials drives what it placed, so the
-//! two can never place differently.
+//! machine of its own by it, over the Parties' far end the Systems Tests
+//! serve ([`far_end`]); and the System Tests and the Systems Tests drive what
+//! they placed, so the two can never place differently.
 
 pub mod far_ends;
 
@@ -504,7 +504,7 @@ mod tests {
     }
 
     /// `xmip-service --slice --bind` writes what the placement places,
-    /// which the Essentials drives: the two place identically.
+    /// which the System Tests drive: the two place identically.
     #[test]
     fn the_far_end_binds_exactly_what_the_placement_places() {
         let (text, names) = file(ROLES);

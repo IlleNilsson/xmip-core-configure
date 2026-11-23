@@ -136,7 +136,7 @@ cluster, `test/cluster.xmip` or the file `XMIP_TEST_CLUSTER` names: the one
 place a test takes a cluster's or a node's name from.
 
 Where an environment writes no bindings by hand, `placed` writes them —
-the one placement the Essentials' run and `xmip-service --slice --bind`
+the one placement the System Tests' run and `xmip-service --slice --bind`
 share (`placed.rs`; ADR-0056, amendment 2026-11-13;
 [`doc/cluster-configuration.md`](doc/cluster-configuration.md)). Each
 piece of work requires its stage served (`Placed::requirement`, a
