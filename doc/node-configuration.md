@@ -36,8 +36,8 @@ two of them are built:
 Declaration and the validation and planning of materialization are
 [built, in the assembled service](../../../../doc/architecture/estate-map.md#process-declaration): a node
 publishes each Work Process as planned, not started. Compilation at design
-time and execution are [built, not in the assembled service](../../../../doc/architecture/estate-map.md#process-execution)
-(ADR-0066, amendment 2026-10-22): a Work Process naming its unit by `module`
+time and execution are [built, in the assembled service](../../../../doc/architecture/estate-map.md#process-execution)
+(ADR-0066, amendments 2026-10-22 and 2026-11-24): a Work Process naming its unit by `module`
 and `unit` is opened from that module's library as the node starts, and the
 node's Work Process step takes a turn of its Instance for each Message bound
 for it.
