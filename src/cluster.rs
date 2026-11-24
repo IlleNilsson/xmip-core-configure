@@ -55,21 +55,30 @@ use crate::section::SECTIONS;
 pub const NODES: &str = "nodes";
 
 /// The names of the nodes the cluster's file `cluster` declares, in the
-/// order of their names.
+/// file's order.
 ///
 /// # Errors
 /// When the text is not TOML or `[nodes]` is not a table of tables.
 pub fn nodes(cluster: &str) -> Result<Vec<String>, String> {
     let table = read(cluster)?;
-    Ok(declared(&table)?.keys().cloned().collect())
+    Ok(declared(cluster, &table)?
+        .into_iter()
+        .map(|(node, _)| node)
+        .collect())
 }
 
 /// The key a node's table declares its roles under: `node::NodeRole`'s
 /// words, by comma or plus (ADR-0056, amendment 2026-10-01).
 pub const ROLES: &str = "roles";
 
-/// Each node the cluster's file `cluster` declares, in the order of their
-/// names, with the roles its [`ROLES`] declares, read by
+/// The key a node's table declares its Node capabilities under: a list of
+/// words naming what its environment gives it, a firewall opening or
+/// software installed, which work requires
+/// (`node::Capability::node_capabilities`; ADR-0056, amendment 2026-11-24).
+pub const CAPABILITIES: &str = "capabilities";
+
+/// Each node the cluster's file `cluster` declares, in the file's order,
+/// with the roles its [`ROLES`] declares, read by
 /// `node::NodeRole::declared` and as one declaration says them — none
 /// where it says none.
 ///
@@ -78,46 +87,46 @@ pub const ROLES: &str = "roles";
 /// word that is no role, REFUSED naming the node.
 pub fn roles(cluster: &str) -> Result<Vec<(String, Vec<NodeRole>)>, String> {
     let table = read(cluster)?;
-    declared(&table)?
+    declared(cluster, &table)?
         .into_iter()
         .map(|(node, own)| Ok((node.clone(), declared_roles(&node, &own)?)))
         .collect()
 }
 
-/// Each node the cluster's file `cluster` declares, in the order of their
-/// names, with what it declares (ADR-0056 clause 1): its [`roles`], and
-/// its online capability, `[service] online` as its slice reads it — its
-/// own `[nodes.<name>.service]` over the file's, offline where neither
-/// says (ADR-0045). What a cluster's work is placed by (`crate::placed`).
+/// Each node the cluster's file `cluster` declares, in the file's order,
+/// with what it declares (ADR-0056 clause 1): its [`roles`] and its Node
+/// capabilities, its own [`CAPABILITIES`] — `online` among them where it has
+/// the internet, and offline where it declares none (ADR-0045; amendment
+/// 2026-11-24). What a cluster's work is placed by (`crate::placed`).
 ///
 /// # Errors
-/// As [`roles`], and where `online` is not true or false.
+/// As [`roles`], and where a node's [`CAPABILITIES`] is no list of words,
+/// REFUSED naming the node.
 pub fn capabilities(cluster: &str) -> Result<Vec<(String, Capability)>, String> {
     let table = read(cluster)?;
-    let shared = match table.get("service") {
-        Some(Value::Table(service)) => service.clone(),
-        _ => Table::new(),
-    };
-    declared(&table)?
+    declared(cluster, &table)?
         .into_iter()
         .map(|(node, own)| {
             let roles = declared_roles(&node, &own)?;
-            let mut service = shared.clone();
-            if let Some(Value::Table(own)) = own.get("service") {
-                merge(&mut service, own.clone());
-            }
-            let online = match service.get("online") {
-                None => false,
-                Some(Value::Boolean(online)) => *online,
-                Some(_) => return Err(format!("[nodes.{node}.service] online is true or false")),
+            let words = match own.get(CAPABILITIES) {
+                None => Vec::new(),
+                Some(Value::Array(words)) if words.iter().all(Value::is_str) => words
+                    .iter()
+                    .filter_map(Value::as_str)
+                    .map(str::to_string)
+                    .collect(),
+                Some(_) => return Err(format!("[nodes.{node}] {CAPABILITIES} is a list of words")),
             };
-            Ok((node, Capability::of(&roles).with_online(online)))
+            let declared = Capability::of(&roles)
+                .with_declared(&words)
+                .map_err(|refused| format!("[nodes.{node}] {CAPABILITIES}: {refused}"))?;
+            Ok((node, declared))
         })
         .collect()
 }
 
 /// The roles the table `own` of the node `node` declares under [`ROLES`].
-fn declared_roles(node: &str, own: &Value) -> Result<Vec<NodeRole>, String> {
+fn declared_roles(node: &str, own: &Table) -> Result<Vec<NodeRole>, String> {
     match own.get(ROLES) {
         None => Ok(Vec::new()),
         Some(Value::String(said)) => {
@@ -140,7 +149,7 @@ fn declared_roles(node: &str, own: &Value) -> Result<Vec<NodeRole>, String> {
 /// As [`nodes`], and where `[storage] nodes` is not a list of strings.
 pub fn storage_places(cluster: &str) -> Result<Vec<(String, u32)>, String> {
     let table = read(cluster)?;
-    let declared = declared(&table)?;
+    let declared = declared(cluster, &table)?;
     let listed = match table.get("storage").and_then(|storage| storage.get(NODES)) {
         None => return Ok(Vec::new()),
         Some(Value::Array(listed)) => listed,
@@ -154,7 +163,7 @@ pub fn storage_places(cluster: &str) -> Result<Vec<(String, u32)>, String> {
         let host = address
             .rsplit_once(':')
             .map_or(address.as_str(), |(host, _)| host);
-        if declared.contains_key(host) {
+        if declared.iter().any(|(node, _)| node == host) {
             let place = u32::try_from(place).unwrap_or(u32::MAX);
             places.push((host.to_string(), place));
         }
@@ -179,17 +188,17 @@ pub fn is_cluster(source: &str) -> bool {
 /// another than its key.
 pub fn slice(cluster: &str, node: &str) -> Result<String, String> {
     let mut table = read(cluster)?;
-    let gathering = crate::observers::gathering(&declared(&table)?);
+    let declared = declared(cluster, &table)?;
+    let gathering = crate::observers::gathering(&declared);
     let mut own = {
-        let declared = declared(&table)?;
-        match declared.get(node) {
-            Some(Value::Table(own)) => own.clone(),
+        match declared.iter().find(|(name, _)| name == node) {
+            Some((_, own)) => own.clone(),
             _ => {
                 // Said in the file's own tables, as every problem this
                 // crate finds in a document is: no node is located yet.
                 let tables: Vec<String> = declared
-                    .keys()
-                    .map(|name| format!("[nodes.{name}]"))
+                    .iter()
+                    .map(|(name, _)| format!("[nodes.{name}]"))
                     .collect();
                 return Err(format!(
                     "cluster.xmip has no [nodes.{node}]; it has {}",
@@ -306,12 +315,23 @@ pub fn slices(cluster: &str) -> Result<Vec<(String, String)>, String> {
         .collect()
 }
 
-fn declared(table: &Table) -> Result<Table, String> {
-    match table.get(NODES) {
-        None => Ok(Table::new()),
-        Some(Value::Table(nodes)) if nodes.values().all(Value::is_table) => Ok(nodes.clone()),
-        Some(_) => Err("[nodes] holds one table per node, [nodes.<name>]".to_string()),
-    }
+/// Each node `table`, the cluster's file `text` read, declares under
+/// [`NODES`], with its own table, in the order the file first names each
+/// (`document::keys`; open problem 104): the table keeps its keys in its
+/// names' order, which nothing here may go by.
+fn declared(text: &str, table: &Table) -> Result<Vec<(String, Table)>, String> {
+    let nodes = match table.get(NODES) {
+        None => return Ok(Vec::new()),
+        Some(Value::Table(nodes)) if nodes.values().all(Value::is_table) => nodes,
+        Some(_) => return Err("[nodes] holds one table per node, [nodes.<name>]".to_string()),
+    };
+    Ok(crate::document::keys(text, &[NODES])?
+        .into_iter()
+        .filter_map(|node| {
+            let own = nodes.get(&node).and_then(Value::as_table)?.clone();
+            Some((node, own))
+        })
+        .collect())
 }
 
 /// A node is given the Xmip Applications its bindings name and no other
@@ -495,15 +515,14 @@ nodes = ["{third}.example:7443"]
     }
 
     #[test]
-    fn the_nodes_are_named_in_order_of_name_and_each_slices() {
+    fn the_nodes_are_named_in_the_file_s_order_and_each_slices() {
         let cluster = test_cluster();
         let written = written(&cluster);
-        let mut expected = [
+        let expected = [
             written.first.clone(),
             written.second.clone(),
             written.third.clone(),
         ];
-        expected.sort();
         assert_eq!(nodes(&written.text).expect("reads"), expected);
         assert_eq!(slices(&written.text).expect("slices").len(), 3);
         assert!(is_cluster(&written.text));
@@ -587,11 +606,10 @@ nodes = ["{third}.example:7443"]
         let cluster = test_cluster();
         let [one, two] = [0, 1].map(|place| cluster.node(place).name.clone());
         let text = format!("[nodes.{one}]\n{ROLES} = \"sending, processing\"\n\n[nodes.{two}]\n");
-        let mut expected = vec![
+        let expected = vec![
             (one.clone(), vec![NodeRole::Processing, NodeRole::Sending]),
             (two.clone(), Vec::new()),
         ];
-        expected.sort_by(|a, b| a.0.cmp(&b.0));
         assert_eq!(roles(&text).expect("reads"), expected);
         let plus = format!("[nodes.{one}]\n{ROLES} = \"receiving+sending\"\n");
         assert_eq!(
@@ -613,33 +631,98 @@ nodes = ["{third}.example:7443"]
         assert_eq!(declared.len(), cluster.nodes.len());
     }
 
+    /// Online is a Node capability a node declares as any other, and one
+    /// that declares none is offline (ADR-0045; ADR-0056, amendment
+    /// 2026-11-24).
     #[test]
-    fn a_node_declares_its_roles_and_online_as_its_slice_reads_them() {
+    fn a_node_declares_online_as_a_node_capability_and_none_is_offline() {
+        let cluster = test_cluster();
+        let [one, two] = [0, 1].map(|place| cluster.node(place).name.clone());
+        let text = format!(
+            "[nodes.{one}]\n{ROLES} = \"receiving\"\n{CAPABILITIES} = [\"{}\"]\n\
+             [nodes.{two}]\n",
+            node::ONLINE
+        );
+        let declared = capabilities(&text).expect("reads");
+        let online = [node::ONLINE.to_string()];
+        assert_eq!(
+            declared[0].1,
+            Capability::of(&[NodeRole::Receiving])
+                .with_declared(&online)
+                .expect("a word")
+        );
+        assert!(declared[0].1.satisfies(&node::Requirement::online()));
+        assert!(
+            !declared[1].1.satisfies(&node::Requirement::online()),
+            "offline"
+        );
+        let sliced = slice_named(&text, &one, &cluster.name).expect("slices");
+        let sliced = crate::parse_toml(&sliced).expect("reads");
+        assert_eq!(sliced.capabilities, online, "as its slice reads it");
+    }
+
+    /// The nodes come in the order the file first names each, never in
+    /// their names' order (open problem 104): renaming a node moves nothing
+    /// a placement goes round.
+    #[test]
+    fn the_nodes_come_in_the_file_s_order_and_never_their_names_order() {
         let cluster = test_cluster();
         let [one, two, three] = [0, 1, 2].map(|place| cluster.node(place).name.clone());
         let text = format!(
-            "[service]\nonline = true\n[nodes.{one}]\n{ROLES} = \"receiving\"\n\
-             [nodes.{two}.service]\nonline = false\n[nodes.{three}]\n"
+            "[nodes.{three}]\n{ROLES} = \"sending\"\n[nodes.{one}]\n\
+             [nodes.{two}.service]\nname = \"xmip-{two}\"\n[nodes.{one}.tuning]\nsegments = 4\n"
+        );
+        let order = [three.clone(), one.clone(), two.clone()];
+        let mut names = order.clone();
+        names.sort();
+        assert_ne!(order, names, "the file's order is not its names' order");
+        assert_eq!(nodes(&text).expect("reads"), order);
+        let read: Vec<String> = roles(&text)
+            .expect("reads")
+            .into_iter()
+            .map(|(node, _)| node)
+            .collect();
+        assert_eq!(read, order);
+        let declared: Vec<String> = capabilities(&text)
+            .expect("reads")
+            .into_iter()
+            .map(|(node, _)| node)
+            .collect();
+        assert_eq!(declared, order);
+    }
+
+    /// A node declares its Node capabilities in its own table, a list of
+    /// words, and anything else there is refused naming the node.
+    #[test]
+    fn a_node_declares_its_node_capabilities_as_words() {
+        let cluster = test_cluster();
+        let [one, two] = [0, 1].map(|place| cluster.node(place).name.clone());
+        let text = format!(
+            "[nodes.{one}]\n{ROLES} = \"processing\"\n\
+             {CAPABILITIES} = [\"order-approval-module\", \"erp-direct\"]\n[nodes.{two}]\n"
         );
         let declared = capabilities(&text).expect("reads");
-        let of = |name: &str| {
-            declared
-                .iter()
-                .find(|(node, _)| node == name)
-                .map(|(_, capability)| capability.clone())
-                .expect("declared")
-        };
         assert_eq!(
-            of(&one),
-            Capability::of(&[NodeRole::Receiving]).with_online(true)
+            declared[0].1.declared(),
+            ["order-approval-module", "erp-direct"]
         );
-        assert_eq!(of(&two), Capability::none(), "its own says offline");
-        assert_eq!(of(&three), Capability::none().with_online(true));
-        let sliced = slice_named(&text, &two, &cluster.name).expect("slices");
+        assert_eq!(declared[1].1.declared(), [] as [String; 0]);
+        let upper = text.replace("erp-direct", "ERP");
+        let refused = capabilities(&upper).expect_err("no word");
+        assert!(
+            refused.starts_with(&format!(
+                "[nodes.{one}] {CAPABILITIES}: REFUSED: 'ERP' is no Node capability"
+            )),
+            "{refused}"
+        );
+        let string = format!("[nodes.{one}]\n{CAPABILITIES} = \"erp-direct\"\n");
+        assert_eq!(
+            capabilities(&string),
+            Err(format!("[nodes.{one}] {CAPABILITIES} is a list of words"))
+        );
+        let sliced = slice_named(&text, &one, &cluster.name).expect("slices");
         let sliced = crate::parse_toml(&sliced).expect("reads");
-        assert!(!sliced.service.online, "as its slice reads it");
-        let unread = capabilities(&format!("[nodes.{one}.service]\nonline = \"yes\"\n"));
-        assert!(unread.expect_err("no boolean").contains("online"));
+        assert_eq!(sliced.capabilities, ["order-approval-module", "erp-direct"]);
     }
 
     /// A cluster's file says nothing of where it runs; the environment

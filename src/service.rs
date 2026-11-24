@@ -11,12 +11,6 @@ pub struct ServiceConfiguration {
     pub name: String,
     pub cluster_name: String,
     pub node_name: String,
-    /// Whether this node may assume a route to the internet. False unless
-    /// the operator says otherwise: nothing at runtime reaches out, and the
-    /// switch records that it may, for the features and tests that need it
-    /// (ADR-0045, 2026-09-10).
-    #[serde(default)]
-    pub online: bool,
     /// The node's data directory: where its embedded Storage node, its keys
     /// and the orders an operator leaves for it are kept, the keys unless
     /// `[store]` says otherwise. Relative to the configuration file; absent, `../data`,

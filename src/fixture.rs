@@ -83,7 +83,7 @@ fn read(path: PathBuf) -> TestCluster {
         .and_then(toml::Value::as_str)
         .unwrap_or_else(|| panic!("the test cluster {} names no cluster_name", path.display()))
         .to_string();
-    let nodes: Vec<TestNode> = cluster::roles(&text)
+    let mut nodes: Vec<TestNode> = cluster::roles(&text)
         .unwrap_or_else(|problem| panic!("the test cluster {}: {problem}", path.display()))
         .into_iter()
         .map(|(name, roles)| TestNode {
@@ -91,6 +91,9 @@ fn read(path: PathBuf) -> TestCluster {
             roles: roles.iter().map(|role| role.name().to_string()).collect(),
         })
         .collect();
+    // The places every test counts its nodes by: the order of their names,
+    // whatever order the file writes them in, which is placement's.
+    nodes.sort_by(|one, another| one.name.cmp(&another.name));
     assert!(
         !nodes.is_empty(),
         "the test cluster {} declares no node",

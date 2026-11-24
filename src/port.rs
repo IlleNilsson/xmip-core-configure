@@ -11,6 +11,7 @@
 //! name         = "InvoicesHttp"
 //! receive_port = "Invoices"         # a Location without a Port is refused
 //! depth        = "light"            # transfer | light | context
+//! requires     = ["firewall-party-x"]  # what a node taking it declares
 //!
 //! [[xmip_applications.send_ports]]
 //! name            = "ErpOut"
@@ -28,6 +29,9 @@
 //! Process composes one. A Send
 //! Port states its policy (section 10). Any of them may name a correlation
 //! set (`crate::correlation`): what passes it goes one at a time per key.
+//! A Receive Location, Work Process or Send Port may name the Node
+//! capabilities a node must declare to take it, [`REQUIRES`]: only a node
+//! serving its stage and declaring each of them takes it (`crate::placed`).
 //! A word a key does not have is refused as the Application is read.
 
 use serde::{Deserialize, Serialize};
@@ -74,7 +78,18 @@ pub struct DesignedWorkProcess {
     pub unit: Option<String>,
     #[serde(default, skip_serializing_if = "LocationSettings::is_empty")]
     pub settings: LocationSettings,
+    /// The Node capabilities a node must declare to run it ([`REQUIRES`]).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub requires: Vec<String>,
 }
+
+/// The key a Receive Location, Work Process or Send Port names the Node
+/// capabilities under that a node must declare to take it, beside serving
+/// its stage: words naming what a node's environment gives it, a firewall
+/// opening or software installed, matched and never read
+/// (`node::Capability::node_capabilities`; ADR-0056, amendment 2026-11-24).
+/// Never a node's name: which node takes the work is placement's.
+pub const REQUIRES: &str = "requires";
 
 /// How far Xmip interprets the content (`runtime-model.md` section 7).
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -134,6 +149,9 @@ pub struct DesignedReceiveLocation {
     /// one at a time, keyed by its name (`crate::correlation`).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub correlation: Option<String>,
+    /// The Node capabilities a node must declare to take it ([`REQUIRES`]).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub requires: Vec<String>,
 }
 
 /// `retry`: how often the active Send Location is tried again, and how long
@@ -172,6 +190,9 @@ pub struct DesignedSendPort {
     pub demote: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub debatch: Option<String>,
+    /// The Node capabilities a node must declare to take it ([`REQUIRES`]).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub requires: Vec<String>,
 }
 
 /// What a Port or Location as designed attaches.

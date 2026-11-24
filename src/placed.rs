@@ -2,18 +2,23 @@
 //! Port and Work Process the cluster's file designs, placed on the nodes an
 //! environment has by what each declares — the one placement for every
 //! environment that writes no bindings by hand (ADR-0028, amendments
-//! 2026-10-21 and 2026-10-22; ADR-0056, amendment 2026-11-13). The work
-//! requires its stage served ([`Placed::requirement`]): a Receive Location
-//! the receive stage, a Send Port the send stage, a Work Process the
-//! process stage, and a node satisfies that where one of its roles serves
-//! it, executing serving every stage (`node::Capability::satisfies`). Each
-//! Receive Location and Send Port goes to one node, round robin in the
-//! file's order over the nodes present that satisfy it (`xcluster::place`,
-//! one rotation for each of the two); each Work Process to every node
-//! present that satisfies it (`xcluster::every`), which share its turns
-//! through Xmip Storage. Work no node present satisfies is refused, naming
-//! the requirement, every node considered and the work (ADR-0056 clause
-//! 4), never left unplaced. Nothing reads a node's name.
+//! 2026-10-21 and 2026-10-22; ADR-0056, amendments 2026-11-13 and
+//! 2026-11-24). The work requires its stage served ([`Placed::requirement`]):
+//! a Receive Location the receive stage, a Send Port the send stage, a Work
+//! Process the process stage, and a node satisfies that where one of its
+//! roles serves it, executing serving every stage
+//! (`node::Capability::satisfies`). Work naming Node capabilities in its
+//! `requires` (`crate::port::REQUIRES`) requires a node declaring each of
+//! them too, as its `[nodes.<name>] capabilities` says
+//! (`crate::cluster::capabilities`). Each Receive Location and Send Port
+//! goes to one node, round robin in the file's order over the nodes present
+//! that satisfy it (`xcluster::place`), one rotation for each requirement,
+//! so work requiring more never moves the turn of work requiring less; each
+//! Work Process to every node present that satisfies it (`xcluster::every`),
+//! which share its turns through Xmip Storage. Work no node present
+//! satisfies is refused, naming the requirement, every node considered and
+//! the work (ADR-0056 clause 4), never left unplaced. Nothing reads meaning
+//! from a node's name: a name only says which node of the file it is.
 //!
 //! The System Tests place the nodes they start on one computer by it, over
 //! folders of its run; `xmip-service --slice --bind` places a node on a
@@ -64,7 +69,8 @@ impl Placed {
     }
 
     /// What the work requires of a node that takes it (ADR-0056 clause 3):
-    /// its stage served. No design says its work reaches off the machine,
+    /// its stage served, to which [`placements`] adds the Node capabilities
+    /// its `requires` names. No design says its work reaches off the machine,
     /// so none requires the online capability yet.
     #[must_use]
     pub const fn requirement(self) -> Requirement {
@@ -154,41 +160,60 @@ pub fn present(
 
 /// Every Receive Location, Send Port and Work Process `cluster` designs,
 /// each Application's in that order and in the file's, placed over `nodes`
-/// by what each declares: a Receive Location or Send Port on the one node
-/// the rotation of its kind gives it, a Work Process on every node
-/// satisfying it.
+/// by what each declares, in the file's order whatever order `nodes` is
+/// given in: a Receive Location or Send Port on the one node the rotation
+/// of its requirement gives it, a Work Process on every node satisfying it.
 ///
 /// # Errors
 ///
-/// Where the file's Applications do not read, or work no node of `nodes`
-/// satisfies: REFUSED, a sentence for each requirement unmet, naming it,
-/// every node considered with what it declares, and the work not placed.
+/// Where the file's Applications or nodes do not read, or work no node of
+/// `nodes` satisfies: REFUSED, a sentence for each requirement unmet,
+/// naming it, every node considered with what it declares, and the work not
+/// placed; and work whose `requires` is no list of Node capabilities,
+/// refused in the same way.
 pub fn placements<C: Candidate>(cluster: &str, nodes: &[C]) -> Result<Vec<Placement>, String> {
-    let (receive, send) = (Rotation::new(), Rotation::new());
+    let order = cluster::nodes(cluster)?;
+    let mut nodes: Vec<&C> = nodes.iter().collect();
+    nodes.sort_by_key(|one| {
+        let at = order.iter().position(|node| node == one.node());
+        at.unwrap_or(order.len())
+    });
+    let mut rotations: Vec<(Requirement, Rotation)> = Vec::new();
     let mut placed = Vec::new();
-    let mut refused: Vec<(Unplaced, Vec<String>)> = Vec::new();
+    let mut refused: Vec<(String, Vec<String>)> = Vec::new();
     for application in section::applications(cluster)? {
         let receives = application
             .receive_locations
             .iter()
-            .map(|one| (Placed::Receive, &one.name));
+            .map(|one| (Placed::Receive, &one.name, &one.requires));
         let sends = application
             .send_ports
             .iter()
-            .map(|one| (Placed::Send, &one.name));
+            .map(|one| (Placed::Send, &one.name, &one.requires));
         let processes = application
             .work_processes
             .iter()
-            .map(|one| (Placed::Process, &one.name));
-        for (kind, name) in receives.chain(sends).chain(processes) {
-            let requirement = kind.requirement();
-            let on = match kind {
-                Placed::Receive => {
-                    xcluster::place(requirement, nodes, &receive).map(|one| vec![one])
-                }
-                Placed::Send => xcluster::place(requirement, nodes, &send).map(|one| vec![one]),
-                Placed::Process => xcluster::every(requirement, nodes),
-            };
+            .map(|one| (Placed::Process, &one.name, &one.requires));
+        for (kind, name, requires) in receives.chain(sends).chain(processes) {
+            let on = kind
+                .requirement()
+                .requiring(requires)
+                .and_then(|requirement| {
+                    let unplaced = |unplaced: Unplaced| unplaced.to_string();
+                    if kind == Placed::Process {
+                        return xcluster::every(requirement, &nodes).map_err(unplaced);
+                    }
+                    let at = match rotations.iter().position(|(held, _)| *held == requirement) {
+                        Some(at) => at,
+                        None => {
+                            rotations.push((requirement.clone(), Rotation::new()));
+                            rotations.len() - 1
+                        }
+                    };
+                    xcluster::place(requirement, &nodes, &rotations[at].1)
+                        .map(|one| vec![one])
+                        .map_err(unplaced)
+                });
             match on {
                 Ok(on) => placed.extend(on.into_iter().map(|node| Placement {
                     placed: kind,
@@ -196,11 +221,11 @@ pub fn placements<C: Candidate>(cluster: &str, nodes: &[C]) -> Result<Vec<Placem
                     name: name.clone(),
                     node: node.node().to_string(),
                 })),
-                Err(unplaced) => {
+                Err(sentence) => {
                     let work = format!("the {} '{name}' of '{}'", kind.said(), application.name);
-                    match refused.iter_mut().find(|(held, _)| *held == unplaced) {
+                    match refused.iter_mut().find(|(held, _)| *held == sentence) {
                         Some((_, works)) => works.push(work),
-                        None => refused.push((unplaced, vec![work])),
+                        None => refused.push((sentence, vec![work])),
                     }
                 }
             }
@@ -211,7 +236,7 @@ pub fn placements<C: Candidate>(cluster: &str, nodes: &[C]) -> Result<Vec<Placem
     }
     let said: Vec<String> = refused
         .iter()
-        .map(|(unplaced, works)| format!("{unplaced} Not placed: {}.", works.join(", ")))
+        .map(|(sentence, works)| format!("{sentence} Not placed: {}.", works.join(", ")))
         .collect();
     Err(said.join("\n"))
 }
@@ -350,12 +375,17 @@ mod tests {
     /// one Application of three Receive Locations, two Send Ports and a
     /// Work Process.
     fn file(roles: [&str; 5]) -> (String, [String; 5]) {
+        file_in([0, 1, 2, 3, 4], roles)
+    }
+
+    /// [`file`], its nodes written in `order`, the places of the test
+    /// cluster's: the file's order, whatever the nodes are called.
+    fn file_in(order: [usize; 5], roles: [&str; 5]) -> (String, [String; 5]) {
         let cluster = test_cluster();
         let names = [0, 1, 2, 3, 4].map(|place| cluster.node(place).name.clone());
-        let nodes: String = names
+        let nodes: String = order
             .iter()
-            .zip(roles)
-            .map(|(name, role)| format!("[nodes.{name}]\nroles = \"{role}\"\n"))
+            .map(|at| format!("[nodes.{}]\nroles = \"{}\"\n", names[*at], roles[*at]))
             .collect();
         let text = format!(
             "{nodes}[[xmip_applications]]\nname = \"Orders\"\n\
@@ -410,6 +440,92 @@ mod tests {
         assert!(refused.contains("no-such-node is no node"), "{refused}");
     }
 
+    /// Placement goes round the nodes in the file's order, never their
+    /// names' order, whatever order it is handed them in (open problem
+    /// 104).
+    #[test]
+    fn work_goes_round_the_nodes_in_the_file_s_order_never_their_names() {
+        let (text, names) = file_in([4, 3, 2, 1, 0], ROLES);
+        let [first, second, third, _, fifth] = names.each_ref().map(String::as_str);
+        let declared = present(&text, &names).expect("declared");
+        let placed = placements(&text, &declared).expect("placed");
+        assert_eq!(
+            on(&placed),
+            [
+                ("From A", second),
+                ("From B", first),
+                ("From C", second),
+                ("To A", third),
+                ("To B", second),
+                ("Confirm", fifth),
+                ("Confirm", second),
+            ]
+        );
+        let mut handed = declared;
+        handed.reverse();
+        assert_eq!(placements(&text, &handed).expect("placed"), placed);
+    }
+
+    /// Work requiring Node capabilities goes only to the nodes declaring
+    /// each of them, its own turn apart from work requiring less; where
+    /// none does, or a word is none, it is refused naming the work
+    /// (ADR-0056, amendment 2026-11-24).
+    #[test]
+    fn work_requiring_node_capabilities_goes_only_to_the_nodes_declaring_them() {
+        let (text, names) = file(ROLES);
+        let [first, second, third, _, fifth] = names.each_ref().map(String::as_str);
+        let text = text
+            .replace(
+                "roles = \"executing\"\n",
+                "roles = \"executing\"\ncapabilities = [\"firewall-party-a\"]\n",
+            )
+            .replace(
+                "roles = \"processing\"\n",
+                "roles = \"processing\"\ncapabilities = [\"confirm-module\"]\n",
+            )
+            .replace(
+                "name = \"From A\"\n",
+                "name = \"From A\"\nrequires = [\"firewall-party-a\"]\n",
+            )
+            .replace(
+                "unit = \"confirm\"\n",
+                "unit = \"confirm\"\nrequires = [\"confirm-module\"]\n",
+            );
+        let placed = placements(&text, &present(&text, &names).expect("declared")).expect("placed");
+        assert_eq!(
+            on(&placed),
+            [
+                ("From A", second),
+                ("From B", first),
+                ("From C", second),
+                ("To A", second),
+                ("To B", third),
+                ("Confirm", fifth),
+            ]
+        );
+        let required = "requires = [\"firewall-party-a\"]";
+        let nowhere = text.replace(required, "requires = [\"firewall-party-z\"]");
+        let two = [first.to_string(), second.to_string()];
+        let refused = placements(&nowhere, &present(&nowhere, &two).expect("declared"))
+            .expect_err("no node declares it");
+        assert!(
+            refused.starts_with(&format!(
+                "REFUSED: no node satisfies work requiring serving Receive, firewall-party-z; \
+                 considered {first} (receiving; declares none), {second} (executing; declares \
+                 firewall-party-a). Not placed: the Receive Location 'From A' of 'Orders'."
+            )),
+            "{refused}"
+        );
+        let wrong = text.replace(required, "requires = [\"Firewall\"]");
+        let refused =
+            placements(&wrong, &present(&wrong, &names).expect("declared")).expect_err("no word");
+        assert!(
+            refused.starts_with("REFUSED: 'Firewall' is no Node capability")
+                && refused.ends_with("Not placed: the Receive Location 'From A' of 'Orders'."),
+            "{refused}"
+        );
+    }
+
     #[test]
     fn a_node_is_chosen_by_its_roles_and_never_its_name() {
         let (text, names) = file(["sending", "processing", "receiving", "storage", "executing"]);
@@ -436,8 +552,7 @@ mod tests {
         let two = [first.clone(), fourth.clone()];
         let refused = placements(&text, &present(&text, &two).expect("declared"))
             .expect_err("nothing sends or processes");
-        let considered =
-            format!("considered {first} (receiving; offline), {fourth} (storage; offline).");
+        let considered = format!("considered {first} (receiving), {fourth} (storage).");
         assert_eq!(
             refused,
             format!(

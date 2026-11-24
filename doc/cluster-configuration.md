@@ -60,6 +60,26 @@ a node with neither is refused as it starts (amendment 2026-10-20):
 roles = "executing, storage"
 ```
 
+Beside its roles, which are Xmip's, a node may declare its **Node
+capabilities** in its own table, `capabilities`: words naming what its
+environment gives it — a firewall opening, software installed, a system it
+reaches — each lowercase letters, digits and hyphens, none twice, refused in
+words otherwise (`node::Capability::node_capabilities`; ADR-0056, amendment
+2026-11-24). Xmip reads no meaning from them; work that `requires` them is
+placed only on a node declaring each (below). Never in the shared top, as
+roles are not:
+
+```toml
+[nodes.<node>]
+roles = "processing"
+capabilities = ["approval-module", "firewall-party-x"]
+```
+
+The nodes are the file's in the order it first writes each, never their
+names' order (`cluster::nodes`, `roles`, `capabilities`; open problem 104):
+a TOML table keeps no order of the file's, so the order is read from the
+document itself (`document::keys`).
+
 ## Xmip Applications, among its sections
 
 The Xmip Applications developers design are sections of the same file
@@ -160,12 +180,28 @@ both, so the two never place differently. Each piece of work requires its
 stage served (ADR-0056, amendment 2026-11-13): a Receive Location the
 receive stage, a Send Port the send stage, a Work Process the process
 stage, and a node satisfies it where one of the roles its `[nodes.<name>]
-roles` declares serves that stage, `executing` serving every stage. Each
-Receive Location and Send Port goes to one node, round robin in the file's
-order over the nodes present that satisfy it (`xcluster::place`); each
-Work Process to every node present that satisfies it (`xcluster::every`),
-which share its turns through Xmip Storage. A Work Process is bound by its
-name and its node alone:
+roles` declares serves that stage, `executing` serving every stage. Work
+naming Node capabilities in its `requires` requires a node declaring each
+of them as well (ADR-0056, amendment 2026-11-24):
+
+```toml
+[[xmip_applications.work_processes]]
+name = "Approval"
+module = "approval"
+unit = "Approval"
+requires = ["approval-module"]       # only a node declaring it runs it
+```
+
+Each Receive Location and Send Port goes to one node, round robin in the
+file's order over the nodes present that satisfy it (`xcluster::place`),
+whatever order the nodes are handed over in, one rotation for each
+requirement, so work requiring more never moves the turn of work requiring
+less; each Work Process to every node present that satisfies it
+(`xcluster::every`), which share its turns through Xmip Storage. Where
+`requires` is absent, a piece of work is placed as before, on any node
+serving its stage. Nothing names a node: which node takes the work is
+placement's, and a Subscription filters on what a Message holds, never on
+a node. A Work Process is bound by its name and its node alone:
 
 ```toml
 [[applications.work_processes]]
@@ -174,10 +210,12 @@ node = "<node>"
 ```
 
 Work no node present satisfies is refused, never left unplaced, naming
-the requirement, every node considered and the work:
+the requirement, every node considered and the work, and, where the work
+requires Node capabilities, what each node declares:
 
 ```text
 REFUSED: no node satisfies work requiring serving Send; considered <node> (receiving; offline), <another> (storage; offline). Not placed: the Send Port 'To A' of 'Orders'.
+REFUSED: no node satisfies work requiring serving Work Process, approval-module; considered <node> (executing; offline; declares none). Not placed: the Work Process 'Approval' of 'Orders'.
 ```
 
 `ApplicationSection` (`src/section.rs`) reads a section as the Application

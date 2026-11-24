@@ -16,15 +16,15 @@
 //!
 //! An Xmip Application (ADR-0064) — an integration as a developer designs
 //! it: its Receive Ports and Locations, Subscriptions, Work Processes and
-//! Send Ports, with no environment in it — is a section of the cluster's
-//! one `cluster.xmip`, `[[xmip_applications]]` ([`section`]), read by
-//! [`parse_application`]. A node's configuration *binds* the sections it
-//! runs (`[[applications]]`, [`binding`]) and [`bind`] joins the two into
-//! what one node runs; where an environment writes no binding by hand,
-//! [`placed`] places each Location on its nodes. The designer's view of
-//! these documents and the edits it makes are `xmip-core-operate`'s
-//! `design`, which reads them through this crate (ADR-0064, amendment
-//! 2026-11-16).
+//! Send Ports, with no environment in it but the capabilities its work
+//! requires of a node's — is a section of the cluster's one `cluster.xmip`,
+//! `[[xmip_applications]]` ([`section`]), read by [`parse_application`]. A
+//! node's configuration *binds* the sections it runs (`[[applications]]`,
+//! [`binding`]) and [`bind`] joins the two into what one node runs; where an
+//! environment writes no binding by hand, [`placed`] places each Location on
+//! the nodes declaring what it requires. The designer's view of these
+//! documents and the edits it makes are `xmip-core-operate`'s `design`,
+//! which reads them through this crate (ADR-0064, amendment 2026-11-16).
 
 pub mod application;
 pub mod binding;
@@ -107,6 +107,12 @@ pub struct XmipConfigurationDocument {
     /// itself (ADR-0056, amendment 2026-10-20).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub roles: Option<String>,
+    /// The node's Node capabilities, as its cluster's `[nodes.<name>]`
+    /// [`cluster::CAPABILITIES`] writes them and the slice gives them: words
+    /// naming what its environment gives it, which work placed on it may
+    /// require, matched and never read (ADR-0056, amendment 2026-11-24).
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub capabilities: Vec<String>,
     pub service: ServiceConfiguration,
     // All four collections default to empty. A node with modules and no
     // processes is legitimate, and so is one an editor has only half built —
@@ -397,11 +403,16 @@ lifetime = \"8h\"
     }
 
     #[test]
-    fn a_node_is_offline_unless_the_document_says_online() {
+    fn a_node_is_offline_unless_it_declares_the_node_capability_online() {
         let offline = parse_toml(HEAD).expect("parses");
-        assert!(!offline.service.online, "ADR-0045: offline unless said");
-        let online = parse_toml(&format!("{HEAD}online = true\n")).expect("parses");
-        assert!(online.service.online);
+        assert_eq!(
+            offline.capabilities,
+            [] as [String; 0],
+            "ADR-0045: offline unless said"
+        );
+        let online =
+            parse_toml(&format!("capabilities = [\"{}\"]\n{HEAD}", node::ONLINE)).expect("parses");
+        assert_eq!(online.capabilities, [node::ONLINE]);
     }
 
     #[test]

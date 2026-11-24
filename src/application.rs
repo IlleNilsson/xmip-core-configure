@@ -11,7 +11,11 @@
 //! `route`'s own [`Subscription`], a filter — one line of Xmip's expression
 //! language, compiled as the Application is read (ADR-0066) — and the
 //! destination it routes to. Addresses, secrets and which node takes
-//! what are the node's, in its binding ([`crate::binding`]).
+//! what are the node's, in its binding ([`crate::binding`]). The Node
+//! capabilities a node must declare to take a piece of work are the
+//! design's, its `requires` ([`crate::port::REQUIRES`]), and never a node's
+//! name; a Subscription filters on what a Message holds, never on a node
+//! (ADR-0056, amendment 2026-11-24).
 //!
 //! ```toml
 //! [[xmip_applications]]
@@ -176,6 +180,29 @@ impl XmipApplication {
             &mut problems,
         );
         port::send_problems(application, &self.send_ports, &mut problems);
+
+        let requiring = self
+            .receive_locations
+            .iter()
+            .map(|one| ("Receive Location", &one.name, &one.requires))
+            .chain(
+                self.work_processes
+                    .iter()
+                    .map(|one| ("Work Process", &one.name, &one.requires)),
+            )
+            .chain(
+                self.send_ports
+                    .iter()
+                    .map(|one| ("Send Port", &one.name, &one.requires)),
+            );
+        for (what, name, requires) in requiring {
+            if let Err(refused) = node::Capability::node_capabilities(requires) {
+                problems.push(format!(
+                    "the {what} '{name}' of '{application}' {}: {refused}",
+                    port::REQUIRES
+                ));
+            }
+        }
 
         for group in &self.send_port_groups {
             for member in &group.send_ports {
@@ -349,6 +376,37 @@ filter = "MessageType = 'Order' and Amount > 1000"
 
             assert!(refused.contains(said), "{refused}");
         }
+    }
+
+    #[test]
+    fn what_a_piece_of_work_requires_reads_and_a_word_that_is_none_is_a_problem() {
+        let source = ORDERS
+            .replace(
+                "depth = \"light\"\n",
+                "depth = \"light\"\nrequires = [\"firewall-party-x\"]\n",
+            )
+            .replace(
+                "name = \"Approval\"\n",
+                "name = \"Approval\"\nrequires = [\"approval-module\"]\n",
+            )
+            .replace(
+                "name = \"Ledger\"\n",
+                "name = \"Ledger\"\nrequires = [\"Ledger\"]\n",
+            );
+        let application = parse_application(&source).expect("reads");
+        assert_eq!(
+            application.receive_locations[0].requires,
+            ["firewall-party-x"]
+        );
+        assert_eq!(application.work_processes[0].requires, ["approval-module"]);
+        assert_eq!(
+            application.problems(),
+            [
+                "the Send Port 'Ledger' of 'Orders' requires: REFUSED: 'Ledger' is no Node \
+                 capability: a Node capability is a word of lowercase letters, digits and \
+                 hyphens, opening and closing with a letter or a digit"
+            ]
+        );
     }
 
     #[test]

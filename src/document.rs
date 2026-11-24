@@ -12,7 +12,8 @@
 //!
 //! [`set`] edits text: the one value it names changes, and every comment,
 //! blank line and order elsewhere stays as written, the comment trailing
-//! the old value trailing the new one.
+//! the old value trailing the new one. [`keys`] says the order a table's
+//! keys are written in, which the table [`read`] answers keeps none of.
 
 use toml::{Table, Value};
 use toml_edit::{DocumentMut, Item};
@@ -24,6 +25,27 @@ use toml_edit::{DocumentMut, Item};
 pub fn read(text: &str) -> Result<Table, String> {
     text.parse::<Table>()
         .map_err(|error| format!("{}: {error}", crate::PARSE_FAILED))
+}
+
+/// The keys of the table at `table` (keys from the root; none is the root)
+/// in `text`, in the order the document first writes each: what [`read`]
+/// keeps in no order of the file's, read from the document itself (open
+/// problem 104). None where no such table is written.
+///
+/// # Errors
+/// The text is not TOML: [`crate::PARSE_FAILED`] and the reader's words.
+pub fn keys(text: &str, table: &[&str]) -> Result<Vec<String>, String> {
+    let document = text
+        .parse::<DocumentMut>()
+        .map_err(|error| format!("{}: {error}", crate::PARSE_FAILED))?;
+    let mut at: &dyn toml_edit::TableLike = document.as_table();
+    for name in table {
+        match at.get(name).and_then(Item::as_table_like) {
+            Some(next) => at = next,
+            None => return Ok(Vec::new()),
+        }
+    }
+    Ok(at.iter().map(|(key, _)| key.to_string()).collect())
 }
 
 /// `document` written as TOML: its values first, then each table and array
@@ -134,6 +156,23 @@ mod tests {
 
         let refused = super::read("[service\nname =").expect_err("not TOML");
         assert!(refused.starts_with(crate::PARSE_FAILED), "{refused}");
+    }
+
+    /// A table's keys come in the order the document first writes each,
+    /// never in their names' order, a table written in pieces included.
+    #[test]
+    fn a_table_s_keys_come_in_the_order_the_document_writes_them() {
+        let text = "[outer.zulu]\nkey = 1\n[outer.golf]\n[other]\n[outer.zulu.inner]\n\
+                    [outer.mike]\nkey = 2\n";
+        assert_eq!(
+            keys(text, &["outer"]).expect("TOML"),
+            ["zulu", "golf", "mike"]
+        );
+        assert_eq!(keys(text, &[]).expect("TOML"), ["outer", "other"]);
+        assert_eq!(keys(text, &["absent"]).expect("TOML"), [] as [String; 0]);
+        let inline = "outer = { zulu = 1, golf = 2 }\n";
+        assert_eq!(keys(inline, &["outer"]).expect("TOML"), ["zulu", "golf"]);
+        assert!(keys("[outer", &["outer"]).is_err());
     }
 
     #[test]

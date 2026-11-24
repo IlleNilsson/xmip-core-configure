@@ -150,7 +150,10 @@ role stores, and one declaring neither the role nor `[storage] nodes` is
 refused as it starts, in words naming both (ADR-0056, amendment
 2026-10-20). Its roles are the top-level `roles`, the role words its
 cluster's `[nodes.<name>] roles` declares, which the slice writes there
-(`src/lib.rs`, [`cluster-configuration.md`](cluster-configuration.md)).
+(`src/lib.rs`, [`cluster-configuration.md`](cluster-configuration.md)),
+and its Node capabilities the top-level `capabilities`, which the slice
+writes there too: words naming what its environment gives it, which only
+placement reads (ADR-0056, amendment 2026-11-24).
 An embedded Storage node's databases Xmip encrypts itself: every record sealed
 under a data key a key store wraps (ADR-0063). What a node keeps across a
 restart — a paused Subscription's standing in the administration database,

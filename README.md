@@ -141,11 +141,14 @@ share (`placed.rs`; ADR-0056, amendment 2026-11-13;
 [`doc/cluster-configuration.md`](doc/cluster-configuration.md)). Each
 piece of work requires its stage served (`Placed::requirement`, a
 `node::Requirement`): a Receive Location the receive stage, a Send Port
-the send stage, a Work Process the process stage, matched against what
+the send stage, a Work Process the process stage, and the Node
+capabilities its `requires` names (`port::REQUIRES`), matched against what
 each node present declares (`cluster::capabilities`: its roles, read by
-`node::NodeRole::declared` in `cluster::roles`, and its online
-capability). A Receive Location or Send Port goes to the one node
-`xcluster::place`'s rotation gives it, a Work Process to every node
+`node::NodeRole::declared` in `cluster::roles`, and its Node capabilities,
+its own `capabilities`, `online` among them where it may reach the
+internet; ADR-0056, amendment 2026-11-24). A Receive Location or Send Port
+goes to the one node `xcluster::place`'s rotation gives it, in the file's
+order, one rotation for each requirement, a Work Process to every node
 satisfying it (`xcluster::every`), bound as
 `[[applications.work_processes]]` by its name and node; `bind` gives the
 node each it runs as its design's `module`, `unit` and settings, started
@@ -156,9 +159,14 @@ left unplaced.
 A node's top-level `roles` is the role words its cluster's
 `[nodes.<name>] roles` declares, as the slice gives them; their parse is
 `node::NodeRole`'s, and only a node declaring `storage` keeps Xmip Storage
-itself (ADR-0056, amendment 2026-10-20). A cluster's shared top declares
-no roles: the editor's keys (xmip-core-operate's `design::keys`) offer
-`roles` under a node's own table alone. `[storage] nodes` lists the Storage nodes a node without the
+itself (ADR-0056, amendment 2026-10-20). Its top-level `capabilities` is
+the Node capabilities its `[nodes.<name>] capabilities` declares, words
+naming what its environment gives it, read by
+`node::Capability::node_capabilities` (amendment 2026-11-24). A cluster's
+shared top declares neither: the editor's keys (xmip-core-operate's
+`design::keys`) offer `roles` and `capabilities` under a node's own table
+alone. `cluster::nodes`, `roles` and `capabilities` answer the nodes in the
+file's order, read from the document (`document::keys`; open problem 104). `[storage] nodes` lists the Storage nodes a node without the
 role reaches Xmip Storage at, `host:port` each, tried round robin
 (`storage.rs`, `deployment-model.md` section 7). `[runtime]`, `[administration]` and
 `[audit]` say what each of Xmip Storage's three data domains is kept on, a

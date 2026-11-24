@@ -15,7 +15,16 @@ to the nodes that bind it, and `parse_application` is its one reading.
 
 The Application holds the design and nothing of an environment. Addresses,
 secrets and which node takes what are the node's, in its **binding**
-(`node-configuration.md`, *Binding an Xmip Application*).
+(`node-configuration.md`, *Binding an Xmip Application*). What it may say
+is what a piece of its work requires of a node's environment: a Receive
+Location, Work Process or Send Port may name in `requires` the **Node
+capabilities** a node must declare to take it — `["firewall-party-x"]`,
+`["approval-module"]`, words naming what the node's environment gives it,
+each lowercase letters, digits and hyphens — and only a node serving its
+stage and declaring each of them takes it, where an environment places the
+work (`cluster-configuration.md`, *Placed by what each node declares*;
+ADR-0056, amendment 2026-11-24). Never a node's name: a Subscription
+filters on what a Message holds, never on a node.
 
 ## The shape
 
@@ -36,7 +45,9 @@ From `module/platform/configure/src/application.rs` (`XmipApplication`) and
   a response Message where a Work Process composes one. It may name
   the `correlation` its Streams are spread over; one that names none goes
   one Stream at a time, end to end, keyed by its own name (ADR-0024 and
-  ADR-0066, amendments 2026-10-22). A Receive Port may name one too.
+  ADR-0066, amendments 2026-10-22). A Receive Port may name one too. It
+  may name the Node capabilities it `requires`, as a Work Process and a
+  Send Port may.
 - **`[[xmip_applications.work_processes]]`**: the Work Processes a
   Subscription may route to, by `name`, each naming the `correlation`
   its Messages pass it by where it names one. Its flow is a compiled Work

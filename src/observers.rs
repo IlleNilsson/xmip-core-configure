@@ -17,12 +17,12 @@ use toml::{Table, Value};
 /// The lists a name may hold a role on, each judged with the others.
 const LISTS: [&str; 3] = ["observers", "operators", "developers"];
 
-/// Each node `nodes` — a cluster file's `[nodes]` — declares that gathers
-/// the cluster, by the name its node certificate answers to, in the order
-/// a cluster file's table keeps its keys. A node whose roles do not read is
-/// passed over: its own slice refuses them.
+/// Each of `nodes` — a cluster file's `[nodes]`, each with its own table —
+/// that gathers the cluster, by the name its node certificate answers to,
+/// in the order given, the file's. A node whose roles do not read is passed
+/// over: its own slice refuses them.
 #[must_use]
-pub fn gathering(nodes: &Table) -> Vec<String> {
+pub fn gathering(nodes: &[(String, Table)]) -> Vec<String> {
     nodes
         .iter()
         .filter(|(_, own)| {
@@ -114,12 +114,12 @@ mod tests {
 
     /// `[nodes]` declaring each of `declared`, its roles as given: the test
     /// cluster's names, given roles here whatever the file gives them.
-    fn nodes(declared: &[(String, &str)]) -> Table {
+    fn nodes(declared: &[(String, &str)]) -> Vec<(String, Table)> {
         declared
             .iter()
             .map(|(name, roles)| {
                 let own = Table::from_iter([("roles".to_string(), Value::from(*roles))]);
-                (name.clone(), Value::Table(own))
+                (name.clone(), own)
             })
             .collect()
     }
@@ -129,14 +129,13 @@ mod tests {
         // The test cluster's names given other roles than the file gives
         // them: only the roles decide, never the name.
         let declared = nodes(&[
+            (name(2), "executing+monitoring"),
             (name(0), "operational, monitoring"),
             (name(1), "receiving"),
-            (name(2), "executing+monitoring"),
             (name(3), "no such role"),
         ]);
-        let mut expected = vec![format!("CN={}", name(0)), format!("CN={}", name(2))];
-        expected.sort();
-        assert_eq!(gathering(&declared), expected);
+        let expected = [format!("CN={}", name(2)), format!("CN={}", name(0))];
+        assert_eq!(gathering(&declared), expected, "in the order given");
         // The same names with the roles swapped swap what gathers.
         let swapped = nodes(&[(name(0), "receiving"), (name(1), "monitoring")]);
         assert_eq!(gathering(&swapped), [format!("CN={}", name(1))]);
