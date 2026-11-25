@@ -5,7 +5,8 @@
 //! any sending far end pushes to it; or, where its environment says none
 //! listens, it fetches from the far end of its turn. A Send Port puts on the
 //! far end of its turn. The turn is one rule, [`far_end_of`], which the
-//! System Tests drive their far ends by on one computer, and the Systems Tests on machines.
+//! System Tests and the Systems Tests drive their far ends by, as local
+//! processes and on virtual machines alike.
 
 use super::{Binding, Placed, Placement, far_end};
 

@@ -22,9 +22,10 @@
 //!
 //! The System Tests place the nodes they start on one computer by it, over
 //! folders of its run; `xmip-service --slice --bind` places a node on a
-//! machine of its own by it, over the Parties' far end the Systems Tests
-//! serve ([`far_end`]); and the System Tests and the Systems Tests drive what
-//! they placed, so the two can never place differently.
+//! virtual machine of its own by it, over the far ends the cluster file's
+//! `[environment.far_ends]` names ([`far_end`]); and the System Tests and the
+//! Systems Tests drive what they placed, so the two can never place
+//! differently.
 
 pub mod far_ends;
 

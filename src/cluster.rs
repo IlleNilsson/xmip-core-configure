@@ -54,6 +54,9 @@ use crate::section::SECTIONS;
 /// The table a cluster's file declares its nodes in.
 pub const NODES: &str = "nodes";
 
+/// Where the cluster runs, which no node is given (ADR-0031, amendment 2026-11-25).
+pub const ENVIRONMENT: &str = "environment";
+
 /// The names of the nodes the cluster's file `cluster` declares, in the
 /// file's order.
 ///
@@ -228,6 +231,7 @@ pub fn slice(cluster: &str, node: &str) -> Result<String, String> {
         service.remove("node_name");
     }
     merge(&mut table, own);
+    table.remove(ENVIRONMENT);
     bound_sections(&mut table);
     crate::observers::listed(&mut table, "observers", &gathering)?;
     match table
@@ -758,5 +762,23 @@ nodes = ["{third}.example:7443"]
             slice_named(&unnamed, node, " ").is_err(),
             "no name is no cluster"
         );
+    }
+
+    /// Where the cluster runs is the environment's: no node's slice holds
+    /// it, the cluster's table or one a node's own section gives.
+    #[test]
+    fn the_environment_is_given_to_no_node() {
+        let cluster = test_cluster();
+        let node = &cluster.node(0).name;
+        let text = format!(
+            "[environment]\ndomain = \"example.test\"\n\
+             [environment.far_ends]\nsenders = [\"a\"]\n\
+             [nodes.{node}]\n{ROLES} = \"receiving\"\n\
+             [nodes.{node}.environment.machine]\ncpu = 1\n"
+        );
+        let sliced = slice_named(&text, node, &cluster.name).expect("slices");
+        let table: Table = sliced.parse().expect("a slice is TOML");
+        assert!(!table.contains_key(ENVIRONMENT), "{sliced}");
+        assert!(crate::parse_toml(&sliced).is_ok(), "{sliced}");
     }
 }
