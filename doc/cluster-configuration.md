@@ -293,7 +293,9 @@ document holding `[nodes]`, saying it is a cluster's to slice.
   file (ADR-0031, amendment 2026-10-05: *the cluster TOML file is sliced
   into node TOML files and shipped to each node on save*): through the
   runtime's `xmip_cluster_signed_slice_v1` (`xmip_operate.h` section 10),
-  node by node, each slice signed by the authority beside the cluster's file
+  node by node, each slice signed by the cluster's authority kept in this
+  account's own Xmip folder on the machine, never beside the cluster's file
+  (ADR-0031, amendment 2026-11-25),
   and written as `<node>/node.xmip` where the desktop keeps them, with the
   authority's certificate beside it in `<node>/authority/authority.pem`. The node the desktop starts reads its slice there; another
   node's is written and not shipped, since no Xmip path yet puts a file on
