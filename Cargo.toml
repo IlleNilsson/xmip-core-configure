@@ -1,8 +1,8 @@
 [package]
 name = "xmip-core-configure"
-version = "0.1.0"
-edition = "2024"
-license = "AGPL-3.0-or-later"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
 repository = "https://github.com/IlleNilsson/xmip-core-configure"
 description = "Xmip configuration documents — a node's configuration and the Xmip Applications it binds — and the configured service they describe."
 
