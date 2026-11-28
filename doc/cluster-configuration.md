@@ -242,6 +242,8 @@ writes the node `node` its configuration document, which
   shared `[service]` says the cluster's short name, what every operator
   surface shows for it (`node-configuration.md`; ADR-0028, amendment
   2026-11-28), and the slice gives it to every node, signed with the rest.
+  Where the file declares no `[service] cluster_name`, the short name is the
+  cluster's name.
 - **`[service] node_name` is the node's key under `[nodes]`.** The slice
   writes it. A cluster's shared `[service]` naming one is refused, and so is
   a node's own naming another than its key.
@@ -253,16 +255,19 @@ writes the node `node` its configuration document, which
   other.
 - `configure::cluster::nodes` names the nodes a cluster's file declares, and
   `configure::slices` slices every one.
-- **A file may leave the cluster's name to its environment.**
-  `configure::slice_named(cluster, node, name)` slices as `slice` does, the
-  cluster called `name` where the file's `[service]` names none, its service
-  `xmip-<node>` where nothing names it, and refuses a file naming another
-  cluster, naming both; `configure::cluster::cluster_name` says which a file
-  names. A cluster's file that says nothing of where it runs — no cluster
-  name, no machine's address, no absolute path — is the same file on one
-  computer and on machines of their own (ADR-0028, amendment 2026-10-21):
-  the System Tests' run names the cluster, and `xmip-service --slice
-  --cluster` and `--install --cluster` on a machine.
+- **A file names its cluster.** The cluster's name is the file's
+  `[service] cluster_name`, or, where it declares none, its `[service]
+  short_name`: one rule, `configure::cluster::cluster_name`, which every
+  reader asks, Rust to Rust and the operator surfaces through
+  `xmip_cluster_views_v1`'s `cluster`. `configure::slice_named(cluster,
+  node, name)` slices as `slice` does, the cluster called `name` where the
+  file declares neither, its service `xmip-<node>` where nothing names it,
+  and refuses a slice for another name than the file declares, naming both;
+  so `xmip-service --slice --cluster` and `--install --cluster` on a machine
+  say the name the file declares, where it declares one. A node's slice
+  always carries `cluster_name`. A cluster's file that says nothing of where
+  it runs — no machine's address, no absolute path — is the same file on one
+  computer and on machines of their own (ADR-0028, amendment 2026-10-21).
 
 **Only this file is edited.** A node's `node.xmip` is its slice, written
 by desired state and never edited (ADR-0031, amendment 2026-10-05). Every
@@ -402,8 +407,13 @@ the paths below are that repository's:
 ## The test cluster
 
 The estate's tests take every cluster's and node's name from one file, the
-estate's `test/cluster.xmip`, or the file the variable `XMIP_TEST_CLUSTER`
-names: `configure::fixture::test_cluster()` (feature `test-support`) reads
-it through the slicing above and answers its name and its nodes, each found
-by the roles it declares (`with_role`) or its place (`node`), never by a
-written name.
+Reference Environment,
+`test/core/system-test/configuration/Xmip-reference-environment.xmip`:
+`configure::fixture::test_cluster()` (feature `test-support`) reads it
+through the slicing above and answers its name and its nodes, each found by
+the roles it declares (`with_role`), its Node capabilities or its place
+(`node`), never by a written name. A test of two clusters takes the
+second's name from `TestCluster::other`, derived from the Reference
+Environment's name, with no file kept for it. .NET's `TestCluster.Read` and
+PowerShell's `Get-XmipTestCluster` read the same file, and the Reference
+Environment grows whenever a test needs something it lacks.

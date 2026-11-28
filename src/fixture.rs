@@ -2,14 +2,17 @@
 //! name from (the owner, 2026-10-03: names in code and tests are parameters
 //! and configuration, never literals).
 //!
-//! It reads `cluster.xmip` the variable [`VARIABLE`] names, a
-//! path — `Start-XmipTest` sets it — and otherwise the estate's
-//! `test/cluster.xmip`, through [`crate::cluster`], the one reading of a
-//! cluster's file. A test finds a node by what it declares
-//! ([`TestCluster::with_role`]) or by its place ([`TestCluster::node`]),
-//! and builds the text it tests from the names it is given. A test of two
-//! clusters takes the second from its own file, [`OTHER_FILE`]
-//! ([`other_cluster`], [`TestCluster::other`]).
+//! It is the Reference Environment, [`REFERENCE_FILE`] (the owner,
+//! 2026-11-28, naming it by its short name: it *should evolve for all
+//! tests*; ADR-0028, amendment 2026-11-28), read through
+//! [`crate::cluster`], the one reading of a cluster's file, and named as its
+//! file names it ([`crate::cluster::cluster_name`]). A test finds a node by
+//! what it declares ([`TestCluster::with_role`]) or by its place
+//! ([`TestCluster::node`]), and builds the text it tests from the names it
+//! is given. A test of two clusters takes the second's name from
+//! [`TestCluster::other`], derived from the first's; no file is kept for
+//! it. Where a test needs what the Reference Environment lacks, the
+//! Reference Environment grows.
 //!
 //! Behind the `test-support` feature, so never in a production build.
 
@@ -17,15 +20,10 @@ use std::path::{Path, PathBuf};
 
 use crate::cluster;
 
-/// The variable naming the test cluster's file.
-pub const VARIABLE: &str = "XMIP_TEST_CLUSTER";
-
-/// Where the estate keeps its test cluster's file, from the estate's root.
-pub const ESTATE_FILE: &str = "test/cluster.xmip";
-
-/// Where the estate keeps its second test cluster's file, from the
-/// estate's root: the cluster beside the test cluster.
-pub const OTHER_FILE: &str = "test/other/cluster.xmip";
+/// Where the estate keeps the Reference Environment, the test cluster's
+/// file, from the estate's root.
+pub const REFERENCE_FILE: &str =
+    "test/core/system-test/configuration/Xmip-reference-environment.xmip";
 
 /// The test cluster, read.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -34,7 +32,7 @@ pub struct TestCluster {
     pub path: PathBuf,
     /// What the file says.
     pub text: String,
-    /// Its `[service] cluster_name`.
+    /// The cluster's name its file declares ([`cluster::cluster_name`]).
     pub name: String,
     /// Its nodes, in the order of their names.
     pub nodes: Vec<TestNode>,
@@ -50,39 +48,23 @@ pub struct TestNode {
     pub roles: Vec<String>,
 }
 
-/// The test cluster: the file [`VARIABLE`] names, else the estate's.
+/// The test cluster: the estate's Reference Environment.
 ///
 /// # Panics
-/// Where neither is found or the file does not read as a cluster with a
-/// `cluster_name` and one node at least: a test cannot run without it.
+/// Where it is not found or does not read as a cluster with a name and one
+/// node at least: a test cannot run without it.
 #[must_use]
 pub fn test_cluster() -> TestCluster {
-    read(std::env::var_os(VARIABLE).map_or_else(|| estate_file(ESTATE_FILE), PathBuf::from))
-}
-
-/// The second test cluster: the estate's [`OTHER_FILE`], the cluster a test
-/// of two takes beside [`test_cluster`].
-///
-/// # Panics
-/// As [`test_cluster`].
-#[must_use]
-pub fn other_cluster() -> TestCluster {
-    read(estate_file(OTHER_FILE))
+    read(estate_file(REFERENCE_FILE))
 }
 
 /// The cluster the file at `path` declares.
 fn read(path: PathBuf) -> TestCluster {
     let text = std::fs::read_to_string(&path)
         .unwrap_or_else(|error| panic!("the test cluster {}: {error}", path.display()));
-    let table: toml::Table = text
-        .parse()
-        .unwrap_or_else(|error| panic!("the test cluster {}: {error}", path.display()));
-    let name = table
-        .get("service")
-        .and_then(|service| service.get("cluster_name"))
-        .and_then(toml::Value::as_str)
-        .unwrap_or_else(|| panic!("the test cluster {} names no cluster_name", path.display()))
-        .to_string();
+    let name = cluster::cluster_name(&text)
+        .unwrap_or_else(|problem| panic!("the test cluster {}: {problem}", path.display()))
+        .unwrap_or_else(|| panic!("the test cluster {} names no cluster", path.display()));
     let mut nodes: Vec<TestNode> = cluster::roles(&text)
         .unwrap_or_else(|problem| panic!("the test cluster {}: {problem}", path.display()))
         .into_iter()
@@ -165,24 +147,12 @@ impl TestCluster {
         name
     }
 
-    /// A cluster's name other than this one's: the second test cluster's
-    /// ([`other_cluster`]), what a test of two clusters takes for the
-    /// second.
-    ///
-    /// # Panics
-    /// Where the second test cluster is not found, or is named as this one
-    /// is: the two files must name two clusters.
+    /// A cluster's name other than this one's, what a test of two clusters
+    /// takes for the second: this one's with `-other`, a second cluster
+    /// derived from this one and kept in no file of its own.
     #[must_use]
     pub fn other(&self) -> String {
-        let other = other_cluster();
-        assert_ne!(
-            other.name,
-            self.name,
-            "{} and {} name one cluster",
-            other.path.display(),
-            self.path.display()
-        );
-        other.name
+        format!("{}-other", self.name)
     }
 
     /// The cluster's scope, `xmip:///<cluster>`.
@@ -212,6 +182,15 @@ mod tests {
     fn the_test_cluster_reads_with_a_name_and_its_nodes() {
         let cluster = test_cluster();
         assert_ne!(cluster.name, "");
+        assert!(
+            cluster.path.ends_with(REFERENCE_FILE),
+            "{}",
+            cluster.path.display()
+        );
+        assert_eq!(
+            cluster::cluster_name(&cluster.text).expect("reads"),
+            Some(cluster.name.clone())
+        );
         assert_ne!(cluster.nodes, [] as [TestNode; 0]);
         let first = cluster.node(0);
         assert!(first.roles.iter().all(|role| !role.is_empty()));
@@ -225,9 +204,11 @@ mod tests {
                 .all(|node| node.name != cluster.absent())
         );
         assert_ne!(cluster.other(), cluster.name);
-        let other = other_cluster();
-        assert_eq!(cluster.other(), other.name);
-        assert_ne!(other.nodes, [] as [TestNode; 0]);
+        assert_eq!(
+            cluster.other(),
+            test_cluster().other(),
+            "derived, so the same"
+        );
         assert_eq!(
             cluster.node_scope(0),
             format!("xmip:///{}/node/{}", cluster.name, first.name)

@@ -18,7 +18,9 @@ pub struct ServiceConfiguration {
     /// The cluster's short name, what every operator surface shows for the
     /// cluster, as the cluster's file declares it in its own `[service]`
     /// and the slice gives every node ([`ShortName`]; ADR-0028, amendment
-    /// 2026-11-28). Absent, a surface shows the cluster's name.
+    /// 2026-11-28). Where the file declares no `cluster_name` it is the
+    /// cluster's name (`crate::cluster::cluster_name`). Absent, a surface
+    /// shows the cluster's name.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub short_name: Option<ShortName>,
     /// The node's data directory: where its embedded Storage node, its keys
@@ -39,8 +41,9 @@ impl ServiceConfiguration {
     pub const MEANINGS: [(&'static str, &'static str); 1] = [(
         "short_name",
         "The cluster's short name, which every operator surface shows for the cluster; \
-         its tooltip carries the cluster's name and this file. One to twelve letters, \
-         digits or hyphens, the first a letter.",
+         its tooltip carries the cluster's name and this file. Where the file declares no \
+         cluster_name, it is the cluster's name. One to twelve letters, digits or hyphens, \
+         the first a letter.",
     )];
 
     /// The node's data directory, for the configuration file at
@@ -214,7 +217,8 @@ mod tests {
     }
 
     /// The cluster's file declares it once, and every node's slice carries
-    /// it, signed with the rest of the slice.
+    /// it, signed with the rest of the slice; declaring no `cluster_name`,
+    /// the file names its cluster by it.
     #[test]
     fn the_file_declares_the_short_name_and_every_slice_carries_it() {
         let cluster = crate::fixture::test_cluster();
@@ -223,11 +227,15 @@ mod tests {
         let said = |text: &str| short_name(text).expect("reads").map(String::from);
         assert_eq!(said(&text), Some("Ab".to_string()));
         for node in [&one, &two] {
-            let sliced = crate::cluster::slice_named(&text, node, &cluster.name).expect("slices");
+            let sliced = crate::cluster::slice(&text, node).expect("slices");
             let document = crate::parse_toml(&sliced).expect("reads as a node's");
             assert_eq!(
                 document.service.short_name.map(String::from),
                 Some("Ab".into())
+            );
+            assert_eq!(
+                document.service.cluster_name, "Ab",
+                "the file names its cluster"
             );
             assert_eq!(said(&sliced), Some("Ab".to_string()));
         }

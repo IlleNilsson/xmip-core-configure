@@ -179,6 +179,11 @@ key_store = "xmip-core-secret-dpapi"          # the platform's, by default
 keys = "../data/key"                          # the default
 ```
 
+- **`[service] cluster_name`** is the cluster's name, and a node's slice
+  always carries it. A cluster's file may declare it; where it declares
+  none, its `[service] short_name` names the cluster: one rule,
+  `cluster::cluster_name`, which every reader asks
+  ([`cluster-configuration.md`](cluster-configuration.md), *The slice*).
 - **`[service] short_name`** is the cluster's short name, which every
   operator surface shows for the cluster, its tooltip carrying the rest: the
   cluster's file declares it and the slice gives it to every node, one to

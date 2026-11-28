@@ -106,6 +106,11 @@ A cluster's configuration is one `cluster.xmip`: its shared sections once and
 each node's under `[nodes.<name>]`, and `slice` is the one slicing of it
 into a node's document, the node's value winning (`cluster.rs`; ADR-0031,
 amendment 2026-10-03; [`doc/cluster-configuration.md`](doc/cluster-configuration.md)).
+The file names its cluster: its `[service] cluster_name`, or, where it
+declares none, its `[service] short_name` — one rule, `cluster::cluster_name`,
+which every reader asks, Rust to Rust and the operator surfaces through
+`xmip_cluster_views_v1`'s `cluster`. `slice_named` refuses a slice for
+another name, and a node's slice always carries `cluster_name`.
 Its Xmip Applications are sections of it, `[[xmip_applications]]`
 (`section.rs`, ADR-0064 amendment 2026-10-03), and nowhere else: a binding
 binds the section of its name, and the slice gives a node the sections its
@@ -133,9 +138,12 @@ to start, since running a unit is decided, not built.
 so `xmip_validate_v1` validates it node by node. `[tuning]` holds every
 outward and hardware assumption a node runs by; its keys, bounds and
 defaults are the runtime's declaration (`tuning::TUNING`). With the
-`test-support` feature, `fixture::test_cluster` reads the estate's test
-cluster, `test/cluster.xmip` or the file `XMIP_TEST_CLUSTER` names: the one
-place a test takes a cluster's or a node's name from.
+`test-support` feature, `fixture::test_cluster` reads the Reference
+Environment, `test/core/system-test/configuration/Xmip-reference-environment.xmip`:
+the one place a test takes a cluster's or a node's name from. A test of two
+clusters takes the second's name from `TestCluster::other`, derived from the
+Reference Environment's name, with no file kept for it, and a test finds a
+node by its declared role, capability or place, never by a written name.
 
 Where an environment writes no bindings by hand, `placed` writes them —
 the one placement the System Tests' run and `xmip-service --slice --bind`
