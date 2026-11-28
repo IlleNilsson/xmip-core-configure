@@ -69,7 +69,7 @@ pub use port::{
     Failover, OnFailure, Retry,
 };
 pub use section::{ApplicationSection, applications};
-pub use service::{DEFAULT_DATA, ServiceConfiguration};
+pub use service::{DEFAULT_DATA, ServiceConfiguration, ShortName};
 pub use settings::{Declarations, LocationSettings, location_problems};
 pub use step::{Attached, StepEntry};
 pub use storage::{Presented, StorageConfiguration};

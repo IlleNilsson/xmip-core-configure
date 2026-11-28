@@ -238,6 +238,10 @@ writes the node `node` its configuration document, which
   name: an entry the node names that the cluster has is merged into it, one
   the cluster does not have is added. Any other value the node gives
   replaces the cluster's.
+- **`[service] short_name` is declared once, for every node.** The file's
+  shared `[service]` says the cluster's short name, what every operator
+  surface shows for it (`node-configuration.md`; ADR-0028, amendment
+  2026-11-28), and the slice gives it to every node, signed with the rest.
 - **`[service] node_name` is the node's key under `[nodes]`.** The slice
   writes it. A cluster's shared `[service]` naming one is refused, and so is
   a node's own naming another than its key.

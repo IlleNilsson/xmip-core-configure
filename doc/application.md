@@ -75,7 +75,7 @@ From `module/platform/configure/src/application.rs` (`XmipApplication`) and
   offered to. Each is `route`'s own Subscription, not a copy of it: an `id`;
   a `destination`, one of `{ work-process = "…" }`, `{ send-port = "…" }` or
   `{ send-group = "…" }`; and a `filter`, one line of Xmip's expression
-  language (`xmip-core-path`'s `expression`, ADR-0066): names with the
+  language (`xmip-core-expression`, ADR-0066): names with the
   prefix of the route technology that reads them (ADR-0046), text in single
   quotes, integers and `true`/`false`; `=`, `<>`, `<`, `<=`, `>`, `>=`,
   `[not] like`, `[not] in (…)`, `exists`; `and`, `or`, `not`; `||`,

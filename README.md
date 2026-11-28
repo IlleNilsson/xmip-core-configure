@@ -74,7 +74,9 @@ running node builds its Parties from these and resolves a verified
 identity there (ADR-0019, amendment 2026-11-06).
 
 `[store]` names the key store an embedded Storage node's records are
-sealed under and where that keeps its keys, and `[service] data` the node's
+sealed under and where that keeps its keys, `[service] short_name` the
+cluster's short name every surface shows (`service::short_name`; ADR-0028,
+amendment 2026-11-28), and `[service] data` the node's
 data directory (`store.rs`, ADR-0018 amendments 2026-09-30 and 2026-10-03).
 Every key has a default: the platform's key store at `<data>/key`, `<data>`
 being `../data` from the configuration file. The engines are no node's

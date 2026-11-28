@@ -179,6 +179,12 @@ key_store = "xmip-core-secret-dpapi"          # the platform's, by default
 keys = "../data/key"                          # the default
 ```
 
+- **`[service] short_name`** is the cluster's short name, which every
+  operator surface shows for the cluster, its tooltip carrying the rest: the
+  cluster's file declares it and the slice gives it to every node, one to
+  twelve letters, digits or hyphens, the first a letter (`ShortName`,
+  `service::short_name`; ADR-0028, amendment 2026-11-28). Absent, a surface
+  shows the cluster's name. `[service]` refuses a key it does not read.
 - **`[service] data`** is the node's data directory, relative to this file;
   absent, `../data`, which in the installed layout is the `data` beside the
   `config` this file is in (ADR-0015 clause 10). The embedded Storage node

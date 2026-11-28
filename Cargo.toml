@@ -19,36 +19,36 @@ toml = "1.2.1"
 # entry read as the file writes it, with its own layout and comments
 # (`entry`; ADR-0013, amendment 2026-09-30).
 toml_edit = { version = "0.25.19", features = ["serde"] }
-abi = { package = "xmip-core-abi", git = "https://github.com/IlleNilsson/xmip-core-abi", branch = "main" }
+abi = { workspace = true }
 # A Subscription, its filter and where it routes are route's, read here from
 # an Xmip Application and never modelled again (ADR-0064).
-route = { package = "xmip-core-route", git = "https://github.com/IlleNilsson/xmip-core-route", branch = "main" }
+route = { workspace = true }
 # A Location's settings are read through the declaration its technology
 # makes of them (xcore::settings, ADR-0064 amendment 2026-09-26): the shape is
 # xmip-core's, the declarations the caller's.
-xcore = { package = "xmip-core", git = "https://github.com/IlleNilsson/xmip-core", branch = "main" }
+xcore = { workspace = true }
 # The weakest verdict a Receive Location takes, read in `Verified`'s words.
-context = { package = "xmip-core-context", git = "https://github.com/IlleNilsson/xmip-core-context", branch = "main" }
+context = { workspace = true }
 # A Location's address as a URI writes it (net::Target), read once for the
 # estate: its scheme chooses the transport (ADR-0064, amendment 2026-10-28).
-net = { package = "xmip-core-library-net", git = "https://github.com/IlleNilsson/xmip-core-library-net", branch = "main" }
+net = { workspace = true }
 # The stages a compiled unit serves are the message path's, read by node's
 # Stage and never listed again (ADR-0066, amendment 2026-10-22).
-node = { package = "xmip-core-node", git = "https://github.com/IlleNilsson/xmip-core-node", branch = "main" }
+node = { workspace = true }
 # Where a cluster's file places its work: the one match of a requirement
 # against what each node declares, and its refusal (`xcluster::place`,
 # `every`; ADR-0056, amendment 2026-11-13). The pure part only, which opens
 # nothing (ADR-0058, amendment 2026-11-13).
-xcluster = { package = "xmip-core-cluster", git = "https://github.com/IlleNilsson/xmip-core-cluster", branch = "main", default-features = false }
+xcluster = { workspace = true, default-features = false }
 # The standard module, built in (configure::standard): each capability's
 # units' declarations, read without their code, which stays behind each
 # crate's default feature `units`.
-prepare = { package = "xmip-core-prepare", git = "https://github.com/IlleNilsson/xmip-core-prepare", branch = "main", default-features = false }
-transform = { package = "xmip-core-transform", git = "https://github.com/IlleNilsson/xmip-core-transform", branch = "main", default-features = false }
-promote = { package = "xmip-core-promote", git = "https://github.com/IlleNilsson/xmip-core-promote", branch = "main", default-features = false }
-demote = { package = "xmip-core-demote", git = "https://github.com/IlleNilsson/xmip-core-demote", branch = "main", default-features = false }
-contract = { package = "xmip-core-contract", git = "https://github.com/IlleNilsson/xmip-core-contract", branch = "main" }
-process = { package = "xmip-core-process", git = "https://github.com/IlleNilsson/xmip-core-process", branch = "main" }
+prepare = { workspace = true, default-features = false }
+transform = { workspace = true, default-features = false }
+promote = { workspace = true, default-features = false }
+demote = { workspace = true, default-features = false }
+contract = { workspace = true }
+process = { workspace = true }
 
 [features]
 # The test cluster every Rust test takes its cluster's and nodes' names from
